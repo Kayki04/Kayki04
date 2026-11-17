@@ -6,10 +6,13 @@ App da Gatecão: loja, banho e tosa, clube de vantagens e área de gestão.
 
 Sistema de caixa com programa de fidelidade:
 
-- **Caixa (PDV):** busca/cadastro rápido do cliente, mostra cashback e pontos, permite usar o cashback como desconto e calcula o total, troco e o que o cliente ganha. Também faz troca de pontos por prêmios.
-- **Clientes:** ficha com histórico, saldos, anotações, próximo contato, ajuste manual e cancelamento de movimentos.
-- **CRM:** faturamento, ticket médio, cashback em aberto e grupos (aniversariantes, cashback vencendo, sumidos, podem trocar pontos, melhores clientes…).
-- **Mensagens:** modelos prontos com variáveis (`{primeiro_nome}`, `{cashback}`, `{pontos}`…) que abrem o WhatsApp com o texto preenchido.
-- **Ajustes:** % de cashback por nível, pontos por real, validade do cashback, limite de uso e backup.
+- **Caixa (PDV):** busca/cadastro rápido do cliente, mostra cashback e pontos, usa o cashback como desconto (com compra mínima e limite configuráveis), aplica campanhas e o bônus de indicação, calcula total e troco, e faz troca de pontos por prêmios.
+- **Fechamento:** total do dia por forma de pagamento e por atendente, conferência do dinheiro da gaveta (fundo, sangria, contado, sobra/falta) e histórico.
+- **Clientes:** ficha com histórico, saldos, indicações, anotações, próximo contato, ajuste manual e cancelamento de movimentos (só gerente).
+- **CRM:** faturamento, gráfico por dia/mês, retorno do programa (recompra, custo, vendas com cashback, indicações) e grupos de relacionamento.
+- **Campanhas:** cashback multiplicado, % extra ou pontos multiplicados por período, para todos, aniversariantes ou um nível.
+- **Mensagens:** modelos prontos com variáveis que abrem o WhatsApp com o texto preenchido.
+- **Ajustes:** regras, níveis, bônus de indicação, equipe com PIN (caixa/gerente) e backup.
+- **Modo consulta (`#consulta`):** tela para tablet no balcão onde o cliente digita o telefone e vê o próprio saldo; sair exige PIN de gerente.
 
 Publicado como artifact os dados ficam na nuvem; aberto como arquivo local, ficam no navegador.
