@@ -628,7 +628,6 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
         '<div class="cbody"><div class="nm" data-open="'+esc(p.id)+'">'+esc(p.name)+'</div><div class="un">'+esc(p.desc||'')+'</div>'+
         '<div class="pr"><span class="price">'+brl(pr.price)+'</span>'+(pr.off?'<span class="old">'+brl(pr.base)+'</span>':'')+'</div>'+
         (!out&&recInfo(p)?'<div class="recnote">Recompra: '+brl(recInfo(p).price)+'</div>':'')+
-        (!out&&st<=3?'<div class="stock-note">Restam '+st+'</div>':'')+
         '<button class="add" data-add="'+esc(p.id)+'" '+(out?'disabled':'')+'>'+(out?'Esgotado':'+ Adicionar')+'</button></div></article>';
     });
     h+='</div>';
@@ -656,13 +655,13 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   function addToCart(id){
     var p=byId(D.products,id);if(!p)return;
     var cur=state.cart[id]||0;
-    if(cur>=stockOf(p)){toast('Você já pegou todo o estoque disponível');return}
+    if(cur>=stockOf(p)){toast('Quantidade máxima para este produto');return}
     state.cart[id]=cur+1;persist();bumpCart();toast('Adicionado ao carrinho');
   }
   function addQty(id,q){
     var p=byId(D.products,id);if(!p)return 0;
     var cur=state.cart[id]||0,n=Math.max(0,Math.min(q,stockOf(p)-cur));
-    if(!n){toast('Você já pegou todo o estoque disponível');return 0}
+    if(!n){toast('Quantidade máxima para este produto');return 0}
     state.cart[id]=cur+n;persist();bumpCart();
     toast(n===1?'Adicionado ao carrinho':n+' unidades no carrinho');return n;
   }
@@ -1158,7 +1157,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     h+='<h1 class="pv-name">'+esc(p.name)+'</h1>'+(p.desc?'<p class="pv-desc">'+esc(p.desc)+'</p>':'');
     h+='<div class="pv-price"><span class="price">'+brl(pr.price)+'</span>'+(pr.off?'<span class="old">'+brl(pr.base)+'</span><span class="pill">'+(pr.promo&&pr.promo.name?esc(pr.promo.name):'Oferta')+'</span>':'')+'</div>';
     if(pixPct&&!out)h+='<span class="pv-pix">'+brl(r2(pr.price*(1-pixPct/100)))+' no Pix ('+pixPct+'% off)</span>';
-    h+='<div class="pv-stock'+(out?' out':st<=minStock(p)?' low':'')+'">'+(out?'Esgotado no momento':st<=minStock(p)?'Últimas '+st+' unidades':'Em estoque')+'</div>';
+    h+='<div class="pv-stock'+(out?' out':'')+'">'+(out?'Esgotado no momento':'Disponível')+'</div>';
 
     var RI=recInfo(p);
     if(RI&&!out){
