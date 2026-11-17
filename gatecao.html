@@ -466,6 +466,1407 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
 <div id="overlay"></div>
 <div id="toast" class="toast" hidden></div>
 
+<div id="pdvRoot" hidden></div>
+<script>
+/* ================= CAIXA (PDV) + regras únicas do clube =================
+   O saldo de cada cliente fica em wallet/<id> como uma lista de movimentos (mov).
+   Loja e app gravam ali; pontos, cashback (com validade) e nível são sempre calculados da lista. */
+(function(){
+'use strict';
+const DAY = 864e5;
+const r2 = v => Math.round((+v || 0) * 100) / 100;
+const numv = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(n) ? 0 : n; };
+const TIERS_DEF = [{n:'Bronze', min:0, pct:2}, {n:'Prata', min:500, pct:3}, {n:'Ouro', min:1500, pct:5}];
+
+/* ---------- regras compartilhadas (usadas pelo app e pelo caixa) ---------- */
+const FID = window.FID = {};
+FID.conf = st => {
+  st = st || {};
+  const t = Array.isArray(st.tiers) && st.tiers.length ? st.tiers : TIERS_DEF;
+  return {
+    ptsPorReal: st.ptsPerReal != null && st.ptsPerReal !== '' ? numv(st.ptsPerReal) : 1,
+    validadeDias: st.cbVal != null && st.cbVal !== '' ? numv(st.cbVal) : 90,
+    maxUsoPct: st.cbMax != null && st.cbMax !== '' ? numv(st.cbMax) : 100,
+    minCompraUso: st.cbMin != null && st.cbMin !== '' ? numv(st.cbMin) : 0,
+    bonusIndicador: st.bInd != null && st.bInd !== '' ? numv(st.bInd) : 10,
+    bonusIndicado: st.bIdo != null && st.bIdo !== '' ? numv(st.bIdo) : 10,
+    niveis: t.map(x => ({nome:String(x.n || ''), min:numv(x.min), cb:numv(x.pct)})).sort((a, b) => a.min - b.min)
+  };
+};
+FID.nivel = (conf, gasto) => { const nv = conf.niveis.map((n, i) => ({...n, idx:i})); let cur = nv[0]; for (const n of nv) if (gasto >= n.min) cur = n; return cur; };
+FID.legacy = w => {
+  if (!w) return [];
+  if (Array.isArray(w.mov)) return w.mov;
+  const pts = Math.floor(numv(w.points)), cash = r2(numv(w.cash)), life = Math.floor(numv(w.life));
+  if (!pts && !cash && !life) return [];
+  const ts = (w.log || []).reduce((a, l) => Math.max(a, numv(l.ts)), 0) || Date.now();
+  return [{id:'saldo-anterior', t:'saldo', data:new Date(ts).toISOString(), desc:'Saldo anterior do clube', pts, cbGerado:cash, gasto:life, canal:'app'}];
+};
+FID.stats = (mov, conf, now) => {
+  now = now || Date.now();
+  const v = +conf.validadeDias || 0, movs = [...(mov || [])].sort((a, b) => a.data < b.data ? -1 : 1);
+  const lots = []; let pts = 0, gasto12 = 0, gastoTot = 0, compras = 0, ultima = null, primeira = null;
+  for (const m of movs) {
+    const t = Date.parse(m.data);
+    if (m.cbUsado > 0) { let r = m.cbUsado; for (const l of lots) { if (l.exp && l.exp < t) continue; const u = Math.min(l.rest, r); l.rest = r2(l.rest - u); r = r2(r - u); if (r <= 0) break; } }
+    if (m.cbGerado > 0) lots.push({rest:m.cbGerado, exp: v ? t + v * DAY : 0});
+    pts += (m.pts || 0) - (m.ptsUsados || 0);
+    const g = (m.t === 'compra' ? numv(m.pago) : 0) + numv(m.gasto);
+    if (g) { gastoTot += g; if (now - t < 365 * DAY) gasto12 += g; }
+    if (m.t === 'compra') { if (numv(m.pago) > 0) { compras++; ultima = m.data; primeira = primeira || m.data; } else if (numv(m.pago) < 0) compras = Math.max(0, compras - 1); }
+  }
+  const ativos = lots.filter(l => l.rest > 0.004 && (!l.exp || l.exp > now));
+  const venc = ativos.filter(l => l.exp && l.exp - now <= 7 * DAY);
+  return {saldo:r2(ativos.reduce((s, l) => s + l.rest, 0)), pts:Math.max(0, Math.floor(pts)), gasto12:r2(Math.max(0, gasto12)), gastoTot:r2(Math.max(0, gastoTot)), compras, ultima, primeira,
+    ticket: compras ? r2(gastoTot / compras) : 0, nivel:FID.nivel(conf, Math.max(0, gasto12)),
+    vencendo:r2(venc.reduce((s, l) => s + l.rest, 0)), vencData: venc.length ? Math.min(...venc.map(l => l.exp)) : null};
+};
+FID.log = mov => [...(mov || [])].sort((a, b) => a.data < b.data ? 1 : -1).slice(0, 40).map(m => ({ts:Date.parse(m.data), text:m.desc || (m.t === 'compra' ? 'Compra' : m.t === 'resgate' ? 'Troca: ' + (m.premio || '') : 'Ajuste'),
+  pts:(m.pts || 0) - (m.ptsUsados || 0), cash:r2((m.cbGerado || 0) - (m.cbUsado || 0))}));
+FID.walletDoc = (mov, conf) => { const s = FID.stats(mov, conf); return {mov, points:s.pts, cash:s.saldo, life:Math.floor(s.gasto12), log:FID.log(mov)}; };
+let movSeq = 0;
+FID.newMov = d => ({id:Date.now().toString(36) + (movSeq++).toString(36) + Math.random().toString(36).slice(2, 5), data:new Date().toISOString(), ...d});
+/* d: {t, desc, pts (+/-), cash (+/-), pago, canal, ...} → movimento no formato da lista */
+FID.movFrom = d => {
+  const m = FID.newMov({t:d.t || 'ajuste', desc:d.desc || d.text || '', canal:d.canal || 'app'});
+  const p = Math.trunc(numv(d.pts)), c = r2(numv(d.cash));
+  if (p > 0) m.pts = p; else if (p < 0) m.ptsUsados = -p;
+  if (c > 0) m.cbGerado = c; else if (c < 0) m.cbUsado = -c;
+  if (d.pago) m.pago = r2(d.pago);
+  for (const k of ['premio', 'premioId', 'forma', 'op', 'bonus', 'indicou', 'camp', 'pct', 'ref']) if (d[k] != null) m[k] = d[k];
+  return m;
+};
+FID.add = (w, d, settings) => { const mov = [...FID.legacy(w), FID.movFrom(d)]; return FID.walletDoc(mov, FID.conf(settings)); };
+FID.campStatus = (k, hoje) => { if (k.ativo === false) return 'pausada'; if (k.fim && hoje > k.fim) return 'encerrada'; if (k.inicio && hoje < k.inicio) return 'agendada'; return 'ativa'; };
+FID.campOk = (k, nivelNome, aniversario) => !k.publico || k.publico === 'todos' || (k.publico === 'aniversariantes' ? !!aniversario && +String(aniversario).slice(5, 7) === new Date().getMonth() + 1 : k.publico === nivelNome);
+FID.bonus = (camps, nivelNome, aniversario) => {
+  const hoje = new Date().toLocaleDateString('sv'); let mult = 1, extra = 0, multPts = 1; const nomes = [];
+  for (const k of camps || []) if (FID.campStatus(k, hoje) === 'ativa' && FID.campOk(k, nivelNome, aniversario)) { mult *= (+k.multCb || 1); extra += (+k.extraPct || 0); multPts *= (+k.multPts || 1); nomes.push(k.nome); }
+  return {mult, extra, multPts, nomes};
+};
+/* Bônus de indicação na primeira compra (loja ou app). ficha = pdv_ficha do cliente. Devolve {bI,bR,indicadorId,indicadorNome} ou null. */
+FID.pagarIndicacao = async (db, cid, ficha, settings, nomeCliente, nomeIndicador, canal) => {
+  const conf = FID.conf(settings), bI = +conf.bonusIndicado || 0, bR = +conf.bonusIndicador || 0;
+  if (!ficha || !ficha.indicadoPor || ficha.bonusIndicacao || !(bI || bR)) return null;
+  const ind = ficha.indicadoPor;
+  await db.doc('pdv_ficha/' + cid).set({...ficha, bonusIndicacao:true});
+  if (bI) { const ref = db.doc('wallet/' + cid), s = await ref.get(); await ref.set(FID.add(s.exists ? s.data() : {}, {t:'ajuste', desc:'Bônus de indicação (indicado por ' + nomeIndicador + ')', cash:bI, canal, bonus:'indicado'}, settings)); }
+  if (bR) { const ref = db.doc('wallet/' + ind), s = await ref.get(); await ref.set(FID.add(s.exists ? s.data() : {}, {t:'ajuste', desc:'Bônus por indicar ' + nomeCliente, cash:bR, canal, bonus:'indicador', indicou:cid}, settings)); }
+  return {bI, bR, indicadorId:ind, indicadorNome:nomeIndicador};
+};
+
+/* ---------- caixa ---------- */
+const host = document.getElementById('pdvRoot');
+host.style.cssText = 'position:fixed;inset:0;overflow:auto;z-index:12;overscroll-behavior:contain';
+const root = host.attachShadow({mode:'open'});
+const $ = s => root.querySelector(s);
+const $$ = s => [...root.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const BRL = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'});
+const money = v => BRL.format(+v || 0);
+const moneyShort = v => v >= 1000 ? 'R$ ' + (v / 1000).toLocaleString('pt-BR', {maximumFractionDigits:1}) + ' mil' : 'R$ ' + Math.round(v).toLocaleString('pt-BR');
+const parseMoney = s => { s = String(s ?? '').replace(/[^\d,.-]/g, ''); if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); const n = parseFloat(s); return isFinite(n) && n > 0 ? r2(n) : 0; };
+const moneyIn = v => v ? r2(v).toFixed(2).replace('.', ',') : '';
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const dayKey = d => new Date(d).toLocaleDateString('sv');
+const today = () => dayKey(Date.now());
+const fmtDate = d => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+const fmtDay = k => k ? new Date(k + 'T12:00').toLocaleDateString('pt-BR') : '—';
+const fmtDT = d => new Date(d).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'});
+const digits = s => String(s || '').replace(/\D/g, '');
+const fmtPhone = s => { const d = digits(s); if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`; if (d.length === 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`; return s || ''; };
+const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const initials = n => String(n || '?').trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+const firstName = n => String(n || '').trim().split(/\s+/)[0] || '';
+const plural = (n, a, b) => `${n.toLocaleString('pt-BR')} ${n === 1 ? a : b}`;
+const clone = o => JSON.parse(JSON.stringify(o));
+const daysAgo = d => d ? Math.floor((Date.now() - Date.parse(d)) / DAY) : null;
+const nfmt = n => (+n || 0).toLocaleString('pt-BR');
+const pinHash = (pin, salt) => { let h1 = 0xdeadbeef ^ 7, h2 = 0x41c6ce57 ^ 7; const s = salt + ':' + pin; for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); } h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909); return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36); };
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} };
+const icoCheck = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const isLoja = id => String(id).startsWith('loja-');
+
+const DEFAULT_MSGS = [
+  {gatilho:'boas-vindas', titulo:'Boas-vindas ao clube', texto:'Oi {primeiro_nome}! Que bom ter você no clube de vantagens da {loja} 🐾\n\nA cada compra, na loja ou no app, você ganha {cashback_pct} de cashback e pontos para trocar por prêmios. Seu saldo hoje: {cashback} de cashback e {pontos} pontos.'},
+  {gatilho:'pos-compra', titulo:'Comprovante pós-compra', texto:'Oi {primeiro_nome}, obrigado pela compra na {loja}!\n\nValor pago: {valor_compra}\nCashback ganho: {cashback_ganho}\nPontos ganhos: {pontos_ganhos}\n\nSeu saldo agora: {cashback} de cashback e {pontos} pontos. Use na próxima compra, na loja ou no app!'},
+  {gatilho:'vencendo', titulo:'Cashback vencendo', texto:'{primeiro_nome}, atenção: você tem {cashback_vencendo} de cashback que vence em {data_vencimento}.\n\nUse como desconto na loja ou no app da {loja} antes que expire!'},
+  {gatilho:'inativo', titulo:'Sentimos sua falta', texto:'Oi {primeiro_nome}, sentimos sua falta aqui na {loja}! 💛\n\nVocê ainda tem {cashback} de cashback e {pontos} pontos esperando por você. Que tal aproveitar esta semana?'},
+  {gatilho:'aniversario', titulo:'Feliz aniversário', texto:'Feliz aniversário, {primeiro_nome}! 🎉\n\nToda a equipe {loja} deseja um dia incrível. Venha comemorar com a gente: seu cashback de {cashback} está te esperando.'},
+  {gatilho:'pontos', titulo:'Pontos para trocar', texto:'{primeiro_nome}, você já tem {pontos} pontos na {loja}!\n\nDá para trocar por {premio_sugerido}. Peça no caixa ou resgate pelo app.'},
+  {gatilho:'nivel', titulo:'Subiu de nível', texto:'Parabéns, {primeiro_nome}! Você agora é cliente {nivel} na {loja} e passa a ganhar {cashback_pct} de cashback em todas as compras, na loja e no app. Obrigado pela confiança!'},
+  {gatilho:'livre', titulo:'Promoção da semana', texto:'Oi {primeiro_nome}! Esta semana tem condição especial na {loja}.\n\nE lembrando: você tem {cashback} de cashback para usar como desconto. Te esperamos!'},
+  {gatilho:'indicacao', titulo:'Bônus de indicação recebido', texto:'Oba, {primeiro_nome}! {indicado} fez a primeira compra na {loja} com a sua indicação e você ganhou {valor_bonus} de cashback.\n\nSeu saldo agora: {cashback}. Obrigado por indicar a gente!'},
+  {gatilho:'convite', titulo:'Convite para indicar amigos', texto:'{primeiro_nome}, indique a {loja} para os seus amigos!\n\nQuando um amigo fizer a primeira compra dizendo que foi indicado por você, você ganha {bonus_indicador} e ele ganha {bonus_indicado} de cashback.'},
+  {gatilho:'campanha', titulo:'Aviso de campanha', texto:'Oi {primeiro_nome}! Está rolando na {loja}: {campanha}.\n\nVocê já tem {cashback} de cashback para usar. Aproveite!'}
+];
+const GATILHOS = {'boas-vindas':'Boas-vindas', 'pos-compra':'Pós-compra', 'vencendo':'Cashback vencendo', 'inativo':'Cliente sumido', 'aniversario':'Aniversário', 'pontos':'Pontos para troca', 'nivel':'Mudança de nível', 'indicacao':'Bônus de indicação', 'convite':'Convite para indicar', 'campanha':'Campanha', 'livre':'Livre / promoção'};
+const FORMAS = {pix:'Pix', dinheiro:'Dinheiro', debito:'Débito', credito:'Crédito', outro:'Outro'};
+const TABS = ['pdv', 'fechamento', 'clientes', 'crm', 'campanhas', 'premios', 'mensagens', 'ajustes'];
+const TAB_NOMES = {pdv:'Caixa', fechamento:'Fechamento', clientes:'Clientes', crm:'CRM', campanhas:'Campanhas', premios:'Prêmios', mensagens:'Mensagens', ajustes:'Ajustes'};
+const RW_KIND = {product:'Produto', service:'Serviço grátis', cash:'Cashback'};
+
+/* ---------- estado ---------- */
+const S = {clientes:new Map(), premios:new Map(), mensagens:new Map(), avulsas:new Map(), campanhas:new Map(), fechamentos:new Map(), config:new Map()};
+const R = {cust:new Map(), wal:new Map(), ficha:new Map(), rewards:new Map(), settings:{}};
+let mode = 'connecting', db = null, userCap = null, canAdmin = false, statCache = new Map(), pendingRender = false, mounted = false, visible = false;
+let tab = 'pdv', confirmKey = null, opId = lsGet('gf-op');
+const pdv = {clienteId:null, avulsa:false, busca:'', valor:'', desconto:'', usarCb:'', forma:'pix', recebido:'', descricao:'', novo:false, resultado:null};
+const ui = {cliSel:null, cliBusca:'', cliNivel:'todos', editando:false, ajuste:false, crmPeriodo:'mes', crmSeg:null, chart:'dias', tplSel:null, envioTpl:null, envioSeg:'aniversario',
+  premioEdit:null, campEdit:null, exportTxt:'', fechDia:null, fech:{}, refazer:false, loginSel:null, membroNovo:false};
+const totem = {on:false, tel:'', cid:null, sair:false, timer:null};
+let modal = null;
+
+const cfg = () => ({...FID.conf(R.settings), loja:(S.config.get('geral') || {}).loja || 'Gatecão'});
+const equipe = () => ((S.config.get('equipe') || {}).membros) || [];
+const op = () => equipe().find(m => m.id === opId) || null;
+const temEquipe = () => equipe().length > 0;
+const isGerente = () => !temEquipe() || (op() && op().papel === 'gerente');
+const opNome = () => op() ? op().nome : '';
+const clientes = () => [...S.clientes.values()];
+const premios = () => [...S.premios.values()].filter(p => p.ativo !== false).sort((a, b) => a.pontos - b.pontos);
+const mensagens = () => [...S.mensagens.values()].sort((a, b) => (a.ordem ?? 99) - (b.ordem ?? 99) || String(a.titulo).localeCompare(b.titulo));
+const campanhas = () => [...S.campanhas.values()].sort((a, b) => String(b.inicio).localeCompare(String(a.inicio)));
+function gerenteOk(acao) { if (isGerente()) return true; toast(`Só gerente pode ${acao}. Troque de atendente no topo.`, true); return false; }
+const stats = c => { if (!statCache.has(c.id)) statCache.set(c.id, FID.stats(c.mov, cfg())); return statCache.get(c.id); };
+const premioDisp = p => p.estoque === '' || p.estoque == null ? null : Math.max(0, Math.floor(+p.estoque));
+
+/* ---------- campanhas ---------- */
+const campStatus = k => FID.campStatus(k, today());
+const campAtivas = (c, s) => campanhas().filter(k => campStatus(k) === 'ativa' && FID.campOk(k, s && s.nivel.nome, c && c.aniversario));
+function campDesc(k) {
+  const p = [];
+  if (+k.multCb && +k.multCb !== 1) p.push(`cashback ${nfmt(+k.multCb)}x`);
+  if (+k.extraPct) p.push(`+${nfmt(+k.extraPct)}% de cashback`);
+  if (+k.multPts && +k.multPts !== 1) p.push(`pontos ${nfmt(+k.multPts)}x`);
+  return p.join(' e ') || 'sem bônus';
+}
+const publicoTxt = p => !p || p === 'todos' ? 'todos os clientes' : p === 'aniversariantes' ? 'aniversariantes do mês' : 'clientes ' + p;
+
+/* ---------- dados: banco do app ---------- */
+const COLMAP = {campanhas:'bonus', mensagens:'pdv_msgs', avulsas:'pdv_avulsas', fechamentos:'pdv_fech', config:'pdv_cfg'};
+function rebuild() {
+  const m = new Map();
+  for (const [id, c] of R.cust) {
+    const f = R.ficha.get(id) || {}, w = R.wal.get(id);
+    m.set(id, {id, nome:c.name || 'Sem nome', telefone:c.phone || '', email:c.email || '', origem:isLoja(id) ? 'loja' : 'app', pets:c.pets || [],
+      criadoEm: f.criadoEm || (c.ts ? new Date(+c.ts).toISOString() : null), cpf:f.cpf || '', aniversario:f.aniversario || '', tags:f.tags || [], obs:f.obs || '',
+      notas:f.notas || [], proximo:f.proximo || null, indicadoPor:f.indicadoPor || null, bonusIndicacao:!!f.bonusIndicacao, mov:FID.legacy(w)});
+  }
+  S.clientes = m;
+  S.premios = new Map([...R.rewards.values()].map(r => [r.id, {id:r.id, nome:r.name || '', pontos:Math.floor(numv(r.cost)), estoque:r.stock === '' || r.stock == null ? '' : Math.floor(numv(r.stock)), descricao:r.desc || '', tipo:r.kind || 'product', valorCash:numv(r.cashValue), ativo:r.active !== false}]));
+  autoMerge();
+}
+const merging = new Set(), loaded = new Set();
+async function autoMerge() {
+  if (mode !== 'db' || !canAdmin || !['customers', 'wallet', 'pdv_ficha'].every(k => loaded.has(k))) return;
+  const porTel = new Map();
+  for (const [id, c] of R.cust) if (!isLoja(id) && digits(c.phone).length >= 10) porTel.set(digits(c.phone), id);
+  for (const [id, c] of R.cust) {
+    if (!isLoja(id) || merging.has(id)) continue;
+    const alvo = porTel.get(digits(c.phone)); if (!alvo) continue;
+    merging.add(id);
+    try {
+      const get = async path => { const sn = await db.doc(path).get(); return sn.exists ? sn.data() : null; };
+      const [wl, wa, fl0, fa0] = await Promise.all([get('wallet/' + id), get('wallet/' + alvo), get('pdv_ficha/' + id), get('pdv_ficha/' + alvo)]);
+      const movs = [...FID.legacy(wa), ...FID.legacy(wl).map(m => ({...m, id:m.id + '-l'}))];
+      const fl = fl0 || {}, fa = fa0 || {}, f = {...fl};
+      for (const k of Object.keys(fa)) if (fa[k] != null && fa[k] !== '' && !(Array.isArray(fa[k]) && !fa[k].length)) f[k] = fa[k];
+      f.notas = [...(fl.notas || []), ...(fa.notas || [])]; f.tags = [...new Set([...(fl.tags || []), ...(fa.tags || [])])];
+      f.notas.push({id:newId(), data:new Date().toISOString(), tipo:'nota', texto:'Cadastro da loja unido à conta do app (mesmo telefone).'});
+      await db.doc('wallet/' + alvo).set(FID.walletDoc(movs, cfg()));
+      await db.doc('pdv_ficha/' + alvo).set(f);
+      const check = await get('wallet/' + alvo);
+      if (!check || (check.mov || []).length !== movs.length) throw new Error('verificação falhou');
+      for (const [oid, of] of R.ficha) if (of.indicadoPor === id) { const o2 = {...of}; delete o2.id; await db.doc('pdv_ficha/' + oid).set({...o2, indicadoPor:alvo}); }
+      await db.doc('wallet/' + id).delete(); await db.doc('pdv_ficha/' + id).delete(); await db.doc('customers/' + id).delete();
+      if (pdv.clienteId === id) pdv.clienteId = alvo;
+      if (ui.cliSel === id) ui.cliSel = alvo;
+      toast(`${firstName(c.name)} entrou no app: saldo da loja unido à conta dele.`);
+    } catch (e) { merging.delete(id); }
+  }
+}
+function startDb() {
+  mode = 'db';
+  const pend = new Set(['customers', 'wallet', 'pdv_ficha', 'rewards', 'bonus', 'pdv_msgs', 'pdv_avulsas', 'pdv_fech', 'pdv_cfg', 'settings']);
+  const timer = setTimeout(() => { if (pend.size) setSync('warn', 'Sem resposta do banco ainda'); }, 10000);
+  const done = (k, snap) => { if (!snap.metadata || !snap.metadata.fromCache) { pend.delete(k); loaded.add(k); if (!pend.size) { clearTimeout(timer); setSync('ok', 'Salvo na nuvem'); } } };
+  const onErr = e => { clearTimeout(timer); setSync('err', e && e.code === 'revoked' ? 'Acesso encerrado' : 'Erro ao ler os dados'); };
+  const toMap = snap => new Map(snap.docs.map(d => [d.id, {...clone(d.data()), id:d.id}]));
+  const raw = {customers:'cust', wallet:'wal', pdv_ficha:'ficha', rewards:'rewards'};
+  for (const col of Object.keys(raw)) db.collection(col).onSnapshot(snap => { R[raw[col]] = toMap(snap); done(col, snap); changed(true); }, onErr);
+  for (const [k, col] of Object.entries(COLMAP)) db.collection(col).onSnapshot(snap => { S[k] = toMap(snap); done(col, snap); changed(true); }, onErr);
+  db.doc('settings/store').onSnapshot(snap => { R.settings = snap.exists ? clone(snap.data()) : {}; done('settings', snap); changed(true); }, onErr);
+}
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+async function putCliente(id, c) {
+  const old = R.cust.get(id), prof = {...(old || {pets:[], optin:false, ts:Date.now(), origem:'loja'}), name:c.nome, phone:c.telefone, email:c.email || ''}; delete prof.id;
+  const ficha = {cpf:c.cpf || '', aniversario:c.aniversario || '', tags:c.tags || [], obs:c.obs || '', notas:c.notas || [], proximo:c.proximo || null, indicadoPor:c.indicadoPor || null, bonusIndicacao:!!c.bonusIndicacao, criadoEm:c.criadoEm || new Date().toISOString()};
+  const wd = FID.walletDoc(c.mov || [], cfg());
+  const oldF = R.ficha.get(id), oldW = R.wal.get(id), ops = [];
+  if (!old || !same({...old, id:undefined}, {...prof, id:undefined})) ops.push(['customers', prof]);
+  if (!oldF || !same({...oldF, id:undefined}, {...ficha, id:undefined})) ops.push(['pdv_ficha', ficha]);
+  if (!oldW || !same(oldW.mov || FID.legacy(oldW), wd.mov)) ops.push(['wallet', wd]);
+  R.cust.set(id, {...prof, id}); R.ficha.set(id, {...ficha, id}); R.wal.set(id, {...wd, id}); rebuild(); changed();
+  for (const [col, body] of ops) await db.collection(col).doc(id).set(body);
+}
+async function put(col, id, data) {
+  const body = {...data}; delete body.id;
+  try {
+    if (col === 'clientes') await putCliente(id, body);
+    else if (col === 'premios') {
+      const rawOld = R.rewards.get(id) || {kind:'product', active:true, img:'', i:'gift', cashValue:0, productId:''};
+      const doc = {...rawOld, name:body.nome, cost:body.pontos, stock:body.estoque === '' ? '' : body.estoque, desc:body.descricao || '', kind:body.tipo || rawOld.kind || 'product', cashValue:body.tipo === 'cash' ? numv(body.valorCash) : numv(rawOld.cashValue), active:body.ativo !== false}; delete doc.id;
+      R.rewards.set(id, {...doc, id}); rebuild(); changed();
+      await db.collection('rewards').doc(id).set(doc);
+    } else if (col === 'config' && id === 'geral') {
+      const st = {...R.settings, ptsPerReal:body.ptsPorReal, cbVal:body.validadeDias, cbMax:body.maxUsoPct, cbMin:body.minCompraUso, bInd:body.bonusIndicador, bIdo:body.bonusIndicado, tiers:body.niveis.map(n => ({n:n.nome, min:n.min, pct:n.cb}))};
+      R.settings = st; S.config.set('geral', {loja:body.loja, id:'geral'}); changed();
+      await db.doc('settings/store').set(st); await db.doc('pdv_cfg/geral').set({loja:body.loja});
+    } else {
+      S[col].set(id, {...body, id}); changed();
+      await db.collection(COLMAP[col]).doc(id).set(body);
+    }
+    return true;
+  } catch (e) {
+    toast(e && e.code === 'quota_exceeded' ? 'Limite de armazenamento atingido.' : e && e.code === 'invalid_argument' ? 'Sem permissão para salvar: sua conta precisa de acesso de Editor no app.' : 'Não foi possível salvar: ' + (e && e.message || 'erro'), true);
+    return false;
+  }
+}
+async function del(col, id) {
+  try {
+    if (col === 'clientes') { R.cust.delete(id); R.wal.delete(id); R.ficha.delete(id); rebuild(); changed(); await db.doc('customers/' + id).delete(); await db.doc('wallet/' + id).delete(); await db.doc('pdv_ficha/' + id).delete(); }
+    else if (col === 'premios') { R.rewards.delete(id); rebuild(); changed(); await db.doc('rewards/' + id).delete(); }
+    else { S[col].delete(id); changed(); await db.collection(COLMAP[col]).doc(id).delete(); }
+  } catch (e) { toast('Não foi possível excluir: ' + (e && e.message || 'erro'), true); }
+}
+function setSync(kind, text) { const el = $('#sync'); if (!el) return; el.className = 'sync ' + kind; el.querySelector('span').textContent = text; }
+function changed(fromSnapshot) {
+  statCache = new Map();
+  if (fromSnapshot) rebuild();
+  if (opId && temEquipe() && !op()) { opId = null; lsSet('gf-op', null); }
+  if (!visible) return;
+  if (fromSnapshot) requestRender(); else render();
+}
+function requestRender() {
+  const a = root.activeElement;
+  if ((a && a.matches('input,textarea,select') && $('#main').contains(a)) || !$('#modal').hidden) { pendingRender = true; return; }
+  render();
+}
+
+/* ---------- toast / cópia ---------- */
+let toastT;
+function toast(msg, err) { const t = $('#toast'); if (!t) return; t.textContent = msg; t.className = err ? 'err' : ''; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, err ? 6000 : 3000); }
+async function copyText(text, sel) {
+  try { await navigator.clipboard.writeText(text); toast('Texto copiado'); }
+  catch (e) { const ta = $(sel); if (ta) { ta.focus(); ta.select(); } toast('Selecione o texto e copie com Ctrl+C', true); }
+}
+
+/* ---------- mensagens ---------- */
+const VARS = ['nome', 'primeiro_nome', 'loja', 'cashback', 'pontos', 'nivel', 'cashback_pct', 'cashback_vencendo', 'data_vencimento', 'ultima_compra', 'premio_sugerido', 'campanha', 'bonus_indicador', 'bonus_indicado', 'valor_compra', 'cashback_ganho', 'pontos_ganhos', 'indicado', 'valor_bonus'];
+function varsFor(c, extra = {}) {
+  const s = c ? stats(c) : null, ps = premios(), conf = cfg();
+  const pode = s ? ps.filter(p => p.pontos <= s.pts) : [];
+  const sug = pode.length ? pode[pode.length - 1].nome : (ps[0] ? ps[0].nome : 'prêmios');
+  const ks = campanhas().filter(k => ['ativa', 'agendada'].includes(campStatus(k)) && FID.campOk(k, s && s.nivel.nome, c && c.aniversario));
+  return {
+    nome: c ? c.nome : '', primeiro_nome: c ? firstName(c.nome) : '', loja: conf.loja,
+    cashback: money(s ? s.saldo : 0), pontos: s ? nfmt(s.pts) : '0',
+    nivel: s ? s.nivel.nome : '', cashback_pct: nfmt(s ? s.nivel.cb : conf.niveis[0].cb) + '%',
+    cashback_vencendo: money(s ? s.vencendo : 0), data_vencimento: s && s.vencData ? fmtDate(s.vencData) : '—',
+    ultima_compra: s && s.ultima ? fmtDate(s.ultima) : '—', premio_sugerido: sug,
+    campanha: ks.length ? ks.map(k => `${k.nome} (${campDesc(k)}${k.fim ? ', até ' + fmtDay(k.fim) : ''})`).join('; ') : 'condições especiais para clientes do clube',
+    bonus_indicador: money(conf.bonusIndicador), bonus_indicado: money(conf.bonusIndicado),
+    valor_compra: money(extra.pago || 0), cashback_ganho: money(extra.cbGerado || 0), pontos_ganhos: String(extra.pts || 0),
+    indicado: 'seu amigo', valor_bonus: money(conf.bonusIndicador), ...(extra.vars || {})
+  };
+}
+const fill = (text, c, extra) => { const v = varsFor(c, extra); return String(text || '').replace(/\{(\w+)\}/g, (m, k) => k in v ? v[k] : m); };
+function waLink(phone, text) { let d = digits(phone); if (d && d.length <= 11) d = '55' + d; return `https://wa.me/${d}?text=${encodeURIComponent(text)}`; }
+const tplByGatilho = g => mensagens().find(m => m.gatilho === g) || mensagens()[0];
+function openMsg(cid, tplId, extra) {
+  const c = S.clientes.get(cid); if (!c) return;
+  const tpl = S.mensagens.get(tplId) || mensagens()[0];
+  modal = {cid, tplId: tpl ? tpl.id : null, extra: extra || {}, text: tpl ? fill(tpl.texto, c, extra) : ''};
+  renderModal();
+}
+function renderModal() {
+  const m = $('#modal');
+  if (!modal) { m.hidden = true; m.innerHTML = ''; if (pendingRender) render(); return; }
+  const c = S.clientes.get(modal.cid);
+  m.innerHTML = `<div class="box" role="dialog" aria-modal="true" aria-labelledby="msg-h">
+    <div class="row between"><h2 id="msg-h">Mensagem para ${esc(firstName(c.nome))}</h2><button class="btn ghost" data-act="modal-close" aria-label="Fechar">✕</button></div>
+    <label class="f">Modelo<select id="msg-tpl">${mensagens().map(t => `<option value="${t.id}" ${t.id === modal.tplId ? 'selected' : ''}>${esc(t.titulo)}</option>`).join('')}</select></label>
+    <label class="f">Texto (pode editar antes de enviar)<textarea id="msg-text" rows="8">${esc(modal.text)}</textarea></label>
+    <div class="small muted">Para: <b>${esc(c.nome)}</b> · ${c.telefone ? esc(fmtPhone(c.telefone)) : 'sem telefone'}</div>
+    <div class="row"><a class="btn wa" id="msg-wa" href="${esc(waLink(c.telefone, modal.text))}" target="_blank" rel="noopener" data-act="wa-log" data-c="${c.id}">Abrir no WhatsApp</a><button class="btn" data-act="msg-copy">Copiar texto</button></div>
+    <p class="small muted">O WhatsApp abre com a mensagem pronta; confira e toque em enviar lá.</p></div>`;
+  m.hidden = false;
+}
+
+/* ---------- render ---------- */
+function shell() {
+  root.innerHTML = `<style>${CSS}</style>
+  <div class="app">
+  <header class="top"><div class="wrap">
+    <div class="toprow">
+      <div class="logo"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="9" r="2.2"/><circle cx="9.5" cy="5" r="2.2"/><circle cx="14.5" cy="5" r="2.2"/><circle cx="18.5" cy="9" r="2.2"/><path d="M12 10.5c-3.2 0-6.5 4.3-6.5 7.2 0 1.8 1.4 2.8 3 2.8 1.3 0 2.2-.7 3.5-.7s2.2.7 3.5.7c1.6 0 3-1 3-2.8 0-2.9-3.3-7.2-6.5-7.2z"/></svg><div><span id="loja-nome">Gatecão</span><small>Caixa · Clube · CRM</small></div></div>
+      <div class="tright"><button class="hbtn" id="op-chip" data-act="op-sair" hidden></button><a class="hbtn" href="#caixa-consulta">Modo consulta</a><a class="hbtn" href="#gestao">Voltar ao app</a><div id="sync" class="sync"><i></i><span>Conectando…</span></div></div>
+    </div>
+    <nav class="tabs" id="tabs">${TABS.map(t => `<a href="#${t === 'pdv' ? 'caixa' : 'caixa-' + t}" data-tab="${t}">${TAB_NOMES[t]}</a>`).join('')}</nav>
+  </div></header>
+  <main class="wrap" id="main"></main>
+  </div>
+  <div id="modal" hidden></div><div id="totem" hidden></div><div id="toast" hidden></div>`;
+}
+function render() {
+  if (!visible) return;
+  pendingRender = false;
+  $('#loja-nome').textContent = cfg().loja;
+  $$('#tabs a').forEach(a => a.dataset.tab === tab ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
+  const chip = $('#op-chip'), o = op();
+  chip.hidden = !o; if (o) chip.textContent = `Atendente: ${o.nome} · Trocar`;
+  const v = {pdv:viewPdv, fechamento:viewFechamento, clientes:viewClientes, crm:viewCrm, campanhas:viewCampanhas, premios:viewPremios, mensagens:viewMensagens, ajustes:viewAjustes}[tab];
+  $('#main').innerHTML = mode === 'connecting' ? `<div class="card empty"><b>Carregando o caixa…</b><span>Conectando ao banco de dados da loja.</span></div>`
+    : mode === 'semacesso' ? `<div class="card empty"><b>Área da equipe</b><span>O caixa é usado só pela equipe da loja. Se você trabalha aqui, peça ao dono para dar a você acesso de Editor no app.</span><a class="btn pri" href="#loja">Voltar para a loja</a></div>`
+    : temEquipe() && !o ? viewLogin() : v();
+  if (tab === 'pdv') renderResumo();
+  if (tab === 'fechamento') renderFechCalc();
+  if (totem.on) renderTotem();
+}
+function confirmBtn(key, label, act, data = '', cls = 'btn sm danger') {
+  if (confirmKey === key) return `<span class="row" style="gap:6px"><span class="small"><b>Confirmar?</b></span><button class="btn sm danger" data-act="${act}" ${data}>Sim, ${esc(label.toLowerCase())}</button><button class="btn sm" data-act="ask" data-key="">Não</button></span>`;
+  return `<button class="${cls}" data-act="ask" data-key="${esc(key)}">${esc(label)}</button>`;
+}
+const lvChip = n => `<span class="chip lv-${Math.min(n.idx, 3)}">${esc(n.nome)}</span>`;
+const origemChip = c => c.origem === 'app' ? '<span class="chip app">usa o app</span>' : '';
+const soLeitura = () => !isGerente() ? '<div class="note info">Somente gerentes alteram esta área.</div>' : '';
+
+function viewLogin() {
+  const ms = equipe(), sel = ms.find(m => m.id === ui.loginSel);
+  return `<div class="login card"><h2>Quem está no caixa?</h2><p class="muted">Escolha seu nome e digite seu PIN. Cada venda fica registrada com o nome de quem atendeu.</p>
+    <div class="members">${ms.map(m => `<button class="member" data-act="login-sel" data-m="${m.id}" aria-pressed="${m.id === ui.loginSel}"><span class="av">${esc(initials(m.nome))}</span><b>${esc(m.nome)}</b><span class="chip ${m.papel === 'gerente' ? 'hot' : ''}">${m.papel === 'gerente' ? 'Gerente' : 'Caixa'}</span></button>`).join('')}</div>
+    ${sel ? `<form data-form="login" class="row" style="align-items:end"><label class="f" style="flex:1 1 160px">PIN de ${esc(firstName(sel.nome))}<input type="password" inputmode="numeric" autocomplete="off" name="pin" id="login-pin" maxlength="8"></label><button class="btn pri">Entrar</button></form>` : ''}</div>`;
+}
+
+/* ---------- PDV ---------- */
+function calc() {
+  const c = pdv.clienteId ? S.clientes.get(pdv.clienteId) : null, s = c ? stats(c) : null, conf = cfg();
+  const valor = parseMoney(pdv.valor), desconto = Math.min(parseMoney(pdv.desconto), valor), base = r2(valor - desconto);
+  const minOk = base >= (+conf.minCompraUso || 0);
+  const maxCb = s && minOk ? r2(Math.min(s.saldo, base * (+conf.maxUsoPct || 0) / 100)) : 0;
+  const pedido = parseMoney(pdv.usarCb), usar = Math.min(pedido, maxCb), total = r2(base - usar);
+  const b = c ? FID.bonus(campanhas(), s.nivel.nome, c.aniversario) : {mult:1, extra:0, multPts:1, nomes:[]};
+  const camps = c ? campAtivas(c, s) : [];
+  const pctBase = s ? s.nivel.cb : 0, pct = c ? r2(pctBase * b.mult + b.extra) : 0;
+  const cbGanho = c ? r2(total * pct / 100) : 0, pts = c ? Math.floor(total * (+conf.ptsPorReal || 0) * b.multPts) : 0;
+  const recebido = parseMoney(pdv.recebido), troco = pdv.forma === 'dinheiro' && recebido ? r2(recebido - total) : null;
+  return {c, s, valor, desconto, base, minOk, maxCb, pedido, usar, total, pctBase, pct, cbGanho, pts, camps, recebido, troco};
+}
+function clienteForm(c, form, submitLabel) {
+  c = c || {};
+  const ind = c.indicadoPor ? S.clientes.get(c.indicadoPor) : null;
+  const podeIndicar = !c.bonusIndicacao && !(c.mov || []).some(m => m.t === 'compra');
+  return `<form data-form="${form}" class="card" style="background:var(--sunk)">
+    ${c.origem === 'app' ? '<div class="note info">Este cliente tem conta no app. Nome, telefone e e-mail também mudam no cadastro dele no app.</div>' : ''}
+    <div class="fields">
+      <label class="f">Nome completo *<input type="text" name="nome" id="${form}-nome" required value="${esc(c.nome)}" autocomplete="off"></label>
+      <label class="f">Telefone / WhatsApp *<input type="tel" name="telefone" id="${form}-tel" required value="${esc(fmtPhone(c.telefone))}" placeholder="(11) 98765-4321"></label>
+      <label class="f">Data de nascimento<input type="date" name="aniversario" id="${form}-aniv" value="${esc(c.aniversario)}"></label>
+      <label class="f">CPF<input type="text" name="cpf" id="${form}-cpf" inputmode="numeric" value="${esc(c.cpf)}"></label>
+      <label class="f">E-mail<input type="email" name="email" id="${form}-email" value="${esc(c.email)}"></label>
+      <label class="f">Etiquetas (separe por vírgula)<input type="text" name="tags" id="${form}-tags" value="${esc((c.tags || []).join(', '))}" placeholder="ex.: tutor de gato, VIP"></label>
+      ${podeIndicar ? `<label class="f">Indicado por (opcional)<input type="text" name="indicadoPor" id="${form}-ind" list="dl-clientes" value="${ind ? esc(ind.nome + ' · ' + fmtPhone(ind.telefone)) : ''}" placeholder="Digite o nome de quem indicou" autocomplete="off"></label>` : ind ? `<div class="f">Indicado por<b style="color:var(--ink);padding-top:10px">${esc(ind.nome)}</b></div>` : ''}
+    </div>
+    ${podeIndicar ? `<datalist id="dl-clientes">${clientes().filter(x => x.id !== c.id).map(x => `<option value="${esc(x.nome + ' · ' + fmtPhone(x.telefone))}"></option>`).join('')}</datalist>` : ''}
+    <label class="f">Observações internas<textarea name="obs" id="${form}-obs" rows="2">${esc(c.obs)}</textarea></label>
+    <div class="row"><button class="btn pri">${esc(submitLabel)}</button><button type="button" class="btn ghost" data-act="${form}-cancel">Cancelar</button></div>
+  </form>`;
+}
+function viewPdv() {
+  if (pdv.resultado) return viewRecibo();
+  const k = calc(), {c, s} = k, conf = cfg();
+  const campsGerais = campanhas().filter(x => campStatus(x) === 'ativa');
+  let cli;
+  if (c) {
+    const indicante = c.indicadoPor && !c.bonusIndicacao && s.compras === 0 ? S.clientes.get(c.indicadoPor) : null;
+    cli = `<div class="card">
+      <div class="row between"><span class="eyebrow">Cliente</span><button class="btn sm ghost" data-act="pdv-trocar">Trocar cliente</button></div>
+      <div class="who"><div class="av">${esc(initials(c.nome))}</div><div style="min-width:0"><div class="nm">${esc(c.nome)}</div><div class="small muted">${esc(fmtPhone(c.telefone))} · ${lvChip(s.nivel)} ${origemChip(c)} · ganha ${nfmt(s.nivel.cb)}% de cashback</div></div></div>
+      <div class="wallet"><div class="cb"><span class="eyebrow">Cashback disponível</span><b>${money(s.saldo)}</b></div><div class="pt"><span class="eyebrow">Pontos</span><b>${nfmt(s.pts)}</b></div></div>
+      ${s.vencendo > 0 ? `<div class="note warn">${money(s.vencendo)} de cashback vence em ${fmtDate(s.vencData)}. Ofereça para usar agora.</div>` : ''}
+      ${indicante && (+conf.bonusIndicado || +conf.bonusIndicador) ? `<div class="note good">Primeira compra com indicação de ${esc(indicante.nome)}: ao finalizar, ${esc(firstName(c.nome))} ganha ${money(conf.bonusIndicado)} e ${esc(firstName(indicante.nome))} ganha ${money(conf.bonusIndicador)} de cashback.</div>` : ''}
+      <div class="small muted">Última compra: ${s.ultima ? `${fmtDate(s.ultima)} (${daysAgo(s.ultima)} dias)` : 'primeira compra'} · ${plural(s.compras, 'compra', 'compras')} na loja e no app · ticket médio ${money(s.ticket)}</div>
+      <div class="row"><button class="btn sm" data-act="msg" data-c="${c.id}">Mensagem</button><button class="btn sm" data-act="ver-cliente" data-c="${c.id}">Ver ficha</button></div>
+    </div>`;
+  } else if (pdv.avulsa) {
+    cli = `<div class="card"><div class="row between"><span class="eyebrow">Cliente</span><button class="btn sm ghost" data-act="pdv-trocar">Identificar cliente</button></div>
+      <div class="who"><div class="av">?</div><div><div class="nm">Venda sem cadastro</div><div class="small muted">Não gera cashback nem pontos.</div></div></div></div>`;
+  } else {
+    cli = `<div class="card"><h2>Quem está comprando?</h2>
+      <label class="f">Buscar por nome, telefone ou CPF<input type="search" id="pdv-busca" data-bind="busca" value="${esc(pdv.busca)}" placeholder="Digite para buscar…" autocomplete="off"></label>
+      <div class="results" id="pdv-res">${pdvResults()}</div>
+      <div class="row"><button class="btn" data-act="pdv-novo">+ Cadastrar cliente</button><button class="btn ghost" data-act="pdv-avulsa">Venda sem cadastro</button></div>
+      ${pdv.novo ? clienteForm({nome: /\d/.test(pdv.busca) ? '' : pdv.busca, telefone: /\d/.test(pdv.busca) ? pdv.busca : ''}, 'pdvnovo', 'Cadastrar e continuar') : ''}
+    </div>`;
+  }
+  const ativo = c || pdv.avulsa;
+  const compra = ativo ? `<div class="card"><h2>Compra</h2>
+    <div class="fields">
+      <label class="f">Valor da compra (R$)<input type="text" inputmode="decimal" class="big-in" id="pdv-valor" data-bind="valor" value="${esc(pdv.valor)}" placeholder="0,00" autocomplete="off"></label>
+      <label class="f">Desconto (R$)<input type="text" inputmode="decimal" class="big-in" id="pdv-desc" data-bind="desconto" value="${esc(pdv.desconto)}" placeholder="0,00" autocomplete="off"></label>
+    </div>
+    ${c ? `<div class="fields" style="align-items:end">
+      <label class="f">Usar cashback (R$)<input type="text" inputmode="decimal" class="big-in" id="pdv-cb" data-bind="usarCb" value="${esc(pdv.usarCb)}" placeholder="0,00" autocomplete="off" ${s.saldo > 0 ? '' : 'disabled'}></label>
+      <div class="row" style="padding-bottom:6px"><button class="btn" data-act="usar-tudo" ${s.saldo > 0 ? '' : 'disabled'}>Usar o máximo</button><button class="btn ghost" data-act="usar-nada">Não usar</button></div>
+    </div><div class="small muted" id="pdv-cbhint"></div>` : ''}
+    <div style="display:grid;gap:6px"><span class="small muted" style="font-weight:700">Forma de pagamento</span>
+      <div class="seg">${Object.entries(FORMAS).map(([key, v]) => `<button type="button" data-act="forma" data-v="${key}" aria-pressed="${pdv.forma === key}">${v}</button>`).join('')}</div></div>
+    <div class="fields">
+      ${pdv.forma === 'dinheiro' ? `<label class="f">Valor recebido (R$)<input type="text" inputmode="decimal" id="pdv-rec" data-bind="recebido" value="${esc(pdv.recebido)}" placeholder="0,00"></label>` : ''}
+      <label class="f">Descrição (opcional)<input type="text" id="pdv-descr" data-bind="descricao" value="${esc(pdv.descricao)}" placeholder="ex.: ração 15 kg + banho"></label>
+    </div></div>` : '';
+  const right = ativo ? `<div class="card sticky" id="pdv-resumo"></div>${c ? viewTroca(c, s) : ''}` :
+    `<div class="card empty"><div class="ok-ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg></div><b>Comece identificando o cliente</b><span>O saldo é o mesmo da loja e do app: o que o cliente ganhou comprando pelo app aparece aqui, e o que ganhar aqui aparece no app dele.</span></div>
+     ${campsGerais.length ? `<div class="card"><h3>Campanhas ativas hoje</h3><div class="list">${campsGerais.map(x => `<div class="item"><div class="t"><b>${esc(x.nome)}</b><div class="small muted">${esc(campDesc(x))} · ${esc(publicoTxt(x.publico))}${x.fim ? ' · até ' + fmtDay(x.fim) : ''}</div></div></div>`).join('')}</div></div>` : ''}`;
+  return `<div class="grid2"><div class="col">${cli}${compra}</div><div class="col">${right}</div></div>`;
+}
+function pdvResults() {
+  const q = norm(pdv.busca).trim(), qd = digits(pdv.busca);
+  let list = clientes();
+  if (!list.length) return `<div class="note info">Nenhum cliente cadastrado ainda. Cadastre o primeiro no botão abaixo.</div>`;
+  if (q) list = list.filter(c => norm(c.nome).includes(q) || (qd.length >= 3 && (digits(c.telefone).includes(qd) || digits(c.cpf).includes(qd))));
+  else list = list.sort((a, b) => String(stats(b).ultima || b.criadoEm).localeCompare(String(stats(a).ultima || a.criadoEm))).slice(0, 5);
+  if (!list.length) return `<div class="note info">Nenhum cliente encontrado para “${esc(pdv.busca)}”.</div>`;
+  return (q ? '' : '<div class="eyebrow">Atendidos recentemente</div>') + list.slice(0, 8).map(c => { const s = stats(c); return `<button class="res" data-act="pdv-sel" data-c="${c.id}"><span><b>${esc(c.nome)}</b> ${origemChip(c)}<br><span class="small muted">${esc(fmtPhone(c.telefone))}</span></span><span class="r"><span class="pos">${money(s.saldo)}</span><br><span class="muted">${nfmt(s.pts)} pts</span></span></button>`; }).join('');
+}
+function renderResumo() {
+  const el = $('#pdv-resumo'); if (!el) return;
+  const k = calc(), conf = cfg(), hint = $('#pdv-cbhint');
+  if (hint) hint.innerHTML = !k.s ? '' : !k.minOk && k.s.saldo > 0 ? `<span class="neg">O cashback só pode ser usado em compras a partir de ${money(conf.minCompraUso)}.</span>`
+    : k.pedido > k.maxCb ? `<span class="neg">Máximo permitido nesta compra: ${money(k.maxCb)}.</span> Vou usar ${money(k.usar)}.`
+    : `Pode usar até ${money(k.maxCb)} nesta compra${+conf.maxUsoPct < 100 ? ` (limite de ${conf.maxUsoPct}% do valor)` : ''}.`;
+  el.innerHTML = `<span class="eyebrow">Resumo da venda</span>
+    <div class="sum">
+      <div class="l"><span>Valor da compra</span><span>${money(k.valor)}</span></div>
+      ${k.desconto ? `<div class="l"><span>Desconto</span><span class="neg">− ${money(k.desconto)}</span></div>` : ''}
+      ${k.c ? `<div class="l"><span>Cashback usado</span><span class="${k.usar ? 'neg' : 'muted'}">− ${money(k.usar)}</span></div>` : ''}
+      <div class="l tot"><span style="font-weight:800">Total a pagar</span><b>${money(k.total)}</b></div>
+      ${k.troco !== null ? `<div class="l"><span>Troco</span><b class="${k.troco < 0 ? 'neg' : 'pos'}">${k.troco < 0 ? 'faltam ' + money(-k.troco) : money(k.troco)}</b></div>` : ''}
+    </div>
+    ${k.camps.length ? `<div class="note hot"><b>Campanha:</b> ${k.camps.map(x => `${esc(x.nome)} (${esc(campDesc(x))})`).join(', ')}. Cashback nesta compra: ${nfmt(k.pct)}% em vez de ${nfmt(k.pctBase)}%.</div>` : ''}
+    ${k.c ? `<div class="earn"><span class="small">Nesta compra o cliente ganha</span><b>+ ${money(k.cbGanho)} de cashback · + ${nfmt(k.pts)} pontos</b><span class="small">Saldo depois: ${money(r2(k.s.saldo - k.usar + k.cbGanho))} · ${nfmt(k.s.pts + k.pts)} pts</span></div>` : ''}
+    <button class="btn pri xl block" data-act="finalizar" ${k.valor > 0 ? '' : 'disabled'}>Finalizar venda · ${money(k.total)}</button>`;
+}
+function viewTroca(c, s) {
+  const ps = premios();
+  if (!ps.length) return `<div class="card"><h3>Trocar pontos</h3><div class="note info">Cadastre prêmios na aba Prêmios. Eles aparecem também no app.</div></div>`;
+  return `<div class="card"><div class="row between"><h3>Trocar pontos</h3><span class="chip">${nfmt(s.pts)} pts</span></div>
+    <div class="prizes">${ps.map(p => { const disp = premioDisp(p), sem = disp !== null && disp <= 0, ok = s.pts >= p.pontos && !sem, key = 'res-' + p.id;
+      return `<div class="prize"><div style="min-width:0"><b>${esc(p.nome)}</b><div class="small muted">${sem ? 'sem estoque' : ok ? 'disponível' + (disp !== null ? ` · ${disp} em estoque` : '') : `faltam ${nfmt(p.pontos - s.pts)} pts`}</div></div>
+      <div class="row" style="gap:8px"><span class="p">${nfmt(p.pontos)} pts</span>${ok ? (confirmKey === key ? `<button class="btn sm pri" data-act="resgatar" data-p="${p.id}">Confirmar</button><button class="btn sm" data-act="ask" data-key="">Não</button>` : `<button class="btn sm" data-act="ask" data-key="${key}">Trocar</button>`) : ''}</div></div>`; }).join('')}</div></div>`;
+}
+function viewRecibo() {
+  const r = pdv.resultado, c = r.cid ? S.clientes.get(r.cid) : null, s = c ? stats(c) : null, b = r.bonus, ind = b ? S.clientes.get(b.indicadorId) : null;
+  return `<div class="grid2"><div class="card" style="justify-items:start">
+    <div class="ok-ico">${icoCheck}</div>
+    <h2>${r.tipo === 'resgate' ? 'Troca registrada' : 'Venda registrada'}</h2>
+    <div class="sum" style="width:100%">
+      ${r.tipo === 'resgate' ? `<div class="l"><span>Prêmio</span><b>${esc(r.premio)}</b></div><div class="l"><span>Pontos usados</span><span class="neg">− ${nfmt(r.ptsUsados)}</span></div>${r.cbGerado ? `<div class="l"><span>Cashback creditado</span><span class="pos">+ ${money(r.cbGerado)}</span></div>` : ''}` : `
+      <div class="l"><span>Valor da compra</span><span>${money(r.valor)}</span></div>
+      ${r.desconto ? `<div class="l"><span>Desconto</span><span class="neg">− ${money(r.desconto)}</span></div>` : ''}
+      ${r.cbUsado ? `<div class="l"><span>Cashback usado</span><span class="neg">− ${money(r.cbUsado)}</span></div>` : ''}
+      <div class="l tot"><span style="font-weight:800">Pago (${esc(FORMAS[r.forma] || r.forma)})</span><b>${money(r.pago)}</b></div>
+      ${r.troco ? `<div class="l"><span>Troco</span><b class="pos">${money(r.troco)}</b></div>` : ''}`}
+    </div>
+    ${c ? `<div class="earn" style="width:100%">${r.tipo === 'compra' ? `<b>+ ${money(r.cbGerado)} de cashback · + ${nfmt(r.pts)} pontos</b>` : ''}<span>${esc(firstName(c.nome))} agora tem ${money(s.saldo)} de cashback e ${nfmt(s.pts)} pontos${c.origem === 'app' ? ', já visíveis no app' : ''}.</span></div>` : ''}
+    ${b ? `<div class="note good" style="width:100%">Bônus de indicação: ${esc(firstName(c.nome))} ganhou ${money(b.bI)} e ${esc(b.indicadorNome)} ganhou ${money(b.bR)} de cashback.</div>` : ''}
+    ${r.subiu ? `<div class="note good" style="width:100%">${esc(firstName(c.nome))} subiu para o nível ${esc(s.nivel.nome)} e passa a ganhar ${nfmt(s.nivel.cb)}% de cashback.</div>` : ''}
+    <div class="row">
+      ${c ? `<button class="btn wa" data-act="msg" data-c="${c.id}" data-g="${r.subiu ? 'nivel' : r.tipo === 'compra' ? 'pos-compra' : 'pontos'}">Enviar comprovante no WhatsApp</button>` : ''}
+      ${ind ? `<button class="btn wa" data-act="msg-ind" data-c="${ind.id}">Avisar ${esc(firstName(ind.nome))} do bônus</button>` : ''}
+      <button class="btn pri" data-act="nova-venda">Nova venda</button>
+    </div></div>
+    <div class="card"><h3>Dica de atendimento</h3><p class="muted">${c ? (c.origem !== 'app' ? `${esc(firstName(c.nome))} ainda não usa o app. Convide: entrando com o mesmo telefone, ele vê o saldo e pode resgatar prêmios por lá.` : s.pts >= (premios()[0] || {pontos:Infinity}).pontos ? `${esc(firstName(c.nome))} já tem pontos para trocar por <b>${esc(varsFor(c).premio_sugerido)}</b>. Vale avisar no balcão.` : `Lembre ${esc(firstName(c.nome))} de que o cashback ${cfg().validadeDias ? `vale por ${cfg().validadeDias} dias` : 'não expira'} e de que, indicando um amigo, ganha ${money(cfg().bonusIndicador)}.`) : 'Cadastre o cliente na próxima compra: leva menos de um minuto e ele começa a acumular cashback e pontos.'}</p></div>
+  </div>`;
+}
+async function finalizar() {
+  const k = calc(); if (!(k.valor > 0)) return;
+  const now = new Date().toISOString(), atendente = opNome();
+  if (k.c) {
+    const c = clone(k.c), antes = k.s.nivel.nome;
+    const m = {...FID.newMov({}), t:'compra', canal:'loja', valor:k.valor, desconto:k.desconto, cbUsado:k.usar, cbGerado:k.cbGanho, pts:k.pts, ptsUsados:0, pago:k.total, forma:pdv.forma, desc:pdv.descricao.trim() || 'Compra na loja', pct:k.pct, op:atendente, camp:k.camps.map(x => x.nome)};
+    c.mov = [...(c.mov || []), m];
+    const primeira = k.s.compras === 0;
+    if (!await put('clientes', c.id, c)) return;
+    let bonus = null;
+    if (primeira && c.indicadoPor && !c.bonusIndicacao) {
+      const ind = S.clientes.get(c.indicadoPor);
+      if (ind) { try { bonus = await FID.pagarIndicacao(db, c.id, {...(R.ficha.get(c.id) || {})}, R.settings, c.nome, ind.nome, 'loja'); } catch (e) { toast('Venda salva, mas o bônus de indicação falhou. Lance pelo ajuste de saldo.', true); } }
+    }
+    const nv = stats(S.clientes.get(c.id)).nivel;
+    pdv.resultado = {...m, tipo:'compra', cid:c.id, troco:k.troco > 0 ? k.troco : 0, subiu: nv.nome !== antes && nv.min > 0, bonus};
+  } else {
+    const mes = now.slice(0, 7), doc = clone(S.avulsas.get(mes) || {vendas:[]});
+    const m = {id:newId(), data:now, valor:k.valor, desconto:k.desconto, pago:k.total, forma:pdv.forma, desc:pdv.descricao.trim(), op:atendente};
+    doc.vendas = [...(doc.vendas || []), m];
+    if (!await put('avulsas', mes, doc)) return;
+    pdv.resultado = {...m, tipo:'compra', cid:null, cbUsado:0, troco:k.troco > 0 ? k.troco : 0};
+  }
+  Object.assign(pdv, {valor:'', desconto:'', usarCb:'', recebido:'', descricao:''});
+  toast('Venda registrada'); render();
+}
+async function resgatar(pid) {
+  const p = S.premios.get(pid), c0 = S.clientes.get(pdv.clienteId); if (!p || !c0) return;
+  if (stats(c0).pts < p.pontos) return toast('Pontos insuficientes', true);
+  const disp = premioDisp(p); if (disp !== null && disp <= 0) return toast('Prêmio sem estoque', true);
+  const c = clone(c0), m = {...FID.newMov({}), t:'resgate', canal:'loja', ptsUsados:p.pontos, premio:p.nome, premioId:p.id, desc:'Troca na loja: ' + p.nome, op:opNome()};
+  if (p.tipo === 'cash' && p.valorCash > 0) m.cbGerado = r2(p.valorCash);
+  c.mov = [...(c.mov || []), m]; confirmKey = null;
+  if (!await put('clientes', c.id, c)) return;
+  if (disp !== null) await put('premios', p.id, {...p, estoque:disp - 1});
+  pdv.resultado = {...m, tipo:'resgate', cid:c.id}; render();
+}
+
+/* ---------- vendas e fechamento ---------- */
+function vendasTodas() {
+  const out = [];
+  for (const c of clientes()) for (const m of (c.mov || [])) if (m.t === 'compra' && numv(m.pago) > 0) out.push({...m, canal:m.canal || 'app', valor:m.valor ?? m.pago, cid:c.id, nome:c.nome});
+  for (const a of S.avulsas.values()) for (const m of (a.vendas || [])) out.push({...m, canal:'loja', cbUsado:0, cbGerado:0, pts:0, nome:null, mes:a.id});
+  return out.sort((a, b) => a.data < b.data ? 1 : -1);
+}
+function resumoDia(dia) {
+  const vs = vendasTodas().filter(v => v.canal === 'loja' && dayKey(v.data) === dia);
+  const porForma = {}; for (const f of Object.keys(FORMAS)) porForma[f] = {n:0, v:0};
+  const porOp = {};
+  for (const v of vs) { const f = porForma[v.forma] || (porForma[v.forma] = {n:0, v:0}); f.n++; f.v = r2(f.v + v.pago); const o = v.op || 'Sem atendente'; porOp[o] = porOp[o] || {n:0, v:0}; porOp[o].n++; porOp[o].v = r2(porOp[o].v + v.pago); }
+  let resg = 0; for (const c of clientes()) for (const m of (c.mov || [])) if (m.t === 'resgate' && m.canal === 'loja' && dayKey(m.data) === dia) resg++;
+  return {vs, porForma, porOp, resg, total:r2(vs.reduce((s, v) => s + v.pago, 0)), cbUsado:r2(vs.reduce((s, v) => s + (v.cbUsado || 0), 0)), descontos:r2(vs.reduce((s, v) => s + (v.desconto || 0), 0)), cbGerado:r2(vs.reduce((s, v) => s + (v.cbGerado || 0), 0))};
+}
+function fechVals(dia) {
+  const f = ui.fech[dia] || (ui.fech[dia] = {fundo:'', sangria:'', contado:'', obs:''});
+  const r = resumoDia(dia), din = r.porForma.dinheiro.v, esperado = r2(parseMoney(f.fundo) + din - parseMoney(f.sangria));
+  return {f, r, din, esperado, contado:parseMoney(f.contado), dif: f.contado === '' ? null : r2(parseMoney(f.contado) - esperado)};
+}
+const difChip = d => d === null || d === undefined ? '' : Math.abs(d) < 0.01 ? '<span class="chip good">Caixa bateu</span>' : d > 0 ? `<span class="chip warn">Sobra de ${money(d)}</span>` : `<span class="chip bad">Falta de ${money(-d)}</span>`;
+function viewFechamento() {
+  const dia = ui.fechDia || today(), x = fechVals(dia), r = x.r, salvo = S.fechamentos.get(dia);
+  const hist = [...S.fechamentos.values()].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 30);
+  const tabela = `<div class="tbl"><table><thead><tr><th>Forma de pagamento</th><th class="n">Vendas</th><th class="n">Total</th></tr></thead><tbody>
+    ${Object.entries(r.porForma).map(([k, v]) => `<tr><td>${esc(FORMAS[k] || k)}</td><td class="n">${v.n}</td><td class="n">${money(v.v)}</td></tr>`).join('')}
+    </tbody><tfoot><tr><td>Total</td><td class="n">${r.vs.length}</td><td class="n">${money(r.total)}</td></tr></tfoot></table></div>`;
+  let form;
+  if (salvo && !ui.refazer) {
+    form = `<div class="card"><div class="row between"><h3>Caixa fechado</h3>${difChip(salvo.diferenca)}</div>
+      <div class="sum">
+        <div class="l"><span>Fundo de troco</span><span>${money(salvo.fundo)}</span></div>
+        <div class="l"><span>Vendas em dinheiro</span><span>+ ${money(salvo.dinheiro)}</span></div>
+        <div class="l"><span>Retiradas (sangria)</span><span>− ${money(salvo.sangria)}</span></div>
+        <div class="l"><span>Esperado na gaveta</span><b>${money(salvo.esperado)}</b></div>
+        <div class="l"><span>Contado na gaveta</span><b>${money(salvo.contado)}</b></div>
+      </div>
+      ${salvo.obs ? `<div class="note info">${esc(salvo.obs)}</div>` : ''}
+      <span class="small muted">Fechado${salvo.por ? ' por ' + esc(salvo.por) : ''} em ${fmtDT(salvo.em)}.${r.total !== salvo.total ? ` <b class="neg">Atenção: houve vendas ou cancelamentos depois do fechamento (total agora ${money(r.total)}, no fechamento ${money(salvo.total)}).</b>` : ''}</span>
+      ${isGerente() ? '<div><button class="btn sm" data-act="fech-refazer">Refazer fechamento</button></div>' : ''}</div>`;
+  } else {
+    form = `<form data-form="fech" class="card"><h3>Conferência do dinheiro</h3>
+      <div class="fields">
+        <label class="f">Fundo de troco no início (R$)<input type="text" inputmode="decimal" id="fe-fundo" data-bindf="fundo" value="${esc(x.f.fundo)}" placeholder="0,00"></label>
+        <label class="f">Retiradas / sangria (R$)<input type="text" inputmode="decimal" id="fe-sang" data-bindf="sangria" value="${esc(x.f.sangria)}" placeholder="0,00"></label>
+        <label class="f">Dinheiro contado na gaveta (R$)<input type="text" inputmode="decimal" id="fe-cont" data-bindf="contado" value="${esc(x.f.contado)}" placeholder="0,00"></label>
+      </div>
+      <div id="fech-calc"></div>
+      <label class="f">Observação<input type="text" id="fe-obs" data-bindf="obs" value="${esc(x.f.obs)}" placeholder="ex.: troco devolvido a cliente"></label>
+      <div class="row"><button class="btn pri">Fechar o caixa de ${fmtDay(dia)}</button>${ui.refazer ? '<button type="button" class="btn ghost" data-act="fech-cancel">Cancelar</button>' : ''}</div>
+    </form>`;
+  }
+  return `<div class="col">
+    <div class="row between"><h2>Fechamento de caixa</h2><label class="row small muted" style="gap:8px;font-weight:700">Dia<input type="date" id="fech-dia" value="${dia}" max="${today()}" style="width:auto"></label></div>
+    <p class="small muted">Só as vendas feitas aqui no caixa. Pedidos do app aparecem no CRM.</p>
+    <div class="kpis">
+      <div class="kpi hl"><span class="eyebrow">Total do dia</span><b>${money(r.total)}</b><span class="small">${plural(r.vs.length, 'venda', 'vendas')}</span></div>
+      <div class="kpi"><span class="eyebrow">Cashback usado</span><b>${money(r.cbUsado)}</b><span class="small muted">descontos: ${money(r.descontos)}</span></div>
+      <div class="kpi"><span class="eyebrow">Cashback gerado</span><b class="pos">${money(r.cbGerado)}</b></div>
+      <div class="kpi"><span class="eyebrow">Trocas de prêmios</span><b>${r.resg}</b></div>
+    </div>
+    <div class="grid2">
+      <div class="col">${tabela}
+        <div class="card"><h3>Por atendente</h3>${Object.keys(r.porOp).length ? `<div class="list">${Object.entries(r.porOp).sort((a, b) => b[1].v - a[1].v).map(([n, v]) => `<div class="item"><div class="t"><b>${esc(n)}</b> <span class="small muted">· ${plural(v.n, 'venda', 'vendas')}</span></div><b>${money(v.v)}</b></div>`).join('')}</div>` : '<div class="note info">Nenhuma venda neste dia.</div>'}</div>
+      </div>
+      <div class="col">${form}
+        <div class="card"><h3>Fechamentos anteriores</h3>${hist.length ? `<div class="list">${hist.map(h => `<button class="item" style="text-align:left;width:100%;cursor:pointer" data-act="fech-ver" data-d="${h.id}"><div class="t"><b>${fmtDay(h.id)}</b><div class="small muted">${money(h.total)}${h.por ? ' · ' + esc(h.por) : ''}</div></div>${difChip(h.diferenca)}</button>`).join('')}</div>` : '<div class="note info">Nenhum caixa fechado ainda.</div>'}</div>
+      </div>
+    </div>
+  </div>`;
+}
+function renderFechCalc() {
+  const el = $('#fech-calc'); if (!el) return;
+  const x = fechVals(ui.fechDia || today());
+  el.innerHTML = `<div class="sum">
+    <div class="l"><span>Fundo de troco</span><span>${money(parseMoney(x.f.fundo))}</span></div>
+    <div class="l"><span>Vendas em dinheiro</span><span>+ ${money(x.din)}</span></div>
+    <div class="l"><span>Retiradas (sangria)</span><span>− ${money(parseMoney(x.f.sangria))}</span></div>
+    <div class="l tot"><span style="font-weight:800">Esperado na gaveta</span><b style="font-size:26px">${money(x.esperado)}</b></div>
+    ${x.dif !== null ? `<div class="l"><span>Diferença</span>${difChip(x.dif)}</div>` : ''}</div>`;
+}
+
+/* ---------- clientes ---------- */
+function viewClientes() {
+  if (ui.cliSel && S.clientes.get(ui.cliSel)) return viewFicha(S.clientes.get(ui.cliSel));
+  const q = norm(ui.cliBusca).trim(), qd = digits(ui.cliBusca);
+  let list = clientes().map(c => ({c, s:stats(c)}));
+  const total = list.length;
+  if (q) list = list.filter(({c}) => norm(c.nome).includes(q) || (qd.length >= 3 && (digits(c.telefone).includes(qd) || digits(c.cpf).includes(qd))) || (c.tags || []).some(t => norm(t).includes(q)) || (c.pets || []).some(p => norm(p.n).includes(q)));
+  if (ui.cliNivel !== 'todos') list = list.filter(({s}) => s.nivel.nome === ui.cliNivel);
+  list.sort((a, b) => norm(a.c.nome).localeCompare(norm(b.c.nome)));
+  return `<div class="col">
+    <div class="row between"><h2>Clientes <span class="muted small">(${total})</span></h2><button class="btn pri" data-act="cli-novo">+ Novo cliente</button></div>
+    <p class="small muted">Inclui quem se cadastrou no app e quem foi cadastrado aqui no caixa.</p>
+    ${ui.editando === 'novo' ? clienteForm({}, 'clinovo', 'Cadastrar cliente') : ''}
+    <div class="row"><input type="search" id="cli-busca" data-bind-ui="cliBusca" value="${esc(ui.cliBusca)}" placeholder="Buscar por nome, telefone, CPF, pet ou etiqueta" style="flex:1 1 240px">
+      <div class="seg">${['todos', ...cfg().niveis.map(n => n.nome)].map(n => `<button data-act="cli-nivel" data-v="${esc(n)}" aria-pressed="${ui.cliNivel === n}">${n === 'todos' ? 'Todos' : esc(n)}</button>`).join('')}</div></div>
+    ${!total ? `<div class="card empty"><b>Nenhum cliente ainda</b><span>Cadastre clientes aqui ou no caixa. Quem se cadastrar no app aparece aqui também.</span><button class="btn pri" data-act="cli-novo">+ Cadastrar o primeiro cliente</button></div>` :
+    !list.length ? `<div class="note info">Nenhum cliente encontrado com esse filtro.</div>` :
+    `<div class="tbl"><table><thead><tr><th>Cliente</th><th>Nível</th><th class="n">Cashback</th><th class="n">Pontos</th><th class="n">Gasto 12 meses</th><th>Última compra</th></tr></thead><tbody>
+    ${list.map(({c, s}) => `<tr class="click" data-act="ver-cliente" data-c="${c.id}"><td><b>${esc(c.nome)}</b> ${origemChip(c)}<div class="small muted">${esc(fmtPhone(c.telefone))}</div></td><td>${lvChip(s.nivel)}</td><td class="n pos">${money(s.saldo)}</td><td class="n">${nfmt(s.pts)}</td><td class="n">${money(s.gasto12)}</td><td class="small">${s.ultima ? `${fmtDate(s.ultima)}<div class="muted">há ${daysAgo(s.ultima)} dias</div>` : '<span class="muted">nunca comprou</span>'}</td></tr>`).join('')}
+    </tbody></table></div>`}
+  </div>`;
+}
+function viewFicha(c) {
+  const s = stats(c), conf = cfg(), G = isGerente();
+  const prox = conf.niveis.map((n, i) => ({...n, idx:i})).filter(n => n.min > s.gasto12).sort((a, b) => a.min - b.min)[0];
+  const movs = [...(c.mov || [])].sort((a, b) => a.data < b.data ? 1 : -1);
+  const notas = [...(c.notas || [])].sort((a, b) => a.data < b.data ? 1 : -1);
+  const atras = c.proximo && c.proximo.data && c.proximo.data <= today();
+  const indPor = c.indicadoPor ? S.clientes.get(c.indicadoPor) : null, indicou = clientes().filter(x => x.indicadoPor === c.id);
+  const movTxt = m => m.t === 'compra' ? `${esc(m.desc || 'Compra')}<div class="small muted">${m.canal === 'loja' ? 'Loja' : 'App'}${m.forma ? ' · ' + esc(FORMAS[m.forma] || m.forma) : ''}${m.desconto ? ' · desc. ' + money(m.desconto) : ''}${m.camp && m.camp.length ? ' · ' + esc(m.camp.join(', ')) : ''}</div>`
+    : m.t === 'resgate' ? `Troca: <b>${esc(m.premio || '')}</b><div class="small muted">${m.canal === 'loja' ? 'Loja' : 'App'}</div>` : `${esc(m.desc || 'Ajuste')}`;
+  return `<div class="col">
+    <div class="row"><button class="btn ghost" data-act="cli-voltar">← Todos os clientes</button></div>
+    <div class="card">
+      <div class="row between" style="align-items:flex-start">
+        <div class="who"><div class="av">${esc(initials(c.nome))}</div><div style="min-width:0"><h2>${esc(c.nome)}</h2><div class="small muted">${esc(fmtPhone(c.telefone))}${c.email ? ' · ' + esc(c.email) : ''}${c.aniversario ? ' · nasc. ' + fmtDay(c.aniversario) : ''}${c.pets.length ? ' · pets: ' + esc(c.pets.map(p => p.n).join(', ')) : ''}</div>
+          <div class="row" style="gap:6px;margin-top:6px">${lvChip(s.nivel)}${origemChip(c)}${(c.tags || []).map(t => `<span class="chip">${esc(t)}</span>`).join('')}</div></div></div>
+        <div class="row"><button class="btn pri" data-act="vender" data-c="${c.id}">Nova venda</button><button class="btn wa" data-act="msg" data-c="${c.id}">Mensagem</button></div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><span class="eyebrow">Cashback</span><b class="pos">${money(s.saldo)}</b>${s.vencendo ? `<span class="small" style="color:var(--warn)">${money(s.vencendo)} vence ${fmtDate(s.vencData)}</span>` : ''}</div>
+        <div class="kpi"><span class="eyebrow">Pontos</span><b>${nfmt(s.pts)}</b></div>
+        <div class="kpi"><span class="eyebrow">Gasto 12 meses</span><b>${money(s.gasto12)}</b>${prox ? `<span class="small muted">faltam ${money(prox.min - s.gasto12)} para ${esc(prox.nome)}</span>` : ''}</div>
+        <div class="kpi"><span class="eyebrow">Compras</span><b>${s.compras}</b><span class="small muted">ticket médio ${money(s.ticket)}</span></div>
+        <div class="kpi"><span class="eyebrow">Última compra</span><b>${s.ultima ? fmtDate(s.ultima) : '—'}</b>${s.ultima ? `<span class="small muted">há ${daysAgo(s.ultima)} dias</span>` : ''}</div>
+      </div>
+      ${indPor || indicou.length ? `<div class="note info">${indPor ? `Indicado por <button class="btn sm ghost" style="padding:0" data-act="ver-cliente" data-c="${indPor.id}">${esc(indPor.nome)}</button>${c.bonusIndicacao ? ' · bônus pago' : ' · bônus sai na primeira compra'}. ` : ''}${indicou.length ? `Indicou ${plural(indicou.length, 'cliente', 'clientes')}: ${indicou.map(x => esc(firstName(x.nome))).join(', ')}.` : ''}</div>` : ''}
+      ${c.obs ? `<div class="note info">${esc(c.obs)}</div>` : ''}
+      <div class="row"><button class="btn sm" data-act="cli-editar">Editar dados</button><button class="btn sm" data-act="msg-convite" data-c="${c.id}">Convidar para indicar</button>${G ? `<button class="btn sm" data-act="cli-ajuste">Ajustar saldo</button>${c.origem === 'loja' ? confirmBtn('delcli-' + c.id, 'Excluir cliente', 'cli-excluir', `data-c="${c.id}"`) : ''}` : ''}</div>
+      ${ui.editando === c.id ? clienteForm(c, 'cliedit', 'Salvar alterações') : ''}
+      ${ui.ajuste && G ? `<form data-form="ajuste" class="card" style="background:var(--sunk)"><h3>Ajuste manual de saldo</h3><div class="fields">
+        <label class="f">O que ajustar<select name="tipo" id="aj-tipo"><option value="cb">Cashback (R$)</option><option value="pts">Pontos</option></select></label>
+        <label class="f">Operação<select name="op" id="aj-op"><option value="+">Adicionar</option><option value="-">Retirar</option></select></label>
+        <label class="f">Quantidade<input type="text" inputmode="decimal" name="qtd" id="aj-qtd" required></label>
+        <label class="f">Motivo<input type="text" name="motivo" id="aj-mot" placeholder="ex.: cortesia" required></label></div>
+        <div class="row"><button class="btn pri">Aplicar ajuste</button><button type="button" class="btn ghost" data-act="cli-ajuste">Cancelar</button></div></form>` : ''}
+    </div>
+    <div class="grid2">
+      <div class="card"><h3>Histórico (loja e app)</h3>
+        ${movs.length ? `<div class="tbl"><table><thead><tr><th>Data</th><th>Movimento</th><th class="n">Pago</th><th class="n">Cashback</th><th class="n">Pontos</th>${G ? '<th></th>' : ''}</tr></thead><tbody>
+        ${movs.map(m => `<tr><td class="small">${fmtDT(m.data)}${m.op ? `<div class="muted">${esc(m.op)}</div>` : ''}</td><td>${movTxt(m)}</td>
+          <td class="n">${m.t === 'compra' && m.pago ? money(m.pago) : '—'}</td>
+          <td class="n">${m.cbGerado ? `<span class="pos">+${money(m.cbGerado)}</span>` : ''}${m.cbUsado ? `<div class="neg">−${money(m.cbUsado)}</div>` : ''}${!m.cbGerado && !m.cbUsado ? '—' : ''}</td>
+          <td class="n">${m.pts ? `<span class="pos">+${m.pts}</span>` : ''}${m.ptsUsados ? `<div class="neg">−${m.ptsUsados}</div>` : ''}${!m.pts && !m.ptsUsados ? '—' : ''}</td>
+          ${G ? `<td class="n">${m.canal === 'loja' || m.t === 'ajuste' ? confirmBtn('est-' + m.id, 'Cancelar', 'estornar', `data-c="${c.id}" data-m="${m.id}"`, 'btn sm ghost') : ''}</td>` : ''}</tr>`).join('')}
+        </tbody></table></div>` : `<div class="note info">Nenhuma compra ainda. Use “Nova venda” para registrar a primeira.</div>`}
+        <span class="small muted">Pedidos do app se cancelam pela Gestão do app, mudando a situação do pedido.</span>
+      </div>
+      <div class="col">
+        <form data-form="proximo" class="card"><h3>Próximo contato</h3>
+          ${c.proximo && c.proximo.data ? `<div class="note ${atras ? 'warn' : 'info'}">${atras ? 'Pendente' : 'Agendado'}: ${fmtDay(c.proximo.data)}${c.proximo.assunto ? ' · ' + esc(c.proximo.assunto) : ''}</div>` : ''}
+          <div class="fields"><label class="f">Data<input type="date" name="data" id="px-data" value="${esc(c.proximo && c.proximo.data)}"></label>
+          <label class="f">Assunto<input type="text" name="assunto" id="px-ass" value="${esc(c.proximo && c.proximo.assunto)}" placeholder="ex.: avisar chegada da ração"></label></div>
+          <div class="row"><button class="btn sm pri">Agendar</button>${c.proximo && c.proximo.data ? `<button type="button" class="btn sm" data-act="px-ok" data-c="${c.id}">Marcar como feito</button>` : ''}</div>
+        </form>
+        <form data-form="nota" class="card"><h3>Anotações internas</h3>
+          <textarea name="texto" id="nota-txt" rows="2" placeholder="Ex.: prefere ser chamado à tarde; o pet tem alergia a frango"></textarea>
+          <div><button class="btn sm">Adicionar anotação</button></div>
+          <div class="list">${notas.length ? notas.map(n => `<div class="hist-note"><div class="row between"><span class="small muted">${fmtDT(n.data)}${n.tipo === 'msg' ? ' · WhatsApp' : ''}${n.op ? ' · ' + esc(n.op) : ''}</span>${confirmBtn('nota-' + n.id, 'Apagar', 'nota-del', `data-c="${c.id}" data-n="${n.id}"`, 'btn sm ghost')}</div>${esc(n.texto)}</div>`).join('') : '<span class="small muted">Sem anotações. O cliente não vê estas anotações.</span>'}</div>
+        </form>
+      </div>
+    </div>
+  </div>`;
+}
+function readClienteForm(f, existing) {
+  const fd = new FormData(f), tel = digits(fd.get('telefone')), nome = String(fd.get('nome') || '').trim();
+  if (!nome) { toast('Informe o nome do cliente', true); return null; }
+  if (tel.length < 10) { toast('Telefone com DDD, ex.: (11) 98765-4321', true); return null; }
+  const dup = clientes().find(c => digits(c.telefone) === tel && (!existing || c.id !== existing.id));
+  if (dup) { toast(`Já existe cliente com esse telefone: ${dup.nome}${dup.origem === 'app' ? ' (cadastrado no app)' : ''}`, true); return null; }
+  const c = {...(existing ? clone(existing) : {id:'loja-' + newId(), origem:'loja', criadoEm:new Date().toISOString(), mov:[], notas:[]}),
+    nome, telefone:tel, email:String(fd.get('email') || '').trim(), cpf:digits(fd.get('cpf')), aniversario:fd.get('aniversario') || '',
+    tags:String(fd.get('tags') || '').split(',').map(t => t.trim()).filter(Boolean), obs:String(fd.get('obs') || '').trim()};
+  if (fd.has('indicadoPor')) {
+    const v = String(fd.get('indicadoPor') || '').trim();
+    if (!v) delete c.indicadoPor;
+    else {
+      const d = digits(v.split('·')[1] || ''), nv = norm(v.split('·')[0]).trim();
+      const cands = clientes().filter(x => x.id !== c.id && (d.length >= 10 ? digits(x.telefone) === d : norm(x.nome) === nv));
+      if (cands.length !== 1) { toast('Não encontrei quem indicou. Escolha um nome da lista de sugestões.', true); return null; }
+      c.indicadoPor = cands[0].id;
+    }
+  }
+  return c;
+}
+
+/* ---------- CRM ---------- */
+function periodoIni() {
+  const now = new Date(), t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return {hoje:t0, '7d':t0 - 6 * DAY, '30d':t0 - 29 * DAY, mes:new Date(now.getFullYear(), now.getMonth(), 1).getTime(), tudo:0}[ui.crmPeriodo];
+}
+function segmentos() {
+  const mes = new Date().getMonth() + 1, list = clientes().map(c => ({c, s:stats(c)})), minP = premios()[0];
+  const dia = c => +String(c.aniversario).slice(8, 10);
+  return [
+    {id:'aniversario', nome:'Aniversariantes do mês', desc:'Mande parabéns e convide para comprar', g:'aniversario', itens:list.filter(({c}) => c.aniversario && +c.aniversario.slice(5, 7) === mes).sort((a, b) => dia(a.c) - dia(b.c)), info:({c}) => 'dia ' + dia(c)},
+    {id:'vencendo', nome:'Cashback vencendo (7 dias)', desc:'Avise antes que o saldo expire', g:'vencendo', itens:list.filter(({s}) => s.vencendo > 0).sort((a, b) => a.s.vencData - b.s.vencData), info:({s}) => `${money(s.vencendo)} até ${fmtDate(s.vencData)}`},
+    {id:'inativo30', nome:'Sumidos há 30–59 dias', desc:'Hora de lembrar que o cashback está esperando', g:'inativo', itens:list.filter(({s}) => s.ultima && daysAgo(s.ultima) >= 30 && daysAgo(s.ultima) < 60), info:({s}) => `há ${daysAgo(s.ultima)} dias`},
+    {id:'inativo60', nome:'Em risco: 60+ dias sem comprar', desc:'Clientes que podem estar indo embora', g:'inativo', itens:list.filter(({s}) => s.ultima && daysAgo(s.ultima) >= 60), info:({s}) => `há ${daysAgo(s.ultima)} dias`},
+    {id:'pontos', nome:'Podem trocar pontos', desc:'Já têm pontos para algum prêmio', g:'pontos', itens:minP ? list.filter(({s}) => s.pts >= minP.pontos).sort((a, b) => b.s.pts - a.s.pts) : [], info:({s}) => `${nfmt(s.pts)} pts`},
+    {id:'cashback', nome:'Com cashback para usar', desc:'Saldo parado é motivo para voltar', g:'livre', itens:list.filter(({s}) => s.saldo > 0).sort((a, b) => b.s.saldo - a.s.saldo), info:({s}) => money(s.saldo)},
+    {id:'semapp', nome:'Ainda não usam o app', desc:'Convide para ver o saldo e resgatar pelo app', g:'boas-vindas', itens:list.filter(({c}) => c.origem === 'loja'), info:({s}) => money(s.saldo)},
+    {id:'top', nome:'Melhores clientes', desc:'Os 10 que mais gastaram em 12 meses; ótimos para indicar', g:'convite', itens:list.filter(({s}) => s.gasto12 > 0).sort((a, b) => b.s.gasto12 - a.s.gasto12).slice(0, 10), info:({s}) => money(s.gasto12)},
+    {id:'todos', nome:'Todos os clientes', desc:'Para campanhas gerais', g:'campanha', itens:list.sort((a, b) => norm(a.c.nome).localeCompare(norm(b.c.nome))), info:({s}) => money(s.saldo), oculto:true}
+  ];
+}
+function chartHtml() {
+  const vs = vendasTodas(), now = new Date(), keys = [], labels = [], fullLbl = [];
+  if (ui.chart === 'dias') { for (let i = 29; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i); keys.push(dayKey(d)); labels.push(i % 5 === 0 ? d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}) : ''); fullLbl.push(d.toLocaleDateString('pt-BR', {weekday:'short', day:'2-digit', month:'2-digit'})); } }
+  else { for (let i = 11; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); keys.push(dayKey(d).slice(0, 7)); labels.push(d.toLocaleDateString('pt-BR', {month:'short'}).replace('.', '')); fullLbl.push(d.toLocaleDateString('pt-BR', {month:'long', year:'numeric'})); } }
+  const idx = new Map(keys.map((k, i) => [k, i])), val = keys.map(() => 0), cnt = keys.map(() => 0);
+  for (const v of vs) { const k = ui.chart === 'dias' ? dayKey(v.data) : dayKey(v.data).slice(0, 7); if (idx.has(k)) { val[idx.get(k)] += v.pago; cnt[idx.get(k)]++; } }
+  const max = Math.max(...val, 0);
+  const step = (() => { if (!max) return 100; const raw = max / 3, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p; })();
+  const top = step * Math.max(1, Math.ceil(max / step)), ticks = []; for (let t = 0; t <= top + 1e-9; t += step) ticks.push(t);
+  const total = r2(val.reduce((a, b) => a + b, 0));
+  return `<div class="row between"><div><h3>Faturamento ${ui.chart === 'dias' ? 'por dia' : 'por mês'}</h3><span class="small muted">Loja e app · ${ui.chart === 'dias' ? 'últimos 30 dias' : 'últimos 12 meses'}: ${money(total)}</span></div>
+    <div class="seg"><button data-act="chart" data-v="dias" aria-pressed="${ui.chart === 'dias'}">30 dias</button><button data-act="chart" data-v="meses" aria-pressed="${ui.chart === 'meses'}">12 meses</button></div></div>
+    ${!max ? '<div class="note info">Ainda não há vendas neste intervalo. O gráfico aparece assim que as vendas forem registradas.</div>' : `
+    <div class="chart" role="img" aria-label="Faturamento ${ui.chart === 'dias' ? 'diário dos últimos 30 dias' : 'mensal dos últimos 12 meses'}, total ${money(total)}">
+      <div class="yax">${ticks.map(t => `<span style="bottom:${t / top * 100}%">${moneyShort(t)}</span>`).join('')}</div>
+      <div class="plot">${ticks.slice(1).map(t => `<div class="gl" style="bottom:${t / top * 100}%"></div>`).join('')}
+        <div class="bars">${val.map((v, i) => `<button class="b" type="button" data-tip="${esc(fullLbl[i])}: ${esc(money(v))} · ${plural(cnt[i], 'venda', 'vendas')}" aria-label="${esc(fullLbl[i])}: ${esc(money(v))}"><i style="height:${v / top * 100}%"></i></button>`).join('')}</div>
+        <div id="tip" hidden></div></div>
+      <div class="xax">${labels.map(l => `<span>${esc(l)}</span>`).join('')}</div>
+    </div>`}`;
+}
+function viewCrm() {
+  const ini = periodoIni(), vs = vendasTodas().filter(v => Date.parse(v.data) >= ini);
+  const fat = r2(vs.reduce((s, v) => s + v.pago, 0)), n = vs.length, fatLoja = r2(vs.filter(v => v.canal === 'loja').reduce((s, v) => s + v.pago, 0));
+  const cbG = r2(vs.reduce((s, v) => s + (v.cbGerado || 0), 0)), cbU = r2(vs.reduce((s, v) => s + (v.cbUsado || 0), 0));
+  const atend = new Set(vs.filter(v => v.cid).map(v => v.cid)).size;
+  const all = clientes().map(c => ({c, s:stats(c)}));
+  const aberto = r2(all.reduce((s, x) => s + x.s.saldo, 0)), ptsCirc = all.reduce((s, x) => s + x.s.pts, 0);
+  const ativos = all.filter(x => x.s.ultima && daysAgo(x.s.ultima) < 30).length, noApp = all.filter(x => x.c.origem === 'app').length;
+  const comCb = vs.filter(v => v.cbUsado > 0), fatCb = r2(comCb.reduce((s, v) => s + v.pago + v.cbUsado, 0));
+  const compradores = all.filter(x => x.s.compras > 0), recompra = compradores.length ? Math.round(compradores.filter(x => x.s.compras >= 2).length / compradores.length * 100) : 0;
+  const voltaram = new Set(vs.filter(v => v.cid && S.clientes.get(v.cid) && Date.parse(stats(S.clientes.get(v.cid)).primeira) < ini).map(v => v.cid)).size;
+  const freqs = compradores.filter(x => x.s.compras >= 2).map(x => (Date.parse(x.s.ultima) - Date.parse(x.s.primeira)) / DAY / (x.s.compras - 1));
+  const freq = freqs.length ? Math.round(freqs.reduce((a, b) => a + b, 0) / freqs.length) : null;
+  let indic = 0; for (const c of clientes()) for (const m of (c.mov || [])) if (m.bonus === 'indicado' && Date.parse(m.data) >= ini) indic++;
+  const t = today();
+  const agenda = all.filter(x => x.c.proximo && x.c.proximo.data && x.c.proximo.data <= dayKey(Date.now() + 7 * DAY)).sort((a, b) => a.c.proximo.data.localeCompare(b.c.proximo.data));
+  const segs = segmentos().filter(s => !s.oculto), sel = segs.find(s => s.id === ui.crmSeg);
+  const P = {hoje:'Hoje', '7d':'7 dias', '30d':'30 dias', mes:'Este mês', tudo:'Tudo'};
+  return `<div class="col">
+    <div class="row between"><h2>Painel</h2><div class="seg">${Object.entries(P).map(([k, v]) => `<button data-act="crm-per" data-v="${k}" aria-pressed="${ui.crmPeriodo === k}">${v}</button>`).join('')}</div></div>
+    <div class="kpis">
+      <div class="kpi hl"><span class="eyebrow">Faturamento</span><b>${money(fat)}</b><span class="small">${plural(n, 'venda', 'vendas')} · loja ${money(fatLoja)} · app ${money(fat - fatLoja)}</span></div>
+      <div class="kpi"><span class="eyebrow">Ticket médio</span><b>${money(n ? fat / n : 0)}</b></div>
+      <div class="kpi"><span class="eyebrow">Cashback gerado</span><b class="pos">${money(cbG)}</b><span class="small muted">usado: ${money(cbU)}</span></div>
+      <div class="kpi"><span class="eyebrow">Clientes atendidos</span><b>${atend}</b><span class="small muted">${voltaram} já eram clientes antes</span></div>
+    </div>
+    <div class="grid2">
+      <div class="card">${chartHtml()}</div>
+      <div class="card"><h3>Retorno do programa</h3><span class="small muted">No período escolhido, exceto onde indicado.</span>
+        <div>
+          <div class="metric"><span class="eyebrow">Vendas em que o cliente usou cashback</span><b>${plural(comCb.length, 'venda', 'vendas')} · ${money(fatCb)}</b><span class="small muted">${cbU ? `Cada R$ 1 de cashback usado veio junto com ${money(fatCb / cbU)} em compras.` : 'Nenhum cashback usado ainda no período.'}</span></div>
+          <div class="metric"><span class="eyebrow">Custo do programa</span><b>${fat ? nfmt(Math.round(cbG / fat * 1000) / 10) : 0}% do faturamento</b><span class="small muted">Cashback gerado ÷ faturamento.</span></div>
+          <div class="metric"><span class="eyebrow">Taxa de recompra (desde o início)</span><b>${recompra}%</b><span class="small muted">Clientes que compraram 2 vezes ou mais.${freq ? ` Voltam em média a cada ${plural(freq, 'dia', 'dias')}.` : ''}</span></div>
+          <div class="metric"><span class="eyebrow">Indicações que viraram compra</span><b>${indic}</b></div>
+        </div></div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><span class="eyebrow">Cashback em aberto</span><b>${money(aberto)}</b><span class="small muted">saldo que os clientes podem usar</span></div>
+      <div class="kpi"><span class="eyebrow">Pontos em circulação</span><b>${nfmt(ptsCirc)}</b></div>
+      <div class="kpi"><span class="eyebrow">Clientes</span><b>${all.length}</b><span class="small muted">${noApp} usam o app · ${ativos} compraram em 30 dias</span></div>
+    </div>
+    ${agenda.length ? `<div class="card"><h3>Contatos agendados</h3><div class="list">${agenda.map(({c}) => `<div class="item"><div class="t"><b>${esc(c.nome)}</b> <span class="chip ${c.proximo.data < t ? 'bad' : c.proximo.data === t ? 'warn' : ''}">${c.proximo.data < t ? 'atrasado · ' : c.proximo.data === t ? 'hoje · ' : ''}${fmtDay(c.proximo.data)}</span><div class="small muted">${esc(c.proximo.assunto || 'sem assunto')}</div></div><div class="row"><button class="btn sm wa" data-act="msg" data-c="${c.id}">Mensagem</button><button class="btn sm" data-act="ver-cliente" data-c="${c.id}">Ficha</button></div></div>`).join('')}</div></div>` : ''}
+    <div class="card"><div><h3>Oportunidades de relacionamento</h3><p class="small muted" style="margin-top:4px">Toque em um grupo para ver os clientes e mandar a mensagem certa.</p></div>
+      <div class="segs">${segs.map(s => `<button class="segc" data-act="crm-seg" data-v="${s.id}" aria-pressed="${ui.crmSeg === s.id}"><span class="eyebrow">${esc(s.nome)}</span><b>${s.itens.length}</b><span class="small muted">${esc(s.desc)}</span></button>`).join('')}</div>
+      ${sel ? `<hr><div class="row between"><h3>${esc(sel.nome)}</h3><button class="btn sm" data-act="envio-seg" data-v="${sel.id}">Enviar para o grupo</button></div>
+        ${sel.itens.length ? `<div class="list">${sel.itens.map(x => `<div class="item"><div class="t"><b>${esc(x.c.nome)}</b> <span class="small muted">· ${esc(sel.info(x))}</span><div class="small muted">${esc(fmtPhone(x.c.telefone))} · ${money(x.s.saldo)} · ${x.s.pts} pts</div></div><div class="row"><button class="btn sm wa" data-act="msg" data-c="${x.c.id}" data-g="${sel.g}">Mensagem</button><button class="btn sm" data-act="ver-cliente" data-c="${x.c.id}">Ficha</button></div></div>`).join('')}</div>` : '<div class="note info">Nenhum cliente neste grupo agora.</div>'}` : ''}
+    </div>
+    <div class="card"><h3>Vendas do período</h3>
+      ${vs.length ? `<div class="tbl"><table><thead><tr><th>Data</th><th>Cliente</th><th>Onde</th><th>Atendente</th><th>Pagamento</th><th class="n">Cashback usado</th><th class="n">Pago</th>${isGerente() ? '<th></th>' : ''}</tr></thead><tbody>
+      ${vs.slice(0, 100).map(v => `<tr><td class="small">${fmtDT(v.data)}</td><td>${v.cid ? `<button class="btn sm ghost" style="padding:0" data-act="ver-cliente" data-c="${v.cid}">${esc(v.nome)}</button>` : '<span class="muted">Sem cadastro</span>'}${v.desc ? `<div class="small muted">${esc(v.desc)}</div>` : ''}</td><td>${v.canal === 'loja' ? 'Loja' : 'App'}</td><td class="small">${esc(v.op || '—')}</td><td>${esc(FORMAS[v.forma] || v.forma || '—')}</td><td class="n">${v.cbUsado ? `<span class="neg">−${money(v.cbUsado)}</span>` : '—'}</td><td class="n"><b>${money(v.pago)}</b></td>
+        ${isGerente() ? `<td class="n">${v.cid ? '' : confirmBtn('estav-' + v.id, 'Cancelar', 'estornar-av', `data-mes="${v.mes}" data-m="${v.id}"`, 'btn sm ghost')}</td>` : ''}</tr>`).join('')}
+      </tbody></table></div>${vs.length > 100 ? '<span class="small muted">Mostrando as 100 mais recentes.</span>' : ''}` : '<div class="note info">Nenhuma venda neste período.</div>'}
+    </div>
+  </div>`;
+}
+
+/* ---------- campanhas ---------- */
+const CAMP_MODELOS = [
+  {nome:'Cashback em dobro no fim de semana', multCb:2, extraPct:0, multPts:1, publico:'todos', dias:2},
+  {nome:'Mês do aniversariante: +5% de cashback', multCb:1, extraPct:5, multPts:1, publico:'aniversariantes', dias:30},
+  {nome:'Pontos em dobro', multCb:1, extraPct:0, multPts:2, publico:'todos', dias:7}
+];
+function viewCampanhas() {
+  const ks = campanhas(), e = ui.campEdit ? (typeof ui.campEdit === 'object' ? ui.campEdit : S.campanhas.get(ui.campEdit)) : null, pode = isGerente();
+  const stChip = st => `<span class="chip ${st === 'ativa' ? 'good' : st === 'agendada' ? 'warn' : ''}">${st}</span>`;
+  return `<div class="grid2"><div class="col">
+    <div class="row between"><h2>Campanhas</h2>${pode ? '<button class="btn pri" data-act="camp-novo">+ Nova campanha</button>' : ''}</div>
+    <p class="muted small">Valem na loja e no app. Durante a campanha o bônus é aplicado sozinho; se duas valerem para o mesmo cliente, os bônus se somam.</p>
+    ${soLeitura()}
+    ${e && pode ? `<form data-form="camp" class="card" style="background:var(--sunk)"><h3>${e.id ? 'Editar campanha' : 'Nova campanha'}</h3>
+      <label class="f">Nome *<input type="text" name="nome" id="cp-nome" required value="${esc(e.nome)}" placeholder="ex.: Black Friday Gatecão"></label>
+      <div class="fields">
+        <label class="f">Começa em *<input type="date" name="inicio" id="cp-ini" required value="${esc(e.inicio)}"></label>
+        <label class="f">Termina em *<input type="date" name="fim" id="cp-fim" required value="${esc(e.fim)}"></label>
+        <label class="f">Vale para<select name="publico" id="cp-pub"><option value="todos">Todos os clientes</option><option value="aniversariantes" ${e.publico === 'aniversariantes' ? 'selected' : ''}>Aniversariantes do mês</option>${cfg().niveis.map(n => `<option value="${esc(n.nome)}" ${e.publico === n.nome ? 'selected' : ''}>Só nível ${esc(n.nome)}</option>`).join('')}</select></label>
+      </div>
+      <div class="fields">
+        <label class="f">Multiplicar cashback por<input type="number" name="multCb" id="cp-mcb" min="1" max="10" step="0.5" value="${esc(e.multCb ?? 1)}"></label>
+        <label class="f">Somar ao cashback (pontos %)<input type="number" name="extraPct" id="cp-ext" min="0" max="50" step="0.5" value="${esc(e.extraPct ?? 0)}"></label>
+        <label class="f">Multiplicar pontos por<input type="number" name="multPts" id="cp-mpt" min="1" max="10" step="0.5" value="${esc(e.multPts ?? 1)}"></label>
+      </div>
+      <span class="small muted">Exemplo: cliente Bronze (${nfmt(cfg().niveis[0].cb)}%) com “multiplicar por 2” ganha ${nfmt(cfg().niveis[0].cb * 2)}%. Aniversariantes só são reconhecidos se a data de nascimento estiver na ficha.</span>
+      <div class="row"><button class="btn pri">Salvar campanha</button><button type="button" class="btn ghost" data-act="camp-cancel">Cancelar</button></div></form>` : ''}
+    ${ks.length ? `<div class="list">${ks.map(k => { const st = campStatus(k); return `<div class="item"><div class="t"><div class="row" style="gap:8px"><b>${esc(k.nome)}</b>${stChip(st)}</div><div class="small muted">${esc(campDesc(k))} · ${esc(publicoTxt(k.publico))} · ${fmtDay(k.inicio)} a ${fmtDay(k.fim)}</div></div>
+      ${pode ? `<div class="row">${st !== 'encerrada' ? `<button class="btn sm" data-act="camp-pausar" data-k="${k.id}">${k.ativo === false ? 'Retomar' : 'Pausar'}</button>` : ''}<button class="btn sm" data-act="camp-edit" data-k="${k.id}">Editar</button>${confirmBtn('delcp-' + k.id, 'Excluir', 'camp-del', `data-k="${k.id}"`)}</div>` : ''}</div>`; }).join('')}</div>`
+      : `<div class="card empty"><b>Nenhuma campanha criada</b><span>Use um dos modelos ao lado ou crie a sua.</span></div>`}
+  </div>
+  <div class="col">
+    ${pode ? `<div class="card"><h3>Modelos rápidos</h3><div class="list">${CAMP_MODELOS.map((m, i) => `<div class="item"><div class="t"><b>${esc(m.nome)}</b><div class="small muted">${esc(campDesc(m))} · ${esc(publicoTxt(m.publico))}</div></div><button class="btn sm" data-act="camp-modelo" data-i="${i}">Usar</button></div>`).join('')}</div></div>` : ''}
+    <div class="card"><h3>Avisar os clientes</h3><p class="small muted">O modelo “Aviso de campanha” já preenche o nome e o bônus das campanhas ativas ou agendadas para cada cliente.</p><div><button class="btn wa" data-act="envio-seg" data-v="todos" data-g="campanha">Avisar clientes no WhatsApp</button></div></div>
+  </div></div>`;
+}
+
+/* ---------- prêmios (os mesmos do app) ---------- */
+function viewPremios() {
+  const ps = [...S.premios.values()].sort((a, b) => a.pontos - b.pontos), e = ui.premioEdit ? (ui.premioEdit === 'novo' ? {tipo:'product', ativo:true} : S.premios.get(ui.premioEdit) || {}) : null, pode = isGerente();
+  const resg = []; for (const c of clientes()) for (const m of (c.mov || [])) if (m.t === 'resgate') resg.push({...m, nome:c.nome, cid:c.id});
+  resg.sort((a, b) => a.data < b.data ? 1 : -1);
+  return `<div class="grid2"><div class="col">
+    <div class="row between"><h2>Prêmios para troca</h2>${pode ? '<button class="btn pri" data-act="pr-novo">+ Novo prêmio</button>' : ''}</div>
+    <p class="muted small">São os mesmos prêmios do app. O cliente ganha ${nfmt(cfg().ptsPorReal)} ponto${cfg().ptsPorReal == 1 ? '' : 's'} a cada R$ 1 pago. Pode trocar aqui no caixa ou pedir pelo app (o pedido do app é aprovado na Gestão).</p>
+    ${soLeitura()}
+    ${e && pode ? `<form data-form="premio" class="card" style="background:var(--sunk)"><h3>${ui.premioEdit === 'novo' ? 'Novo prêmio' : 'Editar prêmio'}</h3><div class="fields">
+      <label class="f">Nome do prêmio *<input type="text" name="nome" id="pr-nome" required value="${esc(e.nome)}"></label>
+      <label class="f">Custo em pontos *<input type="number" name="pontos" id="pr-pts" min="1" step="1" required value="${esc(e.pontos)}"></label>
+      <label class="f">Tipo<select name="tipo" id="pr-tipo">${Object.entries(RW_KIND).map(([k, v]) => `<option value="${k}" ${e.tipo === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label class="f">Valor em cashback (só tipo Cashback)<input type="text" inputmode="decimal" name="valorCash" id="pr-cash" value="${esc(e.valorCash ? moneyIn(e.valorCash) : '')}" placeholder="0,00"></label>
+      <label class="f">Estoque (vazio = ilimitado)<input type="number" name="estoque" id="pr-est" min="0" step="1" value="${esc(e.estoque ?? '')}"></label></div>
+      <label class="f">Descrição<input type="text" name="descricao" id="pr-desc" value="${esc(e.descricao)}"></label>
+      <label class="row small" style="font-weight:700"><input type="checkbox" name="ativo" id="pr-ativo" ${e.ativo !== false ? 'checked' : ''}> Disponível para troca</label>
+      <div class="row"><button class="btn pri">Salvar prêmio</button><button type="button" class="btn ghost" data-act="pr-cancel">Cancelar</button></div></form>` : ''}
+    ${ps.length ? `<div class="list">${ps.map(p => { const d = premioDisp(p); return `<div class="item"><div class="t"><b>${esc(p.nome)}</b> ${p.ativo === false ? '<span class="chip">pausado</span>' : ''}<div class="small muted">${esc(RW_KIND[p.tipo] || 'Prêmio')}${p.tipo === 'cash' ? ' de ' + money(p.valorCash) : ''}${p.descricao ? ' · ' + esc(p.descricao) : ''}${d !== null ? ` · estoque: ${d}` : ''}</div></div>
+      <div class="row"><span class="chip" style="font-size:14px">${nfmt(p.pontos)} pts</span>${pode ? `<button class="btn sm" data-act="pr-edit" data-p="${p.id}">Editar</button>${confirmBtn('delpr-' + p.id, 'Excluir', 'pr-del', `data-p="${p.id}"`)}` : ''}</div></div>`; }).join('')}</div>` :
+      `<div class="card empty"><b>Nenhum prêmio cadastrado</b><span>Crie prêmios (produtos, serviços ou cashback) que o cliente pode trocar pelos pontos.</span></div>`}
+  </div>
+  <div class="card"><h3>Últimas trocas</h3>${resg.length ? `<div class="list">${resg.slice(0, 30).map(r => `<div class="item"><div class="t"><b>${esc(r.premio || r.desc || 'Prêmio')}</b><div class="small muted">${esc(r.nome)} · ${fmtDT(r.data)} · ${r.canal === 'loja' ? 'loja' : 'app'}${r.op ? ' · ' + esc(r.op) : ''}</div></div><span class="neg">−${r.ptsUsados || 0} pts</span></div>`).join('')}</div>` : '<div class="note info">Nenhuma troca feita ainda.</div>'}</div></div>`;
+}
+
+/* ---------- mensagens ---------- */
+function viewMensagens() {
+  const ts = mensagens(), t = ui.tplSel ? (ui.tplSel === 'novo' ? {gatilho:'livre'} : S.mensagens.get(ui.tplSel)) : null, G = isGerente();
+  const segs = segmentos(), sg = segs.find(s => s.id === ui.envioSeg) || segs[0];
+  const et = S.mensagens.get(ui.envioTpl) || tplByGatilho(sg.g), ex = sg.itens[0] ? sg.itens[0].c : clientes()[0];
+  return `<div class="grid2">
+      <div class="col">
+        <div class="row between"><h2>Mensagens prontas</h2>${G ? '<button class="btn pri" data-act="tpl-novo">+ Novo modelo</button>' : ''}</div>
+        ${t && G ? `<form data-form="tpl" class="card" style="background:var(--sunk)"><h3>${ui.tplSel === 'novo' ? 'Novo modelo' : 'Editar modelo'}</h3>
+          <div class="fields"><label class="f">Título *<input type="text" name="titulo" id="tpl-tit" required value="${esc(t.titulo)}"></label>
+          <label class="f">Usar para<select name="gatilho" id="tpl-gat">${Object.entries(GATILHOS).map(([k, v]) => `<option value="${k}" ${t.gatilho === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label></div>
+          <label class="f">Texto *<textarea name="texto" id="tpl-txt" rows="7" required>${esc(t.texto)}</textarea></label>
+          <div class="small muted">Toque para inserir no texto. São trocadas pelos dados de cada cliente:</div>
+          <div class="vars">${VARS.map(v => `<button type="button" data-act="ins-var" data-v="${v}">{${v}}</button>`).join('')}</div>
+          <div class="row"><button class="btn pri">Salvar modelo</button><button type="button" class="btn ghost" data-act="tpl-cancel">Cancelar</button></div></form>` : ''}
+        ${ts.length ? ts.map(m => `<div class="tpl"><div class="row between"><b>${esc(m.titulo)}</b><span class="chip">${esc(GATILHOS[m.gatilho] || 'Livre')}</span></div><p>${esc(m.texto)}</p>
+          <div class="row">${G ? `<button class="btn sm" data-act="tpl-edit" data-t="${m.id}">Editar</button>` : ''}<button class="btn sm" data-act="tpl-usar" data-t="${m.id}">Enviar para grupo</button>${G ? confirmBtn('deltpl-' + m.id, 'Excluir', 'tpl-del', `data-t="${m.id}"`) : ''}</div></div>`).join('') :
+          `<div class="card empty"><b>Nenhum modelo de mensagem</b><span>Carregue os modelos prontos ou crie o seu.</span>${G ? '<button class="btn pri" data-act="tpl-padrao">Carregar modelos prontos</button>' : ''}</div>`}
+      </div>
+      <div class="card sticky" id="envio">
+        <h3>Enviar para um grupo</h3>
+        <div class="fields"><label class="f">Grupo de clientes<select id="envio-seg">${segs.map(s => `<option value="${s.id}" ${s.id === sg.id ? 'selected' : ''}>${esc(s.nome)} (${s.itens.length})</option>`).join('')}</select></label>
+        <label class="f">Modelo<select id="envio-tpl">${ts.map(m => `<option value="${m.id}" ${et && m.id === et.id ? 'selected' : ''}>${esc(m.titulo)}</option>`).join('')}</select></label></div>
+        ${et && ex ? `<div class="small muted">Prévia com ${esc(firstName(ex.nome))}:</div><div class="bubble">${esc(fill(et.texto, ex))}</div>` : ''}
+        ${!et ? '<div class="note info">Crie um modelo de mensagem primeiro.</div>' : sg.itens.length ? `<div class="list">${sg.itens.map(x => { const txt = fill(et.texto, x.c); return `<div class="item"><div class="t"><b>${esc(x.c.nome)}</b><div class="small muted">${esc(fmtPhone(x.c.telefone))}${(x.c.notas || []).some(n => n.tipo === 'msg' && n.texto.includes(et.titulo) && daysAgo(n.data) < 7) ? ' · <span class="pos">aberto nesta semana</span>' : ''}</div></div><a class="btn sm wa" href="${esc(waLink(x.c.telefone, txt))}" target="_blank" rel="noopener" data-act="wa-log" data-c="${x.c.id}" data-tit="${esc(et.titulo)}">WhatsApp</a></div>`; }).join('')}</div>
+          <p class="small muted">O WhatsApp não permite envio automático em massa por aqui: cada botão abre a conversa com o texto pronto, é só tocar em enviar.</p>` : '<div class="note info">Nenhum cliente neste grupo agora.</div>'}
+      </div>
+    </div>`;
+}
+
+/* ---------- ajustes ---------- */
+function viewAjustes() {
+  const c = cfg(), pode = isGerente(), ms = equipe(), temGer = ms.some(m => m.papel === 'gerente'), podeEquipe = isGerente() || !temGer, dis = pode ? '' : 'disabled';
+  return `<div class="grid2">
+    <form data-form="cfg" class="card"><h2>Regras do clube</h2>
+      <p class="small muted">Valem para a loja e para o app. Os clientes veem o resultado no app.</p>
+      ${soLeitura()}
+      <div class="fields">
+        <label class="f">Nome da loja nas mensagens<input type="text" name="loja" id="cfg-loja" value="${esc(c.loja)}" ${dis}></label>
+        <label class="f">Pontos por R$ 1 pago<input type="number" name="ptsPorReal" id="cfg-pts" min="0" step="0.1" value="${esc(c.ptsPorReal)}" ${dis}></label>
+        <label class="f">Validade do cashback (dias, 0 = não vence)<input type="number" name="validadeDias" id="cfg-val" min="0" step="1" value="${esc(c.validadeDias)}" ${dis}></label>
+        <label class="f">Cashback pode pagar até (% da compra)<input type="number" name="maxUsoPct" id="cfg-max" min="0" max="100" step="1" value="${esc(c.maxUsoPct)}" ${dis}></label>
+        <label class="f">Compra mínima para usar cashback (R$, 0 = sem mínimo)<input type="number" name="minCompraUso" id="cfg-min" min="0" step="1" value="${esc(c.minCompraUso)}" ${dis}></label>
+      </div>
+      <div><h3>Bônus de indicação</h3><p class="small muted" style="margin-top:4px">Pago em cashback quando o cliente indicado faz a primeira compra, na loja ou no app. Use 0 para desligar.</p></div>
+      <div class="fields">
+        <label class="f">Quem indicou ganha (R$)<input type="number" name="bonusIndicador" id="cfg-bir" min="0" step="1" value="${esc(c.bonusIndicador)}" ${dis}></label>
+        <label class="f">Quem foi indicado ganha (R$)<input type="number" name="bonusIndicado" id="cfg-bid" min="0" step="1" value="${esc(c.bonusIndicado)}" ${dis}></label>
+      </div>
+      <div><h3>Níveis e % de cashback</h3><p class="small muted" style="margin-top:4px">O nível depende do total gasto nos últimos 12 meses, somando loja e app. O cashback é calculado sobre o valor pago.</p></div>
+      <div class="tbl lvtbl"><table><thead><tr><th>Nível</th><th>Gasto em 12 meses (R$)</th><th>Cashback (%)</th></tr></thead><tbody>
+        ${c.niveis.map((n, i) => `<tr><td><input type="text" name="nv${i}nome" id="nv${i}nome" value="${esc(n.nome)}" ${dis}></td><td><input type="number" name="nv${i}min" id="nv${i}min" min="0" step="1" value="${esc(n.min)}" ${i === 0 || !pode ? 'readonly' : ''}></td><td><input type="number" name="nv${i}cb" id="nv${i}cb" min="0" max="50" step="0.5" value="${esc(n.cb)}" ${dis}></td></tr>`).join('')}
+      </tbody></table></div>
+      ${pode ? '<div><button class="btn pri">Salvar regras</button></div>' : ''}
+    </form>
+    <div class="col">
+      <div class="card"><h3>Equipe do caixa</h3>
+        ${ms.length ? `<p class="small muted">Cada pessoa entra com o próprio PIN. <b>Caixa</b> vende, cadastra clientes e troca pontos. <b>Gerente</b> também cancela vendas, ajusta saldos, exclui clientes e altera regras, campanhas, prêmios e mensagens.</p>`
+          : `<div class="note info">Ninguém cadastrado: hoje qualquer pessoa da equipe faz tudo. Cadastre a equipe para registrar quem atendeu cada venda e limitar o que o caixa pode fazer. Comece por você, como gerente.</div>`}
+        ${ms.length ? `<div class="list">${ms.map(m => `<div class="item"><div class="t"><b>${esc(m.nome)}</b> <span class="chip ${m.papel === 'gerente' ? 'hot' : ''}">${m.papel === 'gerente' ? 'Gerente' : 'Caixa'}</span></div>${podeEquipe ? confirmBtn('delm-' + m.id, 'Remover', 'membro-del', `data-m="${m.id}"`) : ''}</div>`).join('')}</div>` : ''}
+        ${podeEquipe ? (ui.membroNovo ? `<form data-form="membro" class="card" style="background:var(--sunk)"><div class="fields">
+            <label class="f">Nome *<input type="text" name="nome" id="mb-nome" required></label>
+            <label class="f">Função<select name="papel" id="mb-papel"><option value="caixa">Caixa</option><option value="gerente" ${!temGer ? 'selected' : ''}>Gerente</option></select></label>
+            <label class="f">PIN (4 a 8 números) *<input type="password" inputmode="numeric" name="pin" id="mb-pin" minlength="4" maxlength="8" required autocomplete="new-password"></label></div>
+            <div class="row"><button class="btn pri">Adicionar</button><button type="button" class="btn ghost" data-act="membro-novo">Cancelar</button></div></form>`
+          : `<div><button class="btn" data-act="membro-novo">+ Adicionar pessoa</button></div>`) : ''}
+        <span class="small muted">O PIN organiza quem usa o caixa; não substitui a senha da conta. Quem usa o caixa precisa de acesso de Editor no app.</span>
+      </div>
+      <div class="card"><h3>Exportar dados</h3>
+        <p class="small muted">Gera um arquivo com clientes, saldos, campanhas, fechamentos e mensagens, para guardar uma cópia.</p>
+        <div class="row"><button class="btn" data-act="bk-save">Baixar arquivo</button><button class="btn" data-act="bk-export">Mostrar como texto</button></div>
+        ${ui.exportTxt ? `<textarea id="bk-text" rows="5" readonly>${esc(ui.exportTxt)}</textarea><div><button class="btn sm" data-act="bk-copy">Copiar</button></div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+const backupJson = () => JSON.stringify({app:'gatecao-caixa', versao:3, exportadoEm:new Date().toISOString(), regras:R.settings, clientes:clientes(), campanhas:[...S.campanhas.values()], fechamentos:[...S.fechamentos.values()], vendasSemCadastro:[...S.avulsas.values()], mensagens:[...S.mensagens.values()], premios:[...S.premios.values()]});
+
+/* ---------- modo consulta ---------- */
+function abrirTotem() { Object.assign(totem, {on:true, tel:'', cid:null, sair:false}); $('#totem').hidden = false; renderTotem(); }
+function fecharTotem() { totem.on = false; clearTimeout(totem.timer); $('#totem').hidden = true; $('#totem').innerHTML = ''; if (location.hash === '#caixa-consulta') location.hash = 'caixa'; }
+function totemReset(ms) { clearTimeout(totem.timer); totem.timer = setTimeout(() => { Object.assign(totem, {tel:'', cid:null, sair:false}); if (totem.on) renderTotem(); }, ms); }
+function totemBuscar() {
+  const d = digits(totem.tel); if (d.length < 8) return toast('Digite o telefone com DDD', true);
+  const m = clientes().filter(c => digits(c.telefone) === d || digits(c.telefone).endsWith(d.slice(-8)));
+  totem.cid = m.length === 1 ? m[0].id : 'nao'; renderTotem(); totemReset(25000);
+}
+function renderTotem() {
+  const el = $('#totem'), c = totem.cid && totem.cid !== 'nao' ? S.clientes.get(totem.cid) : null, conf = cfg(), ger = equipe().filter(m => m.papel === 'gerente');
+  const sair = totem.sair ? `<form data-form="totem-sair" class="row" style="justify-content:flex-end"><input type="password" inputmode="numeric" id="tt-pin" name="pin" placeholder="PIN do gerente" style="width:160px;background:#fff;color:#0B2A5B"><button class="texit">Sair</button><button type="button" class="texit" data-act="tt-sair-cancel">Cancelar</button></form>`
+    : `<button class="texit" data-act="tt-sair">Sair do modo consulta</button>`;
+  let res;
+  if (c) {
+    const s = stats(c), ps = premios(), prox = ps.find(p => p.pontos > s.pts), pode = ps.filter(p => p.pontos <= s.pts);
+    const nx = conf.niveis.map((n, i) => ({...n, idx:i})).filter(n => n.min > s.gasto12).sort((a, b) => a.min - b.min)[0], ks = campAtivas(c, s);
+    res = `<div class="tcard">
+      <div><div style="font-size:22px;font-weight:800">Olá, ${esc(firstName(c.nome))}!</div><span class="chip lv-${Math.min(s.nivel.idx, 3)}">Cliente ${esc(s.nivel.nome)} · ${nfmt(s.nivel.cb)}% de cashback</span></div>
+      <div class="fields"><div><div class="eyebrow">Seu cashback</div><div class="big">${money(s.saldo)}</div>${s.vencendo ? `<div class="small" style="color:#9A5B00;font-weight:700">${money(s.vencendo)} vence em ${fmtDate(s.vencData)}</div>` : ''}</div><div><div class="eyebrow">Seus pontos</div><div class="big pts">${nfmt(s.pts)}</div></div></div>
+      ${pode.length ? `<div class="note good">Você já pode trocar por: <b>${esc(pode.map(p => p.nome).join(', '))}</b>. Peça no caixa!</div>` : ''}
+      ${prox ? `<div style="display:grid;gap:6px"><span class="small"><b>Faltam ${nfmt(prox.pontos - s.pts)} pontos</b> para ${esc(prox.nome)}</span><div class="prog"><i style="width:${Math.min(100, s.pts / prox.pontos * 100)}%"></i></div></div>` : ''}
+      ${nx ? `<span class="small">Gaste mais ${money(nx.min - s.gasto12)} em 12 meses e vire <b>${esc(nx.nome)}</b> (${nfmt(nx.cb)}% de cashback).</span>` : ''}
+      ${ks.length ? `<div class="note hot"><b>Hoje para você:</b> ${ks.map(k => `${esc(k.nome)} (${esc(campDesc(k))})`).join(', ')}</div>` : ''}
+      <span class="small">${c.origem === 'app' ? 'Você também acompanha tudo pelo app da Gatecão.' : 'Baixe o app da Gatecão e entre com este telefone para ver seu saldo e resgatar prêmios por lá.'}</span>
+      <button class="btn pri xl" data-act="tt-limpar">Pronto</button></div>`;
+  } else if (totem.cid === 'nao') {
+    res = `<div class="tcard"><b style="font-size:20px">Não encontramos esse telefone.</b><span>Confira o número ou peça ao atendente para fazer seu cadastro. Leva menos de um minuto e você já começa a ganhar cashback.</span><button class="btn pri xl" data-act="tt-limpar">Tentar de novo</button></div>`;
+  } else {
+    res = `<div class="tcard"><b style="font-size:20px">Como funciona</b><span>A cada compra, na loja ou no app, você ganha <b>${nfmt(conf.niveis[0].cb)}% a ${nfmt(conf.niveis[conf.niveis.length - 1].cb)}% de volta</b> em cashback para usar como desconto, e ${nfmt(conf.ptsPorReal)} ponto por real para trocar por prêmios.</span>
+      ${premios().length ? `<div class="prizes">${premios().slice(0, 4).map(p => `<div class="prize" style="background:#EEF3FA;color:#0B2A5B"><b>${esc(p.nome)}</b><span class="p">${nfmt(p.pontos)} pts</span></div>`).join('')}</div>` : ''}</div>`;
+  }
+  el.innerHTML = `<div class="tt">${sair}
+    <div><h1>Consulte seu cashback</h1><p class="lead">Digite seu telefone com DDD para ver seu saldo e seus pontos no clube ${esc(conf.loja)}.</p></div>
+    <div class="tgrid"><div style="display:grid;gap:12px">
+        <div class="tdisp" aria-live="polite">${totem.tel ? esc(fmtPhone(totem.tel) || totem.tel) : '<span style="opacity:.45">(11) 9____-____</span>'}</div>
+        <div class="keypad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button data-act="tt-key" data-k="${n}">${n}</button>`).join('')}<button data-act="tt-key" data-k="del" aria-label="Apagar">⌫</button><button data-act="tt-key" data-k="0">0</button><button class="ok" data-act="tt-ok">OK</button></div>
+      </div><div>${res}</div></div>
+    ${ger.length ? '' : '<p class="small" style="opacity:.6">Dica: cadastre um gerente em Ajustes para que só ele possa sair deste modo.</p>'}</div>`;
+}
+
+/* ---------- navegação ---------- */
+function subFromHash() { const h = location.hash.slice(1); if (h === 'caixa') return 'pdv'; if (h.startsWith('caixa-')) return h.slice(6); return null; }
+function go(t) { const h = t === 'pdv' ? 'caixa' : 'caixa-' + t; if (location.hash !== '#' + h) location.hash = h; else { tab = t; render(); } }
+function onHash() {
+  if (!visible) return;
+  const sub = subFromHash(); if (!sub) return;
+  if (sub === 'consulta') { if (!totem.on) abrirTotem(); return; }
+  if (totem.on) { totem.on = false; $('#totem').hidden = true; }
+  if (TABS.includes(sub)) { tab = sub; confirmKey = null; render(); host.scrollTop = 0; }
+}
+window.addEventListener('hashchange', onHash);
+
+const A = {
+  ask: el => { confirmKey = el.dataset.key || null; render(); },
+  'login-sel': el => { ui.loginSel = el.dataset.m; render(); setTimeout(() => $('#login-pin') && $('#login-pin').focus()); },
+  'op-sair': () => { opId = null; lsSet('gf-op', null); ui.loginSel = null; pdv.resultado = null; render(); },
+  'pdv-sel': el => { Object.assign(pdv, {clienteId:el.dataset.c, avulsa:false, novo:false, busca:'', usarCb:''}); render(); setTimeout(() => $('#pdv-valor') && $('#pdv-valor').focus()); },
+  'pdv-trocar': () => { Object.assign(pdv, {clienteId:null, avulsa:false, usarCb:''}); render(); setTimeout(() => $('#pdv-busca') && $('#pdv-busca').focus()); },
+  'pdv-novo': () => { pdv.novo = !pdv.novo; render(); setTimeout(() => $('#pdvnovo-nome') && $('#pdvnovo-nome').focus()); },
+  'pdvnovo-cancel': () => { pdv.novo = false; render(); },
+  'pdv-avulsa': () => { Object.assign(pdv, {avulsa:true, clienteId:null, novo:false}); render(); },
+  forma: el => { pdv.forma = el.dataset.v; render(); },
+  'usar-tudo': () => { pdv.usarCb = moneyIn(calc().maxCb); render(); },
+  'usar-nada': () => { pdv.usarCb = ''; render(); },
+  finalizar: () => finalizar(),
+  resgatar: el => resgatar(el.dataset.p),
+  'nova-venda': () => { Object.assign(pdv, {resultado:null, clienteId:null, avulsa:false, busca:'', forma:'pix'}); render(); setTimeout(() => $('#pdv-busca') && $('#pdv-busca').focus()); },
+  vender: el => { Object.assign(pdv, {resultado:null, clienteId:el.dataset.c, avulsa:false, usarCb:''}); go('pdv'); },
+  'ver-cliente': el => { ui.cliSel = el.dataset.c; ui.editando = false; ui.ajuste = false; go('clientes'); host.scrollTop = 0; },
+  msg: el => { if (!mensagens().length) return toast('Crie um modelo na aba Mensagens primeiro', true);
+    const g = el.dataset.g, extra = g && pdv.resultado && pdv.resultado.cid === el.dataset.c ? pdv.resultado : {};
+    openMsg(el.dataset.c, (g ? tplByGatilho(g) : mensagens()[0]).id, extra); },
+  'msg-ind': el => { const r = pdv.resultado, c = r && S.clientes.get(r.cid); openMsg(el.dataset.c, tplByGatilho('indicacao').id, {vars:{indicado:c ? firstName(c.nome) : 'seu amigo', valor_bonus:money(r && r.bonus ? r.bonus.bR : cfg().bonusIndicador)}}); },
+  'msg-convite': el => openMsg(el.dataset.c, tplByGatilho('convite').id),
+  'modal-close': () => { modal = null; renderModal(); },
+  'msg-copy': () => copyText($('#msg-text').value, '#msg-text'),
+  'wa-log': el => { const cid = el.dataset.c, tit = el.dataset.tit || (modal && S.mensagens.get(modal.tplId) || {}).titulo || 'mensagem';
+    setTimeout(async () => { const c0 = S.clientes.get(cid); if (!c0) return; const c = clone(c0); c.notas = [...(c.notas || []), {id:newId(), data:new Date().toISOString(), tipo:'msg', op:opNome(), texto:`WhatsApp aberto com a mensagem “${tit}”`}]; await put('clientes', c.id, c); }, 400); },
+  'cli-novo': () => { ui.editando = ui.editando === 'novo' ? false : 'novo'; render(); setTimeout(() => $('#clinovo-nome') && $('#clinovo-nome').focus()); },
+  'clinovo-cancel': () => { ui.editando = false; render(); },
+  'cliedit-cancel': () => { ui.editando = false; render(); },
+  'cli-voltar': () => { ui.cliSel = null; ui.editando = false; ui.ajuste = false; render(); },
+  'cli-editar': () => { ui.editando = ui.editando === ui.cliSel ? false : ui.cliSel; ui.ajuste = false; render(); },
+  'cli-ajuste': () => { if (!gerenteOk('ajustar saldos')) return; ui.ajuste = !ui.ajuste; ui.editando = false; render(); },
+  'cli-nivel': el => { ui.cliNivel = el.dataset.v; render(); },
+  'cli-excluir': async el => { if (!gerenteOk('excluir clientes')) return; const id = el.dataset.c; if (!isLoja(id)) return; confirmKey = null; ui.cliSel = null; if (pdv.clienteId === id) pdv.clienteId = null; await del('clientes', id); toast('Cliente excluído'); },
+  estornar: async el => { if (!gerenteOk('cancelar vendas')) return; const c = clone(S.clientes.get(el.dataset.c)); c.mov = (c.mov || []).filter(m => m.id !== el.dataset.m); confirmKey = null; await put('clientes', c.id, c); toast('Movimento cancelado e saldos recalculados'); },
+  'estornar-av': async el => { if (!gerenteOk('cancelar vendas')) return; const d = clone(S.avulsas.get(el.dataset.mes)); d.vendas = (d.vendas || []).filter(m => m.id !== el.dataset.m); confirmKey = null; await put('avulsas', el.dataset.mes, d); toast('Venda cancelada'); },
+  'px-ok': async el => { const c = clone(S.clientes.get(el.dataset.c)); c.notas = [...(c.notas || []), {id:newId(), data:new Date().toISOString(), tipo:'nota', op:opNome(), texto:'Contato feito: ' + (c.proximo.assunto || 'sem assunto')}]; c.proximo = null; await put('clientes', c.id, c); toast('Contato concluído'); },
+  'nota-del': async el => { const c = clone(S.clientes.get(el.dataset.c)); c.notas = (c.notas || []).filter(n => n.id !== el.dataset.n); confirmKey = null; await put('clientes', c.id, c); },
+  'crm-per': el => { ui.crmPeriodo = el.dataset.v; render(); },
+  'crm-seg': el => { ui.crmSeg = ui.crmSeg === el.dataset.v ? null : el.dataset.v; render(); },
+  chart: el => { ui.chart = el.dataset.v; render(); },
+  'envio-seg': el => { ui.envioSeg = el.dataset.v; ui.envioTpl = el.dataset.g ? (tplByGatilho(el.dataset.g) || {}).id : null; go('mensagens'); },
+  'fech-refazer': () => { if (!gerenteOk('refazer o fechamento')) return; const dia = ui.fechDia || today(), s = S.fechamentos.get(dia); ui.fech[dia] = {fundo:moneyIn(s.fundo), sangria:moneyIn(s.sangria), contado:moneyIn(s.contado), obs:s.obs || ''}; ui.refazer = true; render(); },
+  'fech-cancel': () => { ui.refazer = false; render(); },
+  'fech-ver': el => { ui.fechDia = el.dataset.d; ui.refazer = false; render(); host.scrollTop = 0; },
+  'camp-novo': () => { ui.campEdit = {inicio:today(), fim:dayKey(Date.now() + 6 * DAY), multCb:2, extraPct:0, multPts:1, publico:'todos'}; render(); },
+  'camp-modelo': el => { const m = CAMP_MODELOS[+el.dataset.i]; ui.campEdit = {...m, inicio:today(), fim:dayKey(Date.now() + (m.dias - 1) * DAY)}; render(); host.scrollTop = 0; },
+  'camp-edit': el => { ui.campEdit = el.dataset.k; render(); host.scrollTop = 0; },
+  'camp-cancel': () => { ui.campEdit = null; render(); },
+  'camp-pausar': async el => { if (!gerenteOk('alterar campanhas')) return; const k = S.campanhas.get(el.dataset.k); await put('campanhas', k.id, {...k, ativo: k.ativo === false}); },
+  'camp-del': async el => { if (!gerenteOk('excluir campanhas')) return; confirmKey = null; await del('campanhas', el.dataset.k); toast('Campanha excluída'); },
+  'pr-novo': () => { ui.premioEdit = 'novo'; render(); },
+  'pr-edit': el => { ui.premioEdit = el.dataset.p; render(); },
+  'pr-cancel': () => { ui.premioEdit = null; render(); },
+  'pr-del': async el => { if (!gerenteOk('excluir prêmios')) return; confirmKey = null; await del('premios', el.dataset.p); toast('Prêmio excluído'); },
+  'tpl-novo': () => { ui.tplSel = 'novo'; render(); host.scrollTop = 0; },
+  'tpl-edit': el => { ui.tplSel = el.dataset.t; render(); host.scrollTop = 0; },
+  'tpl-cancel': () => { ui.tplSel = null; render(); },
+  'tpl-del': async el => { if (!gerenteOk('excluir modelos')) return; confirmKey = null; await del('mensagens', el.dataset.t); toast('Modelo excluído'); },
+  'tpl-usar': el => { ui.envioTpl = el.dataset.t; render(); const e = $('#envio'); if (e) e.scrollIntoView({behavior:'smooth', block:'start'}); },
+  'tpl-padrao': async () => { for (const [i, m] of DEFAULT_MSGS.entries()) await put('mensagens', newId(), {...m, ordem:i}); toast('Modelos carregados'); },
+  'ins-var': el => { const ta = $('#tpl-txt'), v = `{${el.dataset.v}}`, s = ta.selectionStart ?? ta.value.length; ta.value = ta.value.slice(0, s) + v + ta.value.slice(ta.selectionEnd ?? s); ta.focus(); ta.selectionStart = ta.selectionEnd = s + v.length; },
+  'membro-novo': () => { ui.membroNovo = !ui.membroNovo; render(); setTimeout(() => $('#mb-nome') && $('#mb-nome').focus()); },
+  'membro-del': async el => { confirmKey = null; const ms = equipe().filter(m => m.id !== el.dataset.m);
+    if (ms.length && !ms.some(m => m.papel === 'gerente')) return toast('A equipe precisa de pelo menos um gerente.', true);
+    await put('config', 'equipe', {membros:ms}); toast('Pessoa removida'); },
+  'bk-export': () => { ui.exportTxt = backupJson(); render(); },
+  'bk-copy': () => copyText($('#bk-text').value, '#bk-text'),
+  'bk-save': async () => {
+    const txt = backupJson(), name = `caixa-gatecao-${today()}.json`;
+    let dl = null; try { dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch (e) {}
+    if (dl) { try { await dl.save({filename:name, data:txt}); } catch (e) { toast('Download não concluído. Use “Mostrar como texto” e copie.', true); } return; }
+    toast('Download indisponível aqui. Use “Mostrar como texto” e copie.', true);
+  },
+  'tt-key': el => { const k = el.dataset.k; if (totem.cid) { totem.cid = null; totem.tel = ''; } if (k === 'del') totem.tel = totem.tel.slice(0, -1); else if (totem.tel.length < 11) totem.tel += k; renderTotem(); totemReset(60000); },
+  'tt-ok': () => totemBuscar(),
+  'tt-limpar': () => { Object.assign(totem, {tel:'', cid:null}); renderTotem(); },
+  'tt-sair': () => { if (!equipe().some(m => m.papel === 'gerente')) return fecharTotem(); totem.sair = true; renderTotem(); setTimeout(() => $('#tt-pin') && $('#tt-pin').focus()); },
+  'tt-sair-cancel': () => { totem.sair = false; renderTotem(); }
+};
+function bindEvents() {
+  root.addEventListener('click', e => {
+    if (e.target.id === 'modal') { modal = null; renderModal(); return; }
+    const el = e.target.closest('[data-act]'); if (!el) return;
+    const f = A[el.dataset.act]; if (f) { if (el.tagName !== 'A') e.preventDefault(); f(el); }
+  });
+  document.addEventListener('keydown', e => {
+    if (!visible) return;
+    if (e.key === 'Escape' && modal) { modal = null; renderModal(); return; }
+    const t = e.composedPath()[0] || e.target;
+    if (totem.on && !totem.sair && !(t.matches && t.matches('input'))) { if (/^\d$/.test(e.key)) A['tt-key']({dataset:{k:e.key}}); else if (e.key === 'Backspace') A['tt-key']({dataset:{k:'del'}}); else if (e.key === 'Enter') totemBuscar(); return; }
+    if (e.key === 'Enter' && t.matches && t.matches('#pdv-valor,#pdv-desc,#pdv-cb,#pdv-rec') && calc().valor > 0) { e.preventDefault(); finalizar(); }
+  });
+  root.addEventListener('input', e => {
+    const el = e.target;
+    if (el.dataset.bind) { pdv[el.dataset.bind] = el.value; if (el.dataset.bind === 'busca') $('#pdv-res').innerHTML = pdvResults(); else renderResumo(); }
+    else if (el.dataset.bindf) { fechVals(ui.fechDia || today()).f[el.dataset.bindf] = el.value; renderFechCalc(); }
+    else if (el.dataset.bindUi === 'cliBusca') { ui.cliBusca = el.value; const pos = el.selectionStart; render(); const n = $('#cli-busca'); n.focus(); n.setSelectionRange(pos, pos); }
+    else if (el.id === 'msg-text' && modal) { modal.text = el.value; $('#msg-wa').href = waLink(S.clientes.get(modal.cid).telefone, el.value); }
+  });
+  root.addEventListener('change', e => {
+    const el = e.target;
+    if (el.id === 'msg-tpl' && modal) { const t = S.mensagens.get(el.value); modal.tplId = el.value; modal.text = fill(t.texto, S.clientes.get(modal.cid), modal.extra); renderModal(); }
+    else if (el.id === 'envio-seg') { ui.envioSeg = el.value; ui.envioTpl = null; render(); }
+    else if (el.id === 'envio-tpl') { ui.envioTpl = el.value; render(); }
+    else if (el.id === 'fech-dia') { ui.fechDia = el.value || today(); ui.refazer = false; render(); }
+  });
+  root.addEventListener('focusout', () => setTimeout(() => { const a = root.activeElement; if (pendingRender && !(a && a.matches('input,textarea,select')) && $('#modal').hidden) render(); }, 150));
+  const showTip = e => {
+    const b = e.target.closest && e.target.closest('.bars .b'), tip = $('#tip'); if (!tip) return;
+    if (!b) { tip.hidden = true; return; }
+    const plot = b.closest('.plot').getBoundingClientRect(), r = b.getBoundingClientRect(), bar = b.firstElementChild.getBoundingClientRect();
+    tip.textContent = b.dataset.tip; tip.hidden = false;
+    const half = tip.offsetWidth / 2, x = Math.max(half, Math.min(plot.width - half, r.left - plot.left + r.width / 2));
+    tip.style.left = x + 'px'; tip.style.top = Math.max(tip.offsetHeight, bar.top - plot.top - 6) + 'px';
+  };
+  root.addEventListener('mouseover', showTip); root.addEventListener('focusin', showTip);
+  root.addEventListener('submit', async e => {
+    e.preventDefault(); const f = e.target, fd = new FormData(f), k = f.dataset.form;
+    if (k === 'login') { const m = equipe().find(x => x.id === ui.loginSel); if (!m) return;
+      if (pinHash(String(fd.get('pin')), m.id) !== m.pinHash) { toast('PIN incorreto', true); f.reset(); return; }
+      opId = m.id; lsSet('gf-op', m.id); ui.loginSel = null; toast(`Bom trabalho, ${firstName(m.nome)}!`); render(); }
+    else if (k === 'totem-sair') { const pin = String(fd.get('pin')); if (equipe().some(m => m.papel === 'gerente' && pinHash(pin, m.id) === m.pinHash)) fecharTotem(); else { toast('PIN de gerente incorreto', true); f.reset(); } }
+    else if (k === 'pdvnovo') { const c = readClienteForm(f); if (!c) return; if (await put('clientes', c.id, c)) { Object.assign(pdv, {clienteId:c.id, novo:false, busca:''}); toast('Cliente cadastrado'); render(); } }
+    else if (k === 'clinovo') { const c = readClienteForm(f); if (!c) return; if (await put('clientes', c.id, c)) { ui.editando = false; ui.cliSel = c.id; toast('Cliente cadastrado'); render(); } }
+    else if (k === 'cliedit') { const c = readClienteForm(f, S.clientes.get(ui.cliSel)); if (!c) return; if (await put('clientes', c.id, c)) { ui.editando = false; toast('Dados salvos'); render(); } }
+    else if (k === 'ajuste') {
+      if (!gerenteOk('ajustar saldos')) return;
+      const c = clone(S.clientes.get(ui.cliSel)), tipo = fd.get('tipo'), q = tipo === 'cb' ? parseMoney(fd.get('qtd')) : Math.round(parseMoney(fd.get('qtd'))), add = fd.get('op') === '+';
+      if (!q) return toast('Informe a quantidade', true);
+      const m = {...FID.newMov({}), t:'ajuste', canal:'loja', desc:'Ajuste: ' + String(fd.get('motivo')).trim(), op:opNome()};
+      if (tipo === 'cb') add ? m.cbGerado = q : m.cbUsado = Math.min(q, stats(c).saldo); else add ? m.pts = q : m.ptsUsados = Math.min(q, stats(c).pts);
+      c.mov = [...(c.mov || []), m]; ui.ajuste = false; await put('clientes', c.id, c); toast('Saldo ajustado');
+    }
+    else if (k === 'proximo') { const c = clone(S.clientes.get(ui.cliSel)); if (!fd.get('data')) return toast('Escolha a data do contato', true); c.proximo = {data:fd.get('data'), assunto:String(fd.get('assunto')).trim()}; await put('clientes', c.id, c); toast('Contato agendado'); }
+    else if (k === 'nota') { const txt = String(fd.get('texto')).trim(); if (!txt) return; const c = clone(S.clientes.get(ui.cliSel)); c.notas = [...(c.notas || []), {id:newId(), data:new Date().toISOString(), tipo:'nota', op:opNome(), texto:txt}]; await put('clientes', c.id, c); }
+    else if (k === 'fech') {
+      const dia = ui.fechDia || today(), x = fechVals(dia);
+      if (x.f.contado === '') return toast('Informe o dinheiro contado na gaveta', true);
+      const porForma = {}; for (const [kk, v] of Object.entries(x.r.porForma)) porForma[kk] = v.v;
+      if (await put('fechamentos', dia, {fundo:parseMoney(x.f.fundo), sangria:parseMoney(x.f.sangria), dinheiro:x.din, esperado:x.esperado, contado:x.contado, diferenca:x.dif, total:x.r.total, vendas:x.r.vs.length, porForma, obs:x.f.obs.trim(), por:opNome(), em:new Date().toISOString()})) { ui.refazer = false; toast('Caixa fechado'); }
+    }
+    else if (k === 'camp') { if (!gerenteOk('alterar campanhas')) return;
+      const ini = fd.get('inicio'), fim = fd.get('fim'); if (!ini || !fim || fim < ini) return toast('Confira as datas: o fim deve ser depois do início', true);
+      const old = typeof ui.campEdit === 'string' ? S.campanhas.get(ui.campEdit) : null, id = old ? old.id : newId();
+      const data = {nome:String(fd.get('nome')).trim(), inicio:ini, fim, publico:fd.get('publico'), multCb:Math.max(1, +fd.get('multCb') || 1), extraPct:Math.max(0, +fd.get('extraPct') || 0), multPts:Math.max(1, +fd.get('multPts') || 1), ativo: old ? old.ativo !== false : true};
+      if (!data.nome) return toast('Dê um nome para a campanha', true);
+      ui.campEdit = null; await put('campanhas', id, data); toast('Campanha salva'); }
+    else if (k === 'premio') { if (!gerenteOk('alterar prêmios')) return;
+      const id = ui.premioEdit === 'novo' ? 'w' + newId() : ui.premioEdit, pts = Math.round(+fd.get('pontos'));
+      if (!String(fd.get('nome')).trim() || !(pts > 0)) return toast('Informe nome e custo em pontos', true);
+      const est = String(fd.get('estoque')).trim(), tipo = fd.get('tipo');
+      if (tipo === 'cash' && !parseMoney(fd.get('valorCash'))) return toast('Informe o valor em cashback do prêmio', true);
+      ui.premioEdit = null;
+      await put('premios', id, {nome:String(fd.get('nome')).trim(), pontos:pts, estoque: est === '' ? '' : Math.max(0, Math.round(+est)), descricao:String(fd.get('descricao')).trim(), tipo, valorCash:parseMoney(fd.get('valorCash')), ativo:fd.has('ativo')}); toast('Prêmio salvo'); }
+    else if (k === 'tpl') { if (!gerenteOk('editar modelos')) return; const id = ui.tplSel === 'novo' ? newId() : ui.tplSel, old = S.mensagens.get(id) || {};
+      ui.tplSel = null; await put('mensagens', id, {...old, titulo:String(fd.get('titulo')).trim(), gatilho:fd.get('gatilho'), texto:String(fd.get('texto')), ordem: old.ordem ?? 50}); toast('Modelo salvo'); }
+    else if (k === 'membro') {
+      const nome = String(fd.get('nome')).trim(), pin = digits(fd.get('pin'));
+      if (!nome) return toast('Informe o nome', true);
+      if (pin.length < 4) return toast('O PIN precisa ter de 4 a 8 números', true);
+      const id = newId(), m = {id, nome, papel:fd.get('papel'), pinHash:pinHash(pin, id)}, era = equipe().length;
+      if (!era && m.papel !== 'gerente') return toast('A primeira pessoa precisa ser gerente.', true);
+      ui.membroNovo = false;
+      if (await put('config', 'equipe', {membros:[...equipe(), m]})) { if (!era) { opId = id; lsSet('gf-op', id); } toast(era ? 'Pessoa adicionada' : `Equipe criada. Você entrou como ${firstName(nome)}.`); render(); }
+    }
+    else if (k === 'cfg') { if (!gerenteOk('alterar regras')) return;
+      const n = cfg().niveis.map((x, i) => ({nome:String(fd.get(`nv${i}nome`)).trim() || x.nome, min: i === 0 ? 0 : Math.max(0, Math.floor(+fd.get(`nv${i}min`) || 0)), cb: Math.max(0, Math.min(50, +fd.get(`nv${i}cb`) || 0))}));
+      const num = (k2, max = Infinity) => Math.max(0, Math.min(max, +fd.get(k2) || 0));
+      if (await put('config', 'geral', {loja:String(fd.get('loja')).trim() || 'Gatecão', ptsPorReal:num('ptsPorReal'), validadeDias:Math.round(num('validadeDias')), maxUsoPct:num('maxUsoPct', 100), minCompraUso:num('minCompraUso'), bonusIndicador:num('bonusIndicador'), bonusIndicado:num('bonusIndicado'), niveis:n})) toast('Regras salvas');
+    }
+  });
+}
+
+/* ---------- montagem ---------- */
+async function mount() {
+  mounted = true; shell(); bindEvents(); render();
+  try {
+    if (!(window.claude && window.claude.use)) throw new Error('sem runtime');
+    [db, userCap] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    if (userCap) { try { canAdmin = !!(await userCap.canEdit()); } catch (e) {} }
+  } catch (e) { db = null; }
+  if (!db) { mode = 'semacesso'; setSync('err', 'Sem conexão'); render(); return; }
+  if (!canAdmin) { mode = 'semacesso'; setSync('warn', 'Somente equipe'); render(); return; }
+  startDb(); render();
+}
+window.GCPDV = {
+  show() {
+    const first = !visible;
+    if (first) { visible = true; host.hidden = false; document.documentElement.style.overflow = 'hidden'; }
+    if (!mounted) { const s0 = subFromHash(); if (s0 && TABS.includes(s0)) tab = s0; mount(); }
+    const sub = subFromHash() || 'pdv';
+    if (sub === 'consulta') { if (!totem.on) abrirTotem(); return; }
+    if (totem.on) { totem.on = false; $('#totem').hidden = true; }
+    if (TABS.includes(sub) && sub !== tab) { tab = sub; confirmKey = null; render(); }
+    else if (first) render();
+  },
+  hide() { if (!visible) return; visible = false; host.hidden = true; document.documentElement.style.overflow = ''; }
+};
+
+const CSS = `
+:host{--bg:#F4F7FC;--surface:#FFFFFF;--sunk:#EEF3FA;--ink:#0B2A5B;--muted:#5E6F8E;--line:#DFE6F1;--brand:#0B2A5B;--brand-ink:#FFFFFF;--accent:#FF7A00;--accent-ink:#0B2A5B;--accent-soft:#FFF1E2;
+  --good:#1D7F53;--good-soft:#E2F4EA;--warn:#9A5B00;--warn-soft:#FFF3D6;--bad:#B8392A;--bad-soft:#FCE9E5;--chip:#E4EEFF;--bar:#2F6BD8;--grid:#E6ECF5;
+  --font-display:'Fredoka','Trebuchet MS',sans-serif;--font-body:'Nunito Sans','Segoe UI',system-ui,sans-serif;--r:14px;color-scheme:light;display:block;background:var(--bg);min-height:100%}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+.app{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45;padding-bottom:80px;min-height:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;font-weight:600}
+h2{font-size:20px} h3{font-size:16px} p{margin:0}
+.wrap{max-width:1180px;margin-inline:auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{position:sticky;top:0;z-index:5;background:var(--brand);color:var(--brand-ink);padding-top:env(safe-area-inset-top,0px)}
+.toprow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:12px 4px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-size:22px;font-weight:700}
+.logo svg{width:30px;height:30px;color:#FF8A1F;flex:none}
+.logo small{display:block;font-family:var(--font-body);font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;opacity:.75;margin-top:-3px}
+.tright{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sync,.hbtn{font-size:12px;font-weight:800;padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.12);color:#fff;display:flex;gap:6px;align-items:center;border:0;text-decoration:none}
+.hbtn:hover{background:rgba(255,255,255,.2)}
+.sync i{width:8px;height:8px;border-radius:50%;background:#9AAACB}
+.sync.ok i{background:#5BD19A}.sync.warn i{background:#F2B44C}.sync.err i{background:#FF8676}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs a{color:var(--brand-ink);text-decoration:none;font-weight:800;font-size:14px;padding:10px 13px;border-radius:12px 12px 0 0;opacity:.8;white-space:nowrap}
+nav.tabs a[aria-current="page"]{background:var(--bg);color:var(--ink);opacity:1}
+main{padding-block:20px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:grid;gap:14px;min-width:0}
+.grid2{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px;align-items:start}
+.col{display:grid;gap:18px;min-width:0}
+@media (max-width:880px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.sticky{position:sticky;top:120px}
+@media (max-width:880px){.sticky{position:static}}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.between{justify-content:space-between}
+.muted{color:var(--muted)} .small{font-size:13px}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+label.f,.f{display:grid;gap:5px;font-size:13px;font-weight:700;color:var(--muted);min-width:0}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+input[type=text],input[type=tel],input[type=email],input[type=date],input[type=number],input[type=search],input[type=password],select,textarea{width:100%;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--ink);min-width:0}
+textarea{resize:vertical;min-height:90px;line-height:1.45}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none}
+.big-in{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;padding:12px 14px}
+.btn{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:9px 14px;font-weight:800;font-size:14px;display:inline-flex;gap:6px;align-items:center;justify-content:center;text-decoration:none;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.wa{background:#1FA855;border-color:#1FA855;color:#fff}
+.btn.danger{color:var(--bad);border-color:var(--bad-soft)}
+.btn.ghost{border-color:transparent;background:transparent;padding-inline:8px}
+.btn.sm{padding:6px 10px;font-size:13px;border-radius:8px}
+.btn.block{width:100%} .btn.xl{padding:15px 18px;font-size:17px;border-radius:12px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 12px;font-weight:800;font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:var(--chip);color:var(--ink);white-space:nowrap}
+.lv-0{background:#F3E1CF;color:#6E3B12} .lv-1{background:#E3E8EF;color:#3B4A60} .lv-2{background:#FFE7A0;color:#6A4A00} .lv-3{background:#DCD3F5;color:#3D2A7A}
+.chip.good{background:var(--good-soft);color:var(--good)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.bad{background:var(--bad-soft);color:var(--bad)} .chip.hot{background:var(--accent-soft);color:var(--accent)} .chip.app{background:#E0F2FE;color:#075985}
+.note{border-radius:10px;padding:10px 12px;font-size:14px;font-weight:600}
+.note.warn{background:var(--warn-soft);color:var(--warn)} .note.good{background:var(--good-soft);color:var(--good)} .note.info{background:var(--sunk);color:var(--muted)} .note.hot{background:var(--accent-soft);color:var(--ink)}
+.wallet{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.wallet>div{background:var(--sunk);border-radius:12px;padding:12px 14px;display:grid;gap:2px}
+.wallet b{font-family:var(--font-display);font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.wallet .cb b{color:var(--good)} .wallet .pt b{color:var(--warn)}
+.who{display:flex;gap:12px;align-items:center;min-width:0}
+.av{width:44px;height:44px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-family:var(--font-display);font-weight:700;font-size:18px;flex:none}
+.who .nm{font-weight:800;font-size:17px;overflow-wrap:anywhere}
+.results{display:grid;gap:6px}
+.res{display:flex;justify-content:space-between;gap:10px;align-items:center;text-align:left;width:100%;border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 12px}
+.res:hover{border-color:var(--accent)}
+.res .r{text-align:right;font-size:13px;font-variant-numeric:tabular-nums}
+.sum{display:grid;gap:8px}
+.sum .l{display:flex;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums}
+.sum .tot{border-top:2px dashed var(--line);padding-top:12px;margin-top:4px;align-items:baseline}
+.sum .tot b{font-family:var(--font-display);font-size:34px;font-weight:600}
+.earn{background:var(--good-soft);color:var(--good);border-radius:12px;padding:12px 14px;font-weight:700;display:grid;gap:2px}
+.earn b{font-size:18px}
+.prizes{display:grid;gap:8px}
+.prize{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;background:var(--sunk)}
+.prize .p{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--sunk)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle;font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;white-space:nowrap}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--sunk)}
+tfoot td{font-weight:800;background:var(--sunk)}
+.pos{color:var(--good);font-weight:700} .neg{color:var(--bad);font-weight:700}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:4px;align-content:start}
+.kpi b{font-family:var(--font-display);font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
+.kpi.hl{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.kpi.hl .eyebrow{color:var(--brand-ink);opacity:.75}
+.segs{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.segc{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 14px;text-align:left;display:grid;gap:4px}
+.segc b{font-family:var(--font-display);font-size:26px;font-weight:600}
+.segc[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.list{display:grid;gap:8px}
+.item{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);flex-wrap:wrap}
+.item .t{min-width:0;flex:1 1 200px}
+.tpl{display:grid;gap:8px;border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--surface)}
+.tpl p{white-space:pre-wrap;color:var(--muted);font-size:14px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.vars{display:flex;gap:6px;flex-wrap:wrap}
+.vars button{border:1px dashed var(--line);background:var(--sunk);border-radius:8px;padding:4px 8px;font-size:12px;font-weight:700;font-family:ui-monospace,Menlo,monospace}
+.bubble{background:#DCF8C6;color:#102A14;border-radius:12px 12px 2px 12px;padding:12px 14px;white-space:pre-wrap;font-size:14px;max-width:100%;overflow-wrap:anywhere}
+.hist-note{font-size:13px;padding:8px 10px;border-radius:8px;background:var(--sunk)}
+.empty{text-align:center;padding:28px 16px;color:var(--muted);display:grid;gap:10px;justify-items:center}
+.empty b{color:var(--ink);font-size:16px}
+.ok-ico{width:52px;height:52px;border-radius:50%;background:var(--good-soft);color:var(--good);display:grid;place-items:center}
+.ok-ico svg{width:28px;height:28px}
+#modal{position:fixed;inset:0;z-index:20;background:rgba(5,12,25,.55);display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));font-family:var(--font-body);color:var(--ink)}
+#modal .box{background:var(--surface);border-radius:16px;max-width:560px;width:100%;max-height:100%;overflow:auto;padding:20px;display:grid;gap:14px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:40;background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-weight:700;max-width:calc(100% - 32px);box-shadow:0 8px 30px rgba(0,0,0,.25);font-family:var(--font-body)}
+#toast.err{background:var(--bad);color:#fff}
+hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
+.lvtbl input{padding:7px 9px}
+.chart{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px}
+.yax{position:relative;width:64px;height:180px;font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.yax span{position:absolute;right:0;transform:translateY(50%)}
+.plot{position:relative;height:180px;border-bottom:1px solid var(--muted)}
+.plot .gl{position:absolute;left:0;right:0;border-top:1px solid var(--grid)}
+.bars{position:absolute;inset:0;display:flex;align-items:flex-end;gap:2px}
+.bars .b{flex:1 1 0;min-width:0;height:100%;display:flex;align-items:flex-end;background:transparent;border:0;padding:0;cursor:default}
+.bars .b i{display:block;width:100%;background:var(--bar);border-radius:4px 4px 0 0}
+.bars .b:hover i,.bars .b:focus-visible i{background:var(--accent)}
+.xax{grid-column:2;display:flex;gap:2px;font-size:11px;color:var(--muted)}
+.xax span{flex:1 1 0;min-width:0;text-align:center;white-space:nowrap}
+#tip{position:absolute;z-index:3;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;font-weight:700;padding:6px 9px;border-radius:8px;white-space:nowrap;transform:translate(-50%,-100%)}
+.metric{display:grid;gap:2px;padding:12px 0;border-bottom:1px solid var(--line)}
+.metric:last-child{border-bottom:0}
+.metric b{font-family:var(--font-display);font-size:22px;font-weight:600}
+.login{max-width:520px;margin:30px auto}
+.members{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.member{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:14px;display:grid;gap:6px;justify-items:center;text-align:center}
+.member[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+#totem{position:fixed;inset:0;z-index:30;background:var(--brand);color:#fff;overflow:auto;font-family:var(--font-body);padding:max(20px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(20px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.tt{max-width:920px;margin:0 auto;display:grid;gap:22px}
+.tt h1{font-size:clamp(28px,5vw,44px);font-weight:700}
+.tt .lead{font-size:18px;opacity:.85}
+.tgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:760px){.tgrid{grid-template-columns:minmax(0,1fr)}}
+.tdisp{background:rgba(255,255,255,.1);border-radius:16px;padding:16px 20px;font-size:clamp(26px,5vw,36px);font-weight:800;letter-spacing:.04em;min-height:72px;font-variant-numeric:tabular-nums}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.keypad button{height:68px;border-radius:14px;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:28px;font-weight:800;font-family:var(--font-display)}
+.keypad button:active{background:rgba(255,255,255,.28)}
+.keypad .ok{background:#FF8A1F;color:#1A0E00}
+.tcard{background:#fff;color:#0B2A5B;border-radius:20px;padding:24px;display:grid;gap:16px}
+.tcard .fields{gap:20px 28px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.tcard .big{font-family:var(--font-display);font-size:clamp(34px,5vw,48px);font-weight:600;line-height:1;color:#1D7F53;font-variant-numeric:tabular-nums}
+.tcard .pts{color:#9A5B00}
+.prog{height:12px;border-radius:999px;background:#EEF3FA;overflow:hidden}
+.prog i{display:block;height:100%;background:#FF7A00;border-radius:999px}
+.texit{justify-self:end;background:transparent;border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:999px;padding:6px 12px;font-weight:700;font-size:13px}
+@media (prefers-reduced-motion:no-preference){.btn,.res,.segc{transition:border-color .15s,background .15s}}
+`;
+})();
+</script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (function(){
@@ -700,14 +2101,15 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     var pixPct=num(S('pixOff',5)),freeMin=num(S('freeMin',99)),fee=num(S('fee',9.9));
     var pixOff=state.co.pay==='Pix'?r2(sub*pixPct/100):0,frete=(state.co.mode==='Entrega'&&sub<freeMin)?fee:0;
     var wl=X.uid?wal(X.uid):null,cashUse=0;
-    if(wl&&wl.cash>0&&state.co.useCash)cashUse=r2(Math.min(wl.cash,Math.max(0,sub-pixOff)));
+    var fc=window.FID?FID.conf(D.settings):{maxUsoPct:100,minCompraUso:0},cbBase=Math.max(0,sub-pixOff),cbOk=cbBase>=num(fc.minCompraUso);
+    if(wl&&wl.cash>0&&state.co.useCash&&cbOk)cashUse=r2(Math.min(wl.cash,cbBase*num(fc.maxUsoPct)/100));
     var tot=r2(sub-pixOff+frete-cashUse);
     h+='<div class="f" style="font-weight:700">Como receber</div><div class="opts">';
     ['Retirada na loja','Entrega'].forEach(function(m){h+='<button class="opt" data-mode="'+m+'" aria-pressed="'+(state.co.mode===m)+'"><b>'+m+'</b><span class="muted">'+(m==='Entrega'?'Grátis acima de '+brl(freeMin):'Sem custo')+'</span></button>'});
     h+='</div><div class="f" style="font-weight:700">Pagamento</div><div class="opts">';
     ['Pix','Cartão na entrega','Dinheiro'].forEach(function(m){h+='<button class="opt" data-pay="'+m+'" aria-pressed="'+(state.co.pay===m)+'"><b>'+m+'</b><span class="muted">'+(m==='Pix'&&pixPct?pixPct+'% de desconto':'')+'</span></button>'});
     h+='</div>';
-    if(wl&&wl.cash>0)h+='<button class="opt" id="useCash" aria-pressed="'+(!!state.co.useCash)+'"><span><b>Usar meu cashback</b><br><span class="muted">Saldo disponível: '+brl(wl.cash)+'</span></span><b>'+(cashUse?'- '+brl(cashUse):'Não usar')+'</b></button>';
+    if(wl&&wl.cash>0)h+='<button class="opt" id="useCash" aria-pressed="'+(!!state.co.useCash)+'"><span><b>Usar meu cashback</b><br><span class="muted">Saldo disponível: '+brl(wl.cash)+(cbOk?'':' · use em compras a partir de '+brl(fc.minCompraUso))+(num(fc.maxUsoPct)<100?' · até '+fc.maxUsoPct+'% da compra':'')+'</span></span><b>'+(cashUse?'- '+brl(cashUse):'Não usar')+'</b></button>';
     h+='<label class="f">Seu nome<input class="in" id="cname" value="'+esc(state.co.name||(D.me&&D.me.name)||'')+'" placeholder="Nome para o pedido" autocomplete="name"></label>';
     if(state.co.mode==='Entrega'){
       var A=state.ag;if(!A.ltPhone&&D.me&&D.me.phone)A.ltPhone=fmtPhone(D.me.phone);
@@ -1266,6 +2668,8 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
 
   /* ---------- navegação ---------- */
   function render(){
+    if(state.tab==='caixa'){if(window.GCPDV)GCPDV.show();return}
+    if(window.GCPDV)GCPDV.hide();
     var adm=state.tab==='gestao'&&X.isAdmin;
     document.body.classList.toggle('adm',adm);
     $('#cust').hidden=adm;admEl.hidden=!adm;
@@ -1381,10 +2785,11 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
 
   function renderAdmin(){
     var tab=state.adm.tab;
-    var h='<header class="atop"><div class="ab">'+$('.logoimg').outerHTML+'<b>Gestão</b></div><div class="brandact"><button class="bellbtn abell" id="aBell" aria-label="Avisos da loja">'+BELL_SVG+(admUnread()?'<span class="n">'+(admUnread()>9?'9+':admUnread())+'</span>':'')+'</button><button id="aBack">Ver o app</button></div></header>';
+    var h='<header class="atop"><div class="ab">'+$('.logoimg').outerHTML+'<b>Gestão</b></div><div class="brandact"><button class="bellbtn abell" id="aBell" aria-label="Avisos da loja">'+BELL_SVG+(admUnread()?'<span class="n">'+(admUnread()>9?'9+':admUnread())+'</span>':'')+'</button><button id="aCaixa" style="background:#fff;color:var(--brand)">Caixa da loja</button><button id="aBack">Ver o app</button></div></header>';
     h+='<nav class="atabs" aria-label="Seções da gestão">'+ATABS.map(function(t){return '<button class="atab" data-atab="'+t[0]+'" aria-pressed="'+(tab===t[0])+'">'+t[1]+'</button>'}).join('')+'</nav><section id="aMain"></section>';
     admEl.innerHTML=h;
     $('#aBack').onclick=function(){go('loja')};
+    $('#aCaixa').onclick=function(){location.hash='caixa'};
     $('#aBell').onclick=openAdmAlerts;
     $$('[data-atab]',admEl).forEach(function(b){b.onclick=function(){state.adm.tab=b.getAttribute('data-atab');window.scrollTo(0,0);renderAdmin()}});
     var m=$('#aMain');
@@ -1822,14 +3227,14 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     ordSt:async function(id,el){
       var parts=id.split('|'),uid=parts[0],o=allOrders().filter(function(x){return x.id===parts[1]})[0];if(!o)return;
       var next=el.value,prev=D.status[o.id]||{};
-      var st={status:next,stockApplied:!!prev.stockApplied,cashApplied:num(prev.cashApplied),earnedPts:num(prev.earnedPts),earnedCash:num(prev.earnedCash),ts:Date.now()};
+      var st={status:next,stockApplied:!!prev.stockApplied,cashApplied:num(prev.cashApplied),earnedPts:num(prev.earnedPts),earnedCash:num(prev.earnedCash),earnedBase:num(prev.earnedBase),ts:Date.now()};
       var tag='Pedido #'+String(o.id).slice(-5);
       try{
         if(next==='Cancelado'||next==='Novo'){
           if(st.stockApplied){await applyStock(o.items,+1);st.stockApplied=false}
           if(st.cashApplied>0||st.earnedPts>0||st.earnedCash>0){
-            await walletAdd(uid,{pts:-st.earnedPts,life:-st.earnedPts,cash:st.cashApplied-st.earnedCash,text:tag+' desfeito'});
-            st.cashApplied=0;st.earnedPts=0;st.earnedCash=0;
+            await walletAdd(uid,{t:'compra',pago:-(st.earnedBase||0),pts:-st.earnedPts,cash:st.cashApplied-st.earnedCash,text:tag+' desfeito'});
+            st.cashApplied=0;st.earnedPts=0;st.earnedCash=0;st.earnedBase=0;
           }
         }else{
           if(!st.stockApplied){
@@ -1842,8 +3247,8 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
             }
           }
           if(next==='Entregue'&&!st.earnedPts&&!st.earnedCash&&uid){
-            var base=orderEarnBase(o),w0=wal(uid),e=earnFor(base,w0.life);
-            if(e.pts>0||e.cash>0){await walletAdd(uid,{pts:e.pts,life:e.pts,cash:e.cash,text:'Compra '+tag.toLowerCase()});st.earnedPts=e.pts;st.earnedCash=e.cash}
+            var base=orderEarnBase(o),w0=wal(uid),e=earnFor(base,w0.life,((D.ficha||{})[uid]||{}).aniversario),fb=firstBuy(uid);
+            if(e.pts>0||e.cash>0){await walletAdd(uid,{t:'compra',pago:base,pts:e.pts,cash:e.cash,text:'Compra pelo app ('+tag.toLowerCase()+')'});st.earnedPts=e.pts;st.earnedCash=e.cash;st.earnedBase=base;if(fb)await appIndicacao(uid)}
           }
         }
         await X.db.doc('status/'+o.id).set(st);
@@ -1854,13 +3259,13 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     apSt:async function(id,el){
       var parts=id.split('|'),aid=parts[0],uid=parts[3],next=el.value,prev=D.status[aid]||{};
       var ap=allAppts().filter(function(x){return x.id===aid})[0];
-      var st={status:next,earnedPts:num(prev.earnedPts),earnedCash:num(prev.earnedCash),ts:Date.now()};
+      var st={status:next,earnedPts:num(prev.earnedPts),earnedCash:num(prev.earnedCash),earnedBase:num(prev.earnedBase),ts:Date.now()};
       try{
         if(next==='Concluído'&&ap&&uid&&!st.earnedPts&&!st.earnedCash){
-          var e=earnFor(num(ap.price),wal(uid).life);
-          if(e.pts>0||e.cash>0){await walletAdd(uid,{pts:e.pts,life:e.pts,cash:e.cash,text:'Serviço: '+ap.svc});st.earnedPts=e.pts;st.earnedCash=e.cash}
+          var e=earnFor(num(ap.price),wal(uid).life,((D.ficha||{})[uid]||{}).aniversario),fb=firstBuy(uid);
+          if(e.pts>0||e.cash>0){await walletAdd(uid,{t:'compra',pago:num(ap.price),pts:e.pts,cash:e.cash,text:'Serviço: '+ap.svc});st.earnedPts=e.pts;st.earnedCash=e.cash;st.earnedBase=num(ap.price);if(fb)await appIndicacao(uid)}
         }else if(next!=='Concluído'&&(st.earnedPts>0||st.earnedCash>0)&&uid){
-          await walletAdd(uid,{pts:-st.earnedPts,life:-st.earnedPts,cash:-st.earnedCash,text:'Serviço desfeito'});st.earnedPts=0;st.earnedCash=0;
+          await walletAdd(uid,{t:'compra',pago:-(st.earnedBase||0),pts:-st.earnedPts,cash:-st.earnedCash,text:'Serviço desfeito'});st.earnedPts=0;st.earnedCash=0;st.earnedBase=0;
         }
         await X.db.doc('status/'+aid).set(st);
         if(prev.status!==next&&uid){var am=apptNote(next,st,ap);if(am)notifyUser(uid,'Banho e tosa',am,'agenda').catch(function(){})}
@@ -1882,24 +3287,20 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   }
   function tierOf(life){var L=loy().tiers,cur=L[0];L.forEach(function(t){if(life>=t.min)cur=t});return cur}
   function nextTier(life){return loy().tiers.filter(function(t){return t.min>life})[0]||null}
-  function wal(uid){var w=D.wallets[uid]||{};return{points:Math.max(0,Math.floor(num(w.points))),cash:r2(Math.max(0,num(w.cash))),life:Math.max(0,Math.floor(num(w.life))),log:w.log||[]}}
-  function earnFor(base,life){var t=tierOf(life),b=Math.max(0,base);return{pts:Math.floor(b*loy().pts),cash:r2(b*t.pct/100),tier:t.n}}
+  function wal(uid){var w=D.wallets[uid]||{};if(Array.isArray(w.mov)&&window.FID){var fs=FID.stats(w.mov,FID.conf(D.settings));return{points:fs.pts,cash:fs.saldo,life:fs.gasto12,log:FID.log(w.mov),vencendo:fs.vencendo,vencData:fs.vencData,gastoTot:fs.gastoTot,compras:fs.compras}}return{points:Math.max(0,Math.floor(num(w.points))),cash:r2(Math.max(0,num(w.cash))),life:Math.max(0,Math.floor(num(w.life))),log:w.log||[]}}
+  function earnFor(base,life,aniv){var t=tierOf(life),b=Math.max(0,base),k=window.FID?FID.bonus(D.bonus||[],t.n,aniv):{mult:1,extra:0,multPts:1};return{pts:Math.floor(b*loy().pts*k.multPts),cash:r2(b*(t.pct*k.mult+k.extra)/100),tier:t.n}}
   function orderEarnBase(o){
     var goods=Math.max(0,num(o.total)-num(o.fee)),cur=0;
     (o.items||[]).forEach(function(i){var p=byId(D.products,i.id);cur+=(p?priced(p).price:num(i.p))*num(i.q)});
     return r2(Math.min(goods,cur>0?cur:goods));
   }
   async function walletAdd(uid,d){
-    var ref=X.db.doc('wallet/'+uid),s=await ref.get(),w=s.exists?s.data():{};
-    var pts=Math.floor(d.pts||0);
-    var points=Math.max(0,Math.floor(num(w.points))+pts);
-    var cash=Math.max(0,r2(num(w.cash)+num(d.cash)));
-    var life=Math.max(0,Math.floor(num(w.life))+Math.floor(d.life||0));
-    var log=(w.log||[]).slice(0,39);
-    log.unshift({ts:Date.now(),text:String(d.text||'').slice(0,80),pts:pts,cash:r2(num(d.cash))});
-    var nw={points:points,cash:cash,life:life,log:log};
+    var ref=X.db.doc('wallet/'+uid),sn=await ref.get(),w=sn.exists?sn.data():{};
+    var nw=FID.add(w,{t:d.t||'ajuste',desc:d.text,pts:d.pts,cash:d.cash,pago:d.pago,canal:'app',premio:d.premio,premioId:d.premioId},D.settings);
     await ref.set(nw);D.wallets[uid]=nw;
   }
+  function firstBuy(uid){var w=D.wallets[uid]||{};return Array.isArray(w.mov)?!(wal(uid).compras>0):!(num(w.life)>0)}
+  async function appIndicacao(uid){try{var f=(D.ficha||{})[uid];if(!f||!f.indicadoPor||f.bonusIndicacao||!window.FID)return;var nm=function(id){var c=D.customers.filter(function(x){return x.id===id})[0];return(c&&c.name)||'cliente'};await FID.pagarIndicacao(X.db,uid,f,D.settings,nm(uid),nm(f.indicadoPor),'app')}catch(e){}}
   function allRedeems(){
     var out=[];
     D.redeems.forEach(function(d){var m=d.r||{};Object.keys(m).forEach(function(k){out.push(Object.assign({uid:d.id},m[k]))})});
@@ -1989,8 +3390,8 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     var h='<section class="vcard"><div class="vtop"><span class="vtier">'+esc(t.n)+'</span><span class="vsmall">Clube Gatecão</span></div>'+
       '<div class="vnums"><div><b>'+w.points+'</b><span>pontos</span></div><div><b>'+brl(w.cash)+'</b><span>de cashback</span></div></div>'+
       '<div class="vbar" role="img" aria-label="Progresso para o próximo nível"><i style="width:'+prog+'%"></i></div>'+
-      '<p class="vsmall">'+(nx?'Faltam '+(nx.min-w.life)+' pontos para o nível '+esc(nx.n)+'.':'Você está no nível mais alto.')+'</p></section>';
-    h+='<p class="hint" style="margin:10px 2px 4px">Você ganha '+L.pts+' ponto'+(L.pts===1?'':'s')+' a cada R$ 1 e '+String(t.pct).replace('.',',')+'% de cashback no nível '+esc(t.n)+'. Os ganhos entram quando o pedido é entregue ou o serviço é concluído. Use o cashback no carrinho.</p>';
+      '<p class="vsmall">'+(nx?'Faltam '+brl(nx.min-w.life)+' em compras (últimos 12 meses) para o nível '+esc(nx.n)+'.':'Você está no nível mais alto.')+'</p></section>';
+    h+='<p class="hint" style="margin:10px 2px 4px">Você ganha '+L.pts+' ponto'+(L.pts===1?'':'s')+' a cada R$ 1 e '+String(t.pct).replace('.',',')+'% de cashback no nível '+esc(t.n)+'. Vale nas compras do app e da loja física: no caixa, é só informar seu telefone. Os ganhos do app entram quando o pedido é entregue ou o serviço é concluído'+(window.FID&&FID.conf(D.settings).validadeDias?', e o cashback vale por '+FID.conf(D.settings).validadeDias+' dias':'')+'.</p>'+(w.vencendo?'<p class="loynote">'+brl(w.vencendo)+' do seu cashback vence em '+new Date(w.vencData).toLocaleDateString('pt-BR')+'. Use antes!</p>':'')+(function(){var k=window.FID?FID.bonus(D.bonus||[],t.n,null):{nomes:[]};return k.nomes.length?'<p class="loynote">Agora no clube: '+esc(k.nomes.join(', '))+'.</p>':''})();
     h+=profileHtml();
     var rw=D.rewards.filter(function(r){return r.active!==false}).sort(function(a,b){return num(a.cost)-num(b.cost)});
     h+='<div class="sec"><h2>Prêmios para resgatar</h2><span>'+rw.length+'</span></div>';
@@ -2040,6 +3441,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     function g(u){return m[u]||(m[u]={orders:0,appts:0,spent:0,last:0})}
     allOrders().forEach(function(o){if(ordStatus(o)==='Entregue'){var s=g(o.uid);s.orders++;s.spent+=num(o.total);s.last=Math.max(s.last,o.ts)}});
     allAppts().forEach(function(a){var st=apStatus(a);if(st==='Concluído'){var s=g(a.uid);s.appts++;s.spent+=num(a.price);s.last=Math.max(s.last,new Date(a.day+'T12:00:00').getTime())}});
+    Object.keys(D.wallets||{}).forEach(function(u){(D.wallets[u].mov||[]).forEach(function(x){if(x.t==='compra'&&x.canal==='loja'&&num(x.pago)>0){var q=g(u);q.loja=(q.loja||0)+1;q.spent+=num(x.pago);q.last=Math.max(q.last,Date.parse(x.data)||0)}})});
     Object.keys(m).forEach(function(k){m[k].spent=r2(m[k].spent)});
     return m;
   }
@@ -2086,7 +3488,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
       '<span class="muted">Cliente desde '+new Date(num(c.ts)||Date.now()).toLocaleDateString('pt-BR')+' · '+(c.optin?'aceita receber ofertas':'não pediu ofertas')+'</span>'+
       '<span>'+((c.pets||[]).length?(c.pets||[]).map(function(p){return esc(p.n)+' ('+esc(p.k)+')'}).join(', '):'Nenhum pet cadastrado')+'</span></div>';
     h+='<div class="kpis"><div class="kpi"><span>Nível</span><b>'+esc(t.n)+'</b></div><div class="kpi"><span>Pontos</span><b>'+w.points+'</b></div><div class="kpi"><span>Cashback</span><b>'+brl(w.cash)+'</b></div><div class="kpi"><span>Total gasto</span><b>'+brl(st.spent)+'</b></div></div>';
-    h+='<p class="hint">'+st.orders+(st.orders===1?' pedido entregue e ':' pedidos entregues e ')+st.appts+(st.appts===1?' serviço concluído. ':' serviços concluídos. ')+sinceText(st.last)+'.'+(nx?' Faltam '+(nx.min-w.life)+' pontos para '+esc(nx.n)+'.':'')+'</p>';
+    h+='<p class="hint">'+st.orders+(st.orders===1?' pedido entregue e ':' pedidos entregues e ')+st.appts+(st.appts===1?' serviço concluído. ':' serviços concluídos. ')+sinceText(st.last)+'.'+(nx?' Faltam '+brl(nx.min-w.life)+' em compras para '+esc(nx.n)+'.':'')+(st.loja?' '+st.loja+(st.loja===1?' compra':' compras')+' na loja física.':'')+'</p>';
     h+='<div class="acard"><b>Ajuste manual</b><p class="hint">Use para bônus, correção ou cortesia. Valores negativos tiram do saldo.</p><div class="two"><label class="fld">Pontos<input class="in" id="adP" inputmode="numeric" placeholder="0"></label><label class="fld">Cashback (R$)<input class="in" id="adC" inputmode="decimal" placeholder="0,00"></label></div><label class="fld">Motivo<input class="in" id="adM" placeholder="Ex.: Bônus de aniversário"></label><button class="btn alt" id="adGo" type="button">Aplicar ajuste</button></div>';
     h+='<div class="acard"><b>Anotações privadas</b><textarea class="in" id="cnote" rows="3" placeholder="Preferências, alergias do pet, combinados...">'+esc(note)+'</textarea><button class="btn line" id="cnSave" type="button">Salvar anotação</button></div>';
     var os=allOrders().filter(function(o){return o.uid===uid}).slice(0,5),as=allAppts().filter(function(a){return a.uid===uid}).reverse().slice(0,5);
@@ -2108,11 +3510,11 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   /* ================= GESTÃO: Vantagens ================= */
   function aVantagens(m){
     var L=loy(),tiers=L.tiers.slice();while(tiers.length<4)tiers.push({n:'',min:'',pct:''});
-    var h='<div class="acard"><b>Regras do clube</b><p class="hint">Os níveis sobem pelos pontos ganhos ao longo do tempo (gastar pontos não faz o cliente descer de nível). O cashback é uma porcentagem do valor pago.</p>'+
+    var h='<div class="acard"><b>Regras do clube</b><p class="hint">O nível depende do total gasto nos últimos 12 meses, somando loja física e app. O cashback é uma porcentagem do valor pago. Validade do cashback, limite de uso, compra mínima, campanhas e bônus de indicação ficam no Caixa da loja, em Ajustes.</p>'+
       '<label class="fld">Pontos por R$ 1 gasto<input class="in" id="lpp" inputmode="decimal" value="'+esc(String(L.pts).replace('.',','))+'" style="max-width:140px"></label>'+
-      '<div class="gridwrap"><table class="pt"><thead><tr><th>Nível</th><th>Pontos para chegar</th><th>Cashback (%)</th></tr></thead><tbody>'+
+      '<div class="gridwrap"><table class="pt"><thead><tr><th>Nível</th><th>Gasto em 12 meses (R$)</th><th>Cashback (%)</th></tr></thead><tbody>'+
       tiers.map(function(t,i){return '<tr><td><input data-tn="'+i+'" value="'+esc(t.n)+'" placeholder="Nome" aria-label="Nome do nível '+(i+1)+'"></td><td><input data-tm="'+i+'" inputmode="numeric" value="'+esc(t.min)+'" aria-label="Pontos do nível '+(i+1)+'"></td><td><input data-tp="'+i+'" inputmode="decimal" value="'+esc(String(t.pct).replace('.',','))+'" aria-label="Cashback do nível '+(i+1)+'"></td></tr>'}).join('')+
-      '</tbody></table></div><p class="hint">O primeiro nível precisa começar em 0 pontos. Deixe a linha em branco para não usar o 4º nível.</p><button class="btn" id="loySave" type="button">Salvar regras</button></div>';
+      '</tbody></table></div><p class="hint">O primeiro nível precisa começar em R$ 0. Deixe a linha em branco para não usar o 4º nível.</p><button class="btn" id="loySave" type="button">Salvar regras</button></div>';
     var pend=pendingRedeems();
     h+='<div class="acard"><div class="rowtight"><b>Resgates para aprovar</b><span class="st '+(pend.length?'warn':'ok')+'">'+pend.length+'</span></div>'+(pend.length?'':'<p class="hint">Nenhum resgate esperando.</p>')+
       pend.map(function(r){var w=wal(r.uid);return '<div class="arow" style="grid-template-columns:minmax(0,1fr);margin:0"><div class="main"><b>'+esc(r.name)+'</b><span class="muted">'+esc(custName(r.uid))+' · '+fmtTs(r.ts)+'</span><span>'+r.cost+' pts · saldo do cliente '+w.points+' pts</span></div><div class="ctl"><button class="btn" data-act="rdOk" data-id="'+esc(r.uid+'|'+r.id)+'">Aprovar</button><button class="btn danger" data-act="rdNo" data-id="'+esc(r.uid+'|'+r.id)+'">Recusar</button></div></div>'}).join('')+'</div>';
@@ -2131,7 +3533,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
         var n=$('[data-tn="'+i+'"]').value.trim(),mn=num($('[data-tm="'+i+'"]').value),pc=num($('[data-tp="'+i+'"]').value);
         if(n)tr.push({n:n,min:Math.max(0,Math.floor(mn)),pct:Math.min(50,Math.max(0,pc))});
       }
-      if(!tr.length||tr.slice().sort(function(a,b){return a.min-b.min})[0].min!==0){toast('O primeiro nível precisa começar em 0 pontos');return}
+      if(!tr.length||tr.slice().sort(function(a,b){return a.min-b.min})[0].min!==0){toast('O primeiro nível precisa começar em R$ 0');return}
       this.disabled=true;
       try{await X.db.doc('settings/store').set(Object.assign({},D.settings,{ptsPerReal:pp,tiers:tr}));toast('Regras salvas')}catch(e){wfail(e)}
       this.disabled=false;
@@ -2177,7 +3579,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
       var rw=byId(D.rewards,r.rid),w=wal(uid),st=rw?rwStock(rw):null;
       if(w.points<r.cost){toast('O cliente não tem mais pontos suficientes');return}
       if(st!==null&&st<=0){toast('Este prêmio está sem estoque');return}
-      await walletAdd(uid,{pts:-r.cost,text:'Resgate: '+r.name});
+      await walletAdd(uid,{t:'resgate',pts:-r.cost,text:'Resgate pelo app: '+r.name,premio:r.name,premioId:r.rid});
       if(rw&&rw.kind==='cash'&&num(rw.cashValue)>0)await walletAdd(uid,{cash:num(rw.cashValue),text:'Cashback do resgate: '+r.name});
       if(rw&&st!==null)await X.db.doc('rewards/'+rw.id).update({stock:Math.max(0,st-1)});
       if(rw&&rw.kind==='product'&&rw.productId){var p=byId(D.products,rw.productId);if(p&&stockOf(p)>0)await X.db.doc('products/'+p.id).update({stock:stockOf(p)-1})}
@@ -3030,6 +4432,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     col('status','status',function(s){var m={};s.docs.forEach(function(d){m[d.id]=d.data()});D.status=m});
     X.db.doc('settings/store').onSnapshot(function(s){D.settings=s.exists?s.data():{};D.ready.settings=true;schedule()},function(){D.ready.settings=true});
     col('rewards','rewards',plain('rewards'));
+    col('bonus','bonus',plain('bonus'));
     col('banners','banners',plain('banners'));
     if(X.uid){
       X.db.doc('inbox/'+X.uid).onSnapshot(function(s){
@@ -3049,12 +4452,14 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
       col('redeems','redeems',plain('redeems'));
       col('campaigns','campaigns',plain('campaigns'));
       col('wallet','wallets',function(s){var m={};s.docs.forEach(function(d){m[d.id]=d.data()});D.wallets=m});
+      col('pdv_ficha','ficha',function(s){var m={};s.docs.forEach(function(d){m[d.id]=d.data()});D.ficha=m});
     }
   }
 
   async function boot(){
     var h=location.hash.slice(1);
     if(['loja','banho','vantagens','pedidos','gestao'].indexOf(h)>-1)state.tab=h;
+    else if(h.indexOf('caixa')===0)state.tab='caixa';
     else if(h.indexOf('produto/')===0){state.tab='loja';PV.pending=decodeURIComponent(h.slice(8))}
     renderCats();persist();render();
     try{
@@ -3095,6 +4500,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   window.addEventListener('hashchange',function(){
     var t=location.hash.slice(1);
     if(t.indexOf('produto/')===0){var pid=decodeURIComponent(t.slice(8));if(pid!==PV.id){if(D.ready.products)showProduct(pid,true);else PV.pending=pid}return}
+    if(t.indexOf('caixa')===0){if(PV.id)hidePview();if(state.tab!=='caixa'){state.tab='caixa';render()}return}
     if(PV.id){hidePview();var a=PV.after;PV.after=null;if(a){a();return}}
     if(['loja','banho','vantagens','pedidos','gestao'].indexOf(t)>-1&&t!==state.tab){state.tab=t;render();if(!reduced())anim(view,'enter')}
   });
