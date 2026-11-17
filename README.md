@@ -2,17 +2,14 @@
 
 App da Gatecão: loja, banho e tosa, clube de vantagens e área de gestão.
 
-## Gatecão Fidelidade (`fidelidade.html`)
+## Caixa da loja (dentro de `gatecao.html`, endereço `#caixa`)
 
-Sistema de caixa com programa de fidelidade:
+O caixa da loja física fica dentro do app Gatecão e usa o mesmo banco de dados, então **a pontuação do cliente é uma só**: comprou na loja ou pelo app, os pontos e o cashback caem na mesma carteira (`wallet/<id>`), que guarda a lista de movimentos e calcula o saldo.
 
-- **Caixa (PDV):** busca/cadastro rápido do cliente, mostra cashback e pontos, usa o cashback como desconto (com compra mínima e limite configuráveis), aplica campanhas e o bônus de indicação, calcula total e troco, e faz troca de pontos por prêmios.
-- **Fechamento:** total do dia por forma de pagamento e por atendente, conferência do dinheiro da gaveta (fundo, sangria, contado, sobra/falta) e histórico.
-- **Clientes:** ficha com histórico, saldos, indicações, anotações, próximo contato, ajuste manual e cancelamento de movimentos (só gerente).
-- **CRM:** faturamento, gráfico por dia/mês, retorno do programa (recompra, custo, vendas com cashback, indicações) e grupos de relacionamento.
-- **Campanhas:** cashback multiplicado, % extra ou pontos multiplicados por período, para todos, aniversariantes ou um nível.
-- **Mensagens:** modelos prontos com variáveis que abrem o WhatsApp com o texto preenchido.
-- **Ajustes:** regras, níveis, bônus de indicação, equipe com PIN (caixa/gerente) e backup.
-- **Modo consulta (`#consulta`):** tela para tablet no balcão onde o cliente digita o telefone e vê o próprio saldo; sair exige PIN de gerente.
+- **Regras únicas (loja e app):** nível pelo gasto dos últimos 12 meses, cashback com validade, limite de uso, compra mínima, campanhas e bônus de indicação. Ficam em `settings/store` e são editadas em Caixa > Ajustes.
+- **Cliente só da loja:** cadastrado como `customers/loja-…`. Quando ele entra no app com o mesmo telefone, o saldo da loja é unido à conta dele automaticamente (ao abrir o caixa).
+- **Áreas só da equipe:** `pdv_ficha` (anotações, CPF, aniversário, indicação), `pdv_msgs`, `pdv_avulsas`, `pdv_fech`, `pdv_cfg` (equipe e PINs). Clientes não leem nada disso.
+- **Caixa:** venda com cashback, troca de prêmios (os mesmos do app), fechamento do dia, CRM com gráficos, campanhas, mensagens para WhatsApp, equipe com PIN e modo consulta (`#caixa-consulta`).
+- Quem usa o caixa precisa de acesso de Editor no app; a Gestão tem o botão "Caixa da loja".
 
-Publicado como artifact os dados ficam na nuvem; aberto como arquivo local, ficam no navegador.
+`fidelidade.html` é a primeira versão, separada; hoje mostra só um aviso apontando para o caixa dentro do app.
