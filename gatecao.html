@@ -474,7 +474,9 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     scissor:'<g fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><circle cx="13" cy="35" r="6"/><circle cx="35" cy="35" r="6"/><path d="M17 30L38 7M31 30L10 7"/></g>',
     gift:'<rect x="6" y="21" width="36" height="21" rx="3"/><rect x="4" y="12" width="40" height="10" rx="3" opacity=".6"/><path d="M24 12v30" stroke="#fff" stroke-width="3.500"/><path d="M24 12c-6-1-10-4-8-7s9 2 8 7zM24 12c6-1 10-4 8-7s-9 2-8 7z" opacity=".85"/>',
     star:'<path d="M24 4l6 13 14 2-10 10 2.500 14L24 36l-12.500 7L14 29 4 19l14-2z"/>',
-    spark:'<path d="M24 4l5 14 14 5-14 5-5 14-5-14-14-5 14-5z"/>'
+    spark:'<path d="M24 4l5 14 14 5-14 5-5 14-5-14-14-5 14-5z"/>',
+    pill:'<g transform="rotate(-45 24 24)"><rect x="6" y="15" width="36" height="18" rx="9"/><rect x="24" y="15" width="18" height="18" rx="0" fill="#fff" opacity=".35"/></g>',
+    shield:'<path d="M24 3l17 6v13c0 11-7.500 19-17 23C14.500 41 7 33 7 22V9z"/><path d="M16 24l6 6 10-11" stroke="#fff" stroke-width="3.800" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
   };
   function svg(name,cls){return '<svg class="'+(cls||'')+'" viewBox="0 0 48 48" fill="currentColor" aria-hidden="true">'+ICONS[name]+'</svg>'}
   var HERO_ART='<svg class="art" viewBox="0 0 160 160" aria-hidden="true"><circle cx="86" cy="92" r="60" fill="#fff" opacity=".28"/><path d="M34 40l26 20a52 52 0 0148 0l26-20v60a50 50 0 01-100 0z" fill="#fff"/><path d="M34 40l14 11v18l-14-4zM134 40l-14 11v18l14-4z" fill="#FFB866"/><circle cx="62" cy="96" r="7" fill="#0B2A5B"/><circle cx="106" cy="96" r="7" fill="#0B2A5B"/><circle cx="64" cy="94" r="2" fill="#fff"/><circle cx="108" cy="94" r="2" fill="#fff"/><path d="M76 112h16l-8 9z" fill="#FF7A00"/><path d="M84 121q-8 9-18 5M84 121q8 9 18 5" stroke="#0B2A5B" stroke-width="3" fill="none" stroke-linecap="round"/></svg>';
@@ -495,8 +497,8 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   function fmtTs(ts){return new Date(ts).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}
   function toast(t){var el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){el.hidden=true},2800)}
 
-  var CATS=[['Todos','all'],['Cães','paw'],['Gatos','cat'],['Rações','bag'],['Petiscos','bone'],['Higiene','drop'],['Brinquedos','ball'],['Acessórios','tag']];
-  var ICON_OPTS=[['bag','Saco de ração'],['bone','Osso ou petisco'],['drop','Gota ou higiene'],['ball','Bola ou brinquedo'],['tag','Etiqueta ou acessório'],['bowl','Comedouro'],['bed','Cama'],['cat','Gato'],['paw','Patinha']];
+  var CATS=[['Todos','all'],['Cães','paw'],['Gatos','cat'],['Rações','bag'],['Petiscos','bone'],['Antipulgas','shield'],['Farmácia','pill'],['Higiene','drop'],['Brinquedos','ball'],['Acessórios','tag']];
+  var ICON_OPTS=[['bag','Saco de ração'],['shield','Escudo (antipulgas)'],['pill','Remédio'],['bone','Osso ou petisco'],['drop','Gota ou higiene'],['ball','Bola ou brinquedo'],['tag','Etiqueta ou acessório'],['bowl','Comedouro'],['bed','Cama'],['cat','Gato'],['paw','Patinha']];
   var SLOTS=['09:00','10:00','11:00','13:00','14:00','15:00','16:00','17:00'];
   var ORDER_ST=['Novo','Confirmado','Em separação','Saiu para entrega','Pronto para retirada','Entregue','Cancelado'];
   var APPT_ST=['Agendado','Concluído','Cancelado','Faltou'];
@@ -556,12 +558,15 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   function tileInner(p){return p.img?'<img class="pimg" src="/_blob/'+esc(p.img)+'" alt="" loading="lazy">':svg(p.i||'paw','pic')}
 
   function renderCats(){
-    var el=$('#cats');el.innerHTML='';
+    var el=$('#cats'),sl=el.scrollLeft;el.innerHTML='';
+    var act=D.products.filter(function(p){return p.active!==false});
     CATS.forEach(function(c){
+      if(c[0]!=='Todos'&&c[0]!==state.cat&&D.ready.products&&!act.some(function(p){return (p.t||[]).indexOf(c[0])>-1}))return;
       var b=document.createElement('button');b.className='cat';b.setAttribute('aria-pressed',state.cat===c[0]);
       b.innerHTML='<span class="ci">'+svg(c[1])+'</span><span>'+c[0]+'</span>';
       b.onclick=function(){state.cat=c[0];renderCats();renderShop()};el.appendChild(b);
     });
+    el.scrollLeft=sl;
   }
 
   function loadingBox(){
@@ -1167,7 +1172,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     $('#searchWrap').hidden=state.tab!=='loja';
     if(PV.pending&&D.ready.products){var pp=PV.pending;PV.pending=null;showProduct(pp,true)}
     else if(PV.id)renderPview();
-    if(state.tab==='loja')renderShop();else if(state.tab==='banho')renderBanho();else if(state.tab==='vantagens')renderVantagens();else renderPedidos();
+    if(state.tab==='loja'){renderCats();renderShop()}else if(state.tab==='banho')renderBanho();else if(state.tab==='vantagens')renderVantagens();else renderPedidos();
   }
   function go(tab){
     if(PV.id)hidePview();
@@ -2203,16 +2208,22 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     function has(re){return re.test(t)}
     if(has(/\bgat[oa]s?\b|felin|\bcat\b/))out.push('Gatos');
     if(has(/\bc[aã]o\b|\bcaes\b|cachorr|canin|\bdog\b/)||has(/\bcao\b/))out.push('Cães');
-    if(has(/racao|racoes|sache|\bwet\b|alimento/))out.push('Rações');
-    if(has(/petisco|bifinho|\bosso\b|snack|biscoito/))out.push('Petiscos');
-    if(has(/shampoo|condicionador|areia|higien|sabonete|tapete|perfume|escova|cortador/))out.push('Higiene');
+    var food=has(/racao|racoes|\bsache\b|\bwet\b|alimento umido|fresh meat|\bpate\b/),pulga=false;
+    if(has(/biscoito|petisco|bifinho|\bosso\b|snack|cookie/)){out.push('Petiscos');food=false}
+    if(has(/areia|tapete|granulado sanitario/)){out.push('Higiene');if(!has(/combo/))food=false}
+    if(food)out.push('Rações');
+    if(has(/endogard|vermifug/))out.push('Farmácia');
+    else if(has(/antipulga|carrapato|nexgard|simparic|frontline|capstar|seresto|ectofend|leevre|vaponex|wellpet|antiparasitari|bravecto|credeli|revolution|advocate/)){out.push('Antipulgas');pulga=true}
+    else if(!food&&has(/comprimid|capsula|\bcmp\b|\d\s?mg\b|suplement|probiotic|antibiot|anti-?inflamat|antimicrob|antibacter|otolog|auricular|orelha|ocular|homeopat|antiemet|ograx|condroplex|apoquel|predniso|vitamin|\bflora\b|omega/))out.push('Farmácia');
+    if(has(/shampoo|condicionador|sabonete|perfume|colonia|escova|cortador/)&&out.indexOf('Higiene')<0)out.push('Higiene');
     if(has(/brinquedo|bolinha|\bbola\b|mordedor|arranhador|pelucia/))out.push('Brinquedos');
-    if(has(/coleira|\bcama\b|comedouro|bebedouro|\bguia\b|peitoral|roupa|caixa de transporte|casinha|fonte/))out.push('Acessórios');
+    if(!pulga&&has(/coleira|\bcama\b|comedouro|bebedouro|\bguia\b|peitoral|roupa|caixa de transporte|casinha|\bfonte\b/))out.push('Acessórios');
     return out;
   }
   function inferIcon(cats){
-    var m={'Rações':'bag','Petiscos':'bone','Higiene':'drop','Brinquedos':'ball','Acessórios':'tag','Gatos':'cat'};
-    for(var i=0;i<cats.length;i++)if(m[cats[i]])return m[cats[i]];
+    var m={'Rações':'bag','Petiscos':'bone','Antipulgas':'shield','Farmácia':'pill','Higiene':'drop','Brinquedos':'ball','Acessórios':'tag','Gatos':'cat'};
+    var order=['Rações','Petiscos','Antipulgas','Farmácia','Higiene','Brinquedos','Acessórios','Gatos'];
+    for(var i=0;i<order.length;i++)if(cats.indexOf(order[i])>-1)return m[order[i]];
     return 'paw';
   }
 
@@ -2508,7 +2519,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
 
   /* ================= BANNERS ================= */
   var BN_THEMES=[['laranja','Laranja'],['azul','Azul'],['creme','Creme'],['amarelo','Amarelo']];
-  var BN_ART=[['dog','Cachorro sorrindo'],['paw','Patinha'],['cat','Gato'],['drop','Gota (banho)'],['gift','Presente'],['star','Estrela'],['bag','Ração'],['bone','Petisco'],['ball','Brinquedo'],['bowl','Comedouro'],['tag','Etiqueta']];
+  var BN_ART=[['dog','Cachorro sorrindo'],['shield','Escudo (antipulgas)'],['pill','Remédio'],['paw','Patinha'],['cat','Gato'],['drop','Gota (banho)'],['gift','Presente'],['star','Estrela'],['bag','Ração'],['bone','Petisco'],['ball','Brinquedo'],['bowl','Comedouro'],['tag','Etiqueta']];
   var BN_MODELS=[
     {tag:'Semana do banho',title:'Banho com hidratação',text:'Pelo macio e brilhante. Agende pelo app.',cta:'Agendar',dest:'banho',theme:'azul',art:'drop'},
     {tag:'Ração',title:'A ração do seu pet sem faltar',text:'Peça pelo app e receba em casa.',cta:'Ver rações',dest:'cat:Rações',theme:'laranja',art:'bag'},
@@ -2532,7 +2543,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     L.push({key:'hero',name:'Banner principal (texto em Loja)',tag:S('heroTag','Semana do Gatecão'),title:S('heroTitle','Ofertas para o seu pet'),text:S('heroText','Confira os preços especiais desta semana.'),cta:'Ver ofertas',dest:'ofertas',theme:'laranja',art:'dog'});
     D.promos.filter(function(x){return promoState(x)==='ativa'}).slice(0,4).forEach(function(pr){
       var svc=String(pr.scope).indexOf('svc')===0;
-      var catIc={'Rações':'bag','Petiscos':'bone','Higiene':'drop','Brinquedos':'ball','Acessórios':'tag','Gatos':'cat','Cães':'paw'};
+      var catIc={'Rações':'bag','Petiscos':'bone','Antipulgas':'shield','Farmácia':'pill','Higiene':'drop','Brinquedos':'ball','Acessórios':'tag','Gatos':'cat','Cães':'paw'};
       L.push({key:'promo_'+pr.id,name:'Promoção: '+pr.name,tag:pr.name||'Promoção',title:promoTitle(pr),text:(pr.end?'Válido até '+fmtDayLong(pr.end)+'.':'Por tempo limitado.')+(svc&&pr.when==='extra'?' Contratando junto com outro serviço.':''),
         cta:svc?'Agendar':'Aproveitar',dest:svc?'banho':pr.scope==='cat'?'cat:'+pr.target:pr.scope==='product'?'produto:'+pr.target:'ofertas',theme:svc?'azul':'laranja',art:svc?'drop':(pr.scope==='cat'&&catIc[pr.target])||'tag'});
     });
