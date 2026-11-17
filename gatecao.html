@@ -92,6 +92,8 @@ label.f{display:grid;gap:6px;font-weight:700;font-size:14px}
 .slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .slot{border:2px solid var(--line);background:#fff;border-radius:12px;padding:9px 0;font-weight:800;text-align:center}
 .slot[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.slot small.vg{display:block;font-size:10px;font-weight:800;color:var(--accent-d);margin-top:1px}
+.slot[aria-pressed="true"] small.vg{color:var(--brand)}
 .slot:disabled{opacity:.4;text-decoration:line-through;cursor:not-allowed}
 .primary{border:0;background:var(--accent);color:var(--accent-ink);font-weight:800;border-radius:14px;padding:14px;width:100%;font-size:16px;box-shadow:0 4px 0 var(--accent-d)}
 .primary:disabled{opacity:.45;cursor:not-allowed}
@@ -692,7 +694,30 @@ button,[data-open]{touch-action:manipulation}
     var d=new Date(),p=s.split(':');
     return (+p[0])*60+(+p[1])<=d.getHours()*60+d.getMinutes()+30;
   }
-  function slotFree(day,s){return !D.slots[slotKey(day,s)]&&!slotPast(day,s)}
+  function slotCap(){return Math.max(1,Math.floor(num(S('slotCap',3)))||3)}
+  function slotUsed(day,s){return D.slots[slotKey(day,s)]||0}
+  function slotLeft(day,s){return Math.max(0,slotCap()-slotUsed(day,s))}
+  function slotFree(day,s){return slotLeft(day,s)>0&&!slotPast(day,s)}
+  function slotMap(d){var r=Object.assign({},(d&&d.r)||{});if(d&&d.taken&&!d.r)r._antigo=d.ts||1;return r}
+  async function slotRelease(day,slot,aid){
+    var ref=X.db.doc('slots/'+slotKey(day,slot)),ss=await ref.get();if(!ss.exists)return;
+    var d=ss.data();if(!d.r){await ref.delete();return}
+    var r=Object.assign({},d.r);delete r[aid];
+    if(Object.keys(r).length)await ref.set({r:r});else await ref.delete();
+  }
+  async function slotReserve(day,slot,aid,ts){
+    var ref=X.db.doc('slots/'+slotKey(day,slot)),cap=slotCap();
+    for(var i=0;i<3;i++){
+      var ss=await ref.get(),r=slotMap(ss.exists?ss.data():null);
+      if(!r[aid]){if(Object.keys(r).length>=cap)return false;r[aid]=ts;await ref.set({r:r})}
+      var vs=await ref.get(),vr=slotMap(vs.exists?vs.data():null);
+      if(!vr[aid])continue;
+      var order=Object.keys(vr).sort(function(a,b){return vr[a]-vr[b]||(a<b?-1:1)});
+      if(order.indexOf(aid)<cap)return true;
+      await slotRelease(day,slot,aid);return false;
+    }
+    return false;
+  }
   function freeCount(day){return SLOTS.filter(function(s){return slotFree(day,s)}).length}
   function dayLabel(d){
     var t=iso(d),today=todayStr(),tm=new Date();tm.setDate(tm.getDate()+1);
@@ -783,7 +808,7 @@ button,[data-open]{touch-action:manipulation}
   function bSlots(){
     var ag=state.ag,el=$('#bSlots');if(!el)return;
     var fc=freeCount(ag.day),h='<div class="slots" role="radiogroup" aria-label="Horário">';
-    SLOTS.forEach(function(s){var off=!slotFree(ag.day,s);h+='<button class="slot" data-slot="'+s+'" '+(off?'disabled':'')+' aria-pressed="'+(ag.slot===s)+'">'+s+'</button>'});
+    SLOTS.forEach(function(s){var off=!slotFree(ag.day,s),lf=slotLeft(ag.day,s),cap=slotCap();h+='<button class="slot" data-slot="'+s+'" '+(off?'disabled':'')+' aria-pressed="'+(ag.slot===s)+'" aria-label="'+s+(off?(lf?', indisponível':', lotado'):', '+lf+' vaga'+(lf>1?'s':''))+'">'+s+(off?'':(lf===1&&cap>1?'<small class="vg">última vaga</small>':''))+'</button>'});
     h+='</div><p class="muted" style="margin:8px 0 0">'+(fc?fc+' horário'+(fc>1?'s':'')+' livre'+(fc>1?'s':'')+' em '+esc(fmtDayLong(ag.day)):'Sem horários livres neste dia. Escolha outro dia.')+'</p>';
     el.innerHTML=h;
   }
@@ -811,9 +836,8 @@ button,[data-open]{touch-action:manipulation}
     var synced=false;
     if(X.db&&X.uid){
       try{
-        var sref=X.db.doc('slots/'+slotKey(ag.day,ag.slot)),s=await sref.get();
-        if(s.exists){toast('Esse horário acabou de ser reservado. Escolha outro.');ag.slot='';render();return}
-        await sref.set({taken:true,ts:rec.ts});
+        var okR=await slotReserve(ag.day,ag.slot,id,rec.ts);
+        if(!okR){toast('Esse horário acabou de lotar. Escolha outro.');ag.slot='';render();return}
         var ref=X.db.doc('appts/'+X.uid),cs=await ref.get();
         var cur=(cs.exists&&cs.data().a)||{},nx=Object.assign({},cur);
         nx[id]=rec;await ref.set({a:nx});synced=true;
@@ -1330,10 +1354,11 @@ button,[data-open]{touch-action:manipulation}
     h+='<div class="acard"><b>Regras de venda</b><div class="two"><label class="fld">Frete grátis a partir de (R$)<input class="in" id="lf" inputmode="decimal" value="'+esc(String(S('freeMin',99)).replace('.',','))+'"></label>'+
       '<label class="fld">Taxa de entrega (R$)<input class="in" id="lee" inputmode="decimal" value="'+esc(String(S('fee',9.9)).replace('.',','))+'"></label></div>'+
       '<label class="fld">Desconto no Pix (%)<input class="in" id="lp" inputmode="decimal" value="'+esc(String(S('pixOff',5)).replace('.',','))+'"></label></div>';
+    h+='<div class="acard"><b>Banho e tosa</b><label class="fld">Pets por horário<input class="in" id="lcap" inputmode="numeric" value="'+esc(slotCap())+'"></label><p class="hint">Quando um horário chega nesse número de pets, ele deixa de aparecer como livre no app.</p></div>';
     h+='<button class="primary" id="lsave">Salvar alterações</button>';
     m.innerHTML=h;
     $('#lsave').onclick=async function(){
-      var data={heroTag:$('#lt').value.trim(),heroTitle:$('#lh').value.trim(),heroText:$('#lx').value.trim(),freeMin:num($('#lf').value),fee:num($('#lee').value),pixOff:Math.min(50,Math.max(0,num($('#lp').value)))};
+      var data={heroTag:$('#lt').value.trim(),heroTitle:$('#lh').value.trim(),heroText:$('#lx').value.trim(),freeMin:num($('#lf').value),fee:num($('#lee').value),pixOff:Math.min(50,Math.max(0,num($('#lp').value))),slotCap:Math.min(20,Math.max(1,Math.floor(num($('#lcap').value))||3))};
       this.disabled=true;
       try{await X.db.doc('settings/store').set(data);toast('Loja atualizada')}catch(e){wfail(e)}
       this.disabled=false;
@@ -1413,7 +1438,8 @@ button,[data-open]{touch-action:manipulation}
         }
         await X.db.doc('status/'+aid).set(st);
         if(prev.status!==next&&uid){var am=apptNote(next,st,ap);if(am)notifyUser(uid,'Banho e tosa',am,'agenda').catch(function(){})}
-        if(next==='Cancelado')await X.db.doc('slots/'+slotKey(parts[1],parts[2])).delete();
+        if(next==='Cancelado'&&prev.status!=='Cancelado')await slotRelease(parts[1],parts[2],aid);
+        else if(prev.status==='Cancelado'&&next!=='Cancelado'){var rr=await slotReserve(parts[1],parts[2],aid,ap&&ap.ts||Date.now());if(!rr)toast('Atenção: esse horário já está lotado')}
         toast('Agendamento atualizado');
       }catch(e){wfail(e)}
     }
@@ -2260,7 +2286,7 @@ button,[data-open]{touch-action:manipulation}
     col('promos','promos',plain('promos'));
     col('tables','tables',plain('tables'));
     col('services','services',plain('services'));
-    col('slots','slots',function(s){var m={};s.docs.forEach(function(d){m[d.id]=true});D.slots=m});
+    col('slots','slots',function(s){var m={};s.docs.forEach(function(d){m[d.id]=Object.keys(slotMap(d.data()||{})).length||1});D.slots=m});
     col('status','status',function(s){var m={};s.docs.forEach(function(d){m[d.id]=d.data()});D.status=m});
     X.db.doc('settings/store').onSnapshot(function(s){D.settings=s.exists?s.data():{};D.ready.settings=true;schedule()},function(){D.ready.settings=true});
     col('rewards','rewards',plain('rewards'));
