@@ -427,6 +427,9 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
 .hist.off,.acard.off{opacity:.6}
 .slothead{display:flex;align-items:center;gap:10px;margin:10px 0 6px;padding-left:4px}
 .slothead b{font-family:var(--font-display);font-size:18px;color:var(--brand)}
+.recnote{font-size:12px;font-weight:800;color:#12663A}
+.pvmode{display:grid;gap:8px;margin-top:14px}
+.recsel{margin-top:6px;padding:7px 10px;font-size:13px}
 .oksum{background:var(--soft);border-radius:16px;padding:14px;display:grid;gap:6px}
 </style>
 <div id="cust">
@@ -509,9 +512,9 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   var APPT_ST=['Agendado','Concluído','Cancelado','Faltou'];
 
   /* ---------- estado ---------- */
-  var D={banners:[],products:[],promos:[],tables:[],services:[],settings:{},slots:{},status:{},orders:[],appts:[],ready:{},nodb:false,slow:false,customers:[],wallets:{},crm:{},rewards:[],redeems:[],me:null,myRedeems:[]};
+  var D={myRec:[],banners:[],products:[],promos:[],tables:[],services:[],settings:{},slots:{},status:{},orders:[],appts:[],ready:{},nodb:false,slow:false,customers:[],wallets:{},crm:{},rewards:[],redeems:[],me:null,myRedeems:[]};
   var X={db:null,user:null,assets:null,uid:null,isAdmin:false,checked:false};
-  var state={tab:'loja',cat:'Todos',q:'',cart:load('gc_cart',{}),myOrders:load('gc_orders',[]),myAppts:load('gc_appts',[]),
+  var state={tab:'loja',cat:'Todos',q:'',cart:load('gc_cart',{}),cartRec:load('gc_cartrec',{}),myOrders:load('gc_orders',[]),myAppts:load('gc_appts',[]),
     ag:Object.assign({svc:'',extras:[],lt:'loja',ltAddr:'',ltBairro:'',ltComp:'',ltPhone:'',day:'',slot:'',pet:'',kind:'Cachorro',size:'',weight:'',coat:'',breed:'',tutor:'',obs:''},load('gc_ag',{})),co:{mode:'Retirada na loja',pay:'Pix',name:''},
     adm:{tab:'resumo',q:'',ord:'pedidos',cq:'',cseg:'todos'},prof:null};
   var view=$('#view'),admEl=$('#admin');
@@ -519,7 +522,17 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   function byId(list,id){return list.find(function(x){return x.id===id})||null}
 
   /* ---------- preços e promoções ---------- */
-  function appTable(){return D.tables.find(function(t){return t.app})||null}
+  function appTable(){return D.tables.find(function(t){return t.app&&!t.rec})||null}
+  function recTable(){return D.tables.find(function(t){return t.rec})||null}
+  function recDays(){var t=recTable(),d=t&&Array.isArray(t.days)?t.days:[15,30,45,60];d=d.map(function(x){return Math.round(num(x))}).filter(function(x){return x>=7&&x<=180});return d.length?d:[30]}
+  function recInfo(p){
+    var t=recTable();if(!t||!p)return null;
+    var o=p.tp&&p.tp[t.id],rp=(o!=null&&o!=='')?num(o):r2(num(p.price)*(1+num(t.adj)/100));
+    var nm=priced(p).price;
+    if(!(rp>0)||rp>=nm)return null;
+    return{price:r2(rp),normal:nm,off:Math.round((1-rp/nm)*100)};
+  }
+  function addDays(day,n){var d=new Date(day+'T12:00:00');d.setDate(d.getDate()+n);return iso(d)}
   function basePrice(p){
     var t=appTable();
     if(!t)return num(p.price);
@@ -612,6 +625,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
       h+='<article class="card"><div class="tile t'+(n%3)+'" data-open="'+esc(p.id)+'" role="button" tabindex="0" aria-label="Ver guia de '+esc(p.name)+'">'+(out?'<span class="badge out">Esgotado</span>':pr.off?'<span class="badge">-'+pr.off+'%</span>':p.badge?'<span class="badge alt">'+esc(p.badge)+'</span>':'')+tileInner(p)+'</div>'+
         '<div class="cbody"><div class="nm" data-open="'+esc(p.id)+'">'+esc(p.name)+'</div><div class="un">'+esc(p.desc||'')+'</div>'+
         '<div class="pr"><span class="price">'+brl(pr.price)+'</span>'+(pr.off?'<span class="old">'+brl(pr.base)+'</span>':'')+'</div>'+
+        (!out&&recInfo(p)?'<div class="recnote">Recompra: '+brl(recInfo(p).price)+'</div>':'')+
         (!out&&st<=3?'<div class="stock-note">Restam '+st+'</div>':'')+
         '<button class="add" data-add="'+esc(p.id)+'" '+(out?'disabled':'')+'>'+(out?'Esgotado':'+ Adicionar')+'</button></div></article>';
     });
@@ -630,12 +644,13 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
       if(!p||p.active===false)return;
       var q=Math.min(state.cart[id],stockOf(p));
       if(q<=0)return;
-      out.push({p:p,q:q,price:priced(p).price});
+      var ri=state.cartRec[id]?recInfo(p):null;
+      out.push({p:p,q:q,price:ri?ri.price:priced(p).price,rec:ri?state.cartRec[id]:0});
     });
     return out;
   }
   function cartCount(){return cartLines().reduce(function(a,l){return a+l.q},0)}
-  function persist(){save('gc_cart',state.cart);$('#cartN').textContent=cartCount()}
+  function persist(){Object.keys(state.cartRec).forEach(function(k){if(!state.cart[k])delete state.cartRec[k]});save('gc_cart',state.cart);save('gc_cartrec',state.cartRec);$('#cartN').textContent=cartCount()}
   function addToCart(id){
     var p=byId(D.products,id);if(!p)return;
     var cur=state.cart[id]||0;
@@ -676,7 +691,9 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     var h='<div class="row"><h2>Seu carrinho</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
     if(!lines.length){$('#overlay').innerHTML=sheetHtml(h+'<p class="muted">Seu carrinho está vazio. Escolha produtos na loja.</p>','Carrinho');bindClose();return}
     lines.forEach(function(l){
-      h+='<div class="line"><div><b>'+esc(l.p.name)+'</b><div class="muted">'+brl(l.price)+' cada</div></div><div class="qty"><button data-dec="'+esc(l.p.id)+'" aria-label="Diminuir">-</button><b>'+l.q+'</b><button data-inc="'+esc(l.p.id)+'" aria-label="Aumentar" '+(l.q>=stockOf(l.p)?'disabled':'')+'>+</button></div></div>';
+      var ri=recInfo(l.p);
+      h+='<div class="line"><div><b>'+esc(l.p.name)+'</b><div class="muted">'+brl(l.price)+' cada'+(l.rec?' · recompra a cada '+l.rec+' dias':'')+'</div>'+
+        (ri?'<select class="in recsel" data-recsel="'+esc(l.p.id)+'" aria-label="Tipo de compra de '+esc(l.p.name)+'"><option value="0"'+(l.rec?'':' selected')+'>Compra única · '+brl(ri.normal)+'</option>'+recDays().map(function(d){return '<option value="'+d+'"'+(l.rec===d?' selected':'')+'>Recompra a cada '+d+' dias · '+brl(ri.price)+'</option>'}).join('')+'</select>':'')+'</div><div class="qty"><button data-dec="'+esc(l.p.id)+'" aria-label="Diminuir">-</button><b>'+l.q+'</b><button data-inc="'+esc(l.p.id)+'" aria-label="Aumentar" '+(l.q>=stockOf(l.p)?'disabled':'')+'>+</button></div></div>';
     });
     var sub=r2(lines.reduce(function(a,l){return a+l.price*l.q},0));
     var pixPct=num(S('pixOff',5)),freeMin=num(S('freeMin',99)),fee=num(S('fee',9.9));
@@ -710,6 +727,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     $('#overlay').innerHTML=sheetHtml(h,'Carrinho');bindClose();
     var s=$('#overlay');
     $$('[data-inc]',s).forEach(function(b){b.onclick=function(){addToCart(b.getAttribute('data-inc'));openCart()}});
+    $$('[data-recsel]',s).forEach(function(sel){sel.onchange=function(){coGrab();var id=sel.getAttribute('data-recsel'),v=+sel.value;if(v)state.cartRec[id]=v;else delete state.cartRec[id];persist();openCart()}});
     $$('[data-dec]',s).forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-dec');state.cart[k]=(state.cart[k]||1)-1;if(state.cart[k]<=0)delete state.cart[k];persist();openCart()}});
     $$('[data-mode]',s).forEach(function(b){b.onclick=function(){coGrab();state.co.mode=b.getAttribute('data-mode');openCart()}});
     $$('[data-pay]',s).forEach(function(b){b.onclick=function(){coGrab();state.co.pay=b.getAttribute('data-pay');openCart()}});
@@ -728,17 +746,19 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   async function finishOrder(lines,sub,pixOff,fee,tot,cashUse){
     var A=state.ag,o={id:'o'+Date.now(),ts:Date.now(),name:state.co.name.trim(),mode:state.co.mode,pay:state.co.pay,
       addr:state.co.mode==='Entrega'?{addr:A.ltAddr.trim().slice(0,160),bairro:A.ltBairro.trim().slice(0,80),comp:A.ltComp.trim().slice(0,120),ref:String(state.co.ref||'').trim().slice(0,160),phone:String(A.ltPhone).replace(/\D/g,'').slice(0,11)}:null,sub:sub,pixOff:pixOff,fee:fee,cashUse:cashUse||0,total:tot,
-      items:lines.map(function(l){return{id:l.p.id,n:l.p.name,p:l.price,q:l.q}})};
+      items:lines.map(function(l){var it={id:l.p.id,n:l.p.name,p:l.price,q:l.q};if(l.rec)it.rec=l.rec;return it})};
+    var recs={};lines.filter(function(l){return l.rec}).forEach(function(l,k){var rid='r'+Date.now()+k;recs[rid]={id:rid,pid:l.p.id,n:l.p.name,q:l.q,every:l.rec,price:l.price,next:addDays(todayStr(),l.rec),active:true,ts:Date.now(),name:o.name,mode:o.mode,pay:o.pay,addr:o.addr,first:o.id}});
     var synced=false;
     if(X.db&&X.uid){
       try{
         var ref=X.db.doc('orders/'+X.uid),s=await ref.get();
-        var cur=(s.exists&&s.data().o)||{},nx=Object.assign({},cur);
-        nx[o.id]=o;await ref.set({o:nx});synced=true;
+        var whole=s.exists?s.data():{},cur=whole.o||{},nx=Object.assign({},cur);
+        nx[o.id]=o;await ref.set(Object.assign({},whole,{o:nx,r:Object.assign({},whole.r||{},recs)}));synced=true;
+        if(typeof storeNotify==='function')storeNotify('pedido','Novo pedido de '+o.name,o.items.length+' ite'+(o.items.length>1?'ns':'m')+' · '+brl(o.total)+' · '+o.mode+(Object.keys(recs).length?' · com recompra':''));
       }catch(e){}
     }
     state.myOrders.unshift(o);save('gc_orders',state.myOrders);
-    state.cart={};state.co.useCash=false;persist();closeSheet();
+    state.cart={};state.cartRec={};state.co.useCash=false;persist();closeSheet();
     toast(synced?'Pedido enviado para a loja':'Pedido salvo neste aparelho');
     go('pedidos');
   }
@@ -1017,6 +1037,13 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     $('#bSum').innerHTML='<div class="txt"><b>'+priceHtml+'</b><span>'+esc(line||'Escolha o serviço')+'</span></div><button class="primary" id="confirmAg" '+(miss?'aria-disabled="true" style="opacity:.6"':'')+'>'+(miss?'Falta: '+esc(miss.toLowerCase()):'Agendar')+'</button>';
   }
 
+  async function recPatch(uid,rid,patch){
+    try{
+      var ref=X.db.doc('orders/'+uid),s=await ref.get(),w=s.exists?s.data():{},r=Object.assign({},w.r||{});
+      if(!r[rid])return false;r[rid]=Object.assign({},r[rid],patch);
+      await ref.set(Object.assign({},w,{r:r}));return true;
+    }catch(e){wfail(e);return false}
+  }
   async function cancelAppt(id,silent){
     var a=state.myAppts.filter(function(x){return x.id===id})[0];if(!a)return false;
     try{
@@ -1089,7 +1116,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     var p=byId(D.products,id);
     if(!p||p.active===false){if(fromHash){toast('Produto não encontrado');history.replaceState(null,'','#'+state.tab)}return}
     var was=PV.id;
-    if(id!==was){PV.qty=1;PV.open={about:true}}
+    if(id!==was){PV.qty=1;PV.open={about:true};PV.rec=null}
     PV.id=id;
     if(!fromHash){
       if(was&&PV.pushed)history.replaceState({pv:id},'','#produto/'+encodeURIComponent(id));
@@ -1131,6 +1158,14 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     if(pixPct&&!out)h+='<span class="pv-pix">'+brl(r2(pr.price*(1-pixPct/100)))+' no Pix ('+pixPct+'% off)</span>';
     h+='<div class="pv-stock'+(out?' out':st<=minStock(p)?' low':'')+'">'+(out?'Esgotado no momento':st<=minStock(p)?'Últimas '+st+' unidades':'Em estoque')+'</div>';
 
+    var RI=recInfo(p);
+    if(RI&&!out){
+      if(PV.rec==null)PV.rec=state.cartRec[p.id]||0;
+      h+='<div class="pvmode" role="radiogroup" aria-label="Como comprar"><button class="opt" data-pvmode="0" role="radio" aria-pressed="'+(!PV.rec)+'"><span><b>Compra única</b><br><span class="muted">Leva só desta vez</span></span><b>'+brl(RI.normal)+'</b></button>'+
+        '<button class="opt" data-pvmode="'+(PV.rec||recDays()[Math.min(1,recDays().length-1)])+'" role="radio" aria-pressed="'+(!!PV.rec)+'"><span><b>Recompra</b> <span class="hotb">-'+RI.off+'%</span><br><span class="muted">Receba de novo automaticamente. Cancele quando quiser.</span></span><b>'+brl(RI.price)+'</b></button>'+
+        (PV.rec?'<div class="chips" style="flex-wrap:wrap" role="radiogroup" aria-label="Intervalo">'+recDays().map(function(d){return '<button class="chip" data-pvdays="'+d+'" aria-pressed="'+(PV.rec===d)+'">A cada '+d+' dias</button>'}).join('')+'</div>':'')+'</div>';
+    }
+
     h+='<div class="facts"><div class="fact"><span>Retirada</span><b>Grátis na loja</b></div><div class="fact"><span>Entrega</span><b>'+(freeMin?'Grátis acima de '+brl(freeMin):'Taxa de '+brl(fee))+'</b></div>';
     if(X.uid&&typeof wal==='function'){var ev=earnFor(pr.price,wal(X.uid).life);if(ev.pts>0)h+='<div class="fact"><span>Você ganha</span><b>'+ev.pts+' pontos'+(ev.cash>0?' + '+brl(ev.cash):'')+'</b></div>'}
     if(p.code)h+='<div class="fact"><span>Código</span><b>'+esc(p.code)+'</b></div>';
@@ -1156,7 +1191,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     h+='<div class="pv-bar">'+(inCart?'<p class="pv-incart">'+inCart+' no carrinho</p>':'')+'<div class="wrap">';
     if(out)h+='<button class="primary" disabled>Esgotado</button>';
     else if(!room)h+='<button class="primary" id="pvGoCart">Ver carrinho</button>';
-    else h+='<div class="qty"><button id="pvDec" aria-label="Diminuir" '+(PV.qty<=1?'disabled':'')+'>-</button><b aria-live="polite">'+PV.qty+'</b><button id="pvInc" aria-label="Aumentar" '+(PV.qty>=room?'disabled':'')+'>+</button></div><button class="primary" id="pvAdd">Adicionar · '+brl(r2(pr.price*PV.qty))+'</button>';
+    else h+='<div class="qty"><button id="pvDec" aria-label="Diminuir" '+(PV.qty<=1?'disabled':'')+'>-</button><b aria-live="polite">'+PV.qty+'</b><button id="pvInc" aria-label="Aumentar" '+(PV.qty>=room?'disabled':'')+'>+</button></div><button class="primary" id="pvAdd">'+(RI&&PV.rec?'Assinar · ':'Adicionar · ')+brl(r2((RI&&PV.rec?RI.price:pr.price)*PV.qty))+'</button>';
     h+='</div></div>';
     pvEl.innerHTML=h;
     pvEl.scrollTop=keep;
@@ -1173,7 +1208,9 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     else if(b.id==='pvBanho')closePview(function(){go('banho')});
     else if(b.id==='pvDec'){PV.qty=Math.max(1,PV.qty-1);renderPview()}
     else if(b.id==='pvInc'){PV.qty++;renderPview()}
-    else if(b.id==='pvAdd'){addQty(PV.id,PV.qty);PV.qty=1;renderPview()}
+    else if(b.hasAttribute('data-pvmode')){PV.rec=+b.getAttribute('data-pvmode');renderPview()}
+    else if(b.hasAttribute('data-pvdays')){PV.rec=+b.getAttribute('data-pvdays');renderPview()}
+    else if(b.id==='pvAdd'){if(recInfo(byId(D.products,PV.id))&&PV.rec)state.cartRec[PV.id]=PV.rec;else delete state.cartRec[PV.id];addQty(PV.id,PV.qty);PV.qty=1;renderPview()}
   });
 
   /* ---------- meus pedidos ---------- */
@@ -1186,6 +1223,17 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
       h+='<div class="hist'+(st==='Cancelado'?' off':'')+'"><div class="row"><b>'+esc(a.pet)+' ('+esc(a.kind)+(a.size?', '+esc(a.size):'')+')</b><span class="pill">'+esc(st)+'</span></div><div>'+esc(a.svc)+'</div>'+((a.breed||a.weight)?'<div class="muted">'+esc([a.breed,a.weight?String(a.weight).replace('.',',')+' kg':'',a.coat?'pelagem '+String(a.coat).toLowerCase():''].filter(Boolean).join(' · '))+'</div>':'')+(a.lt?'<div class="muted">Leva e traz: '+esc(a.lt.label)+' · '+esc(a.lt.addr)+', '+esc(a.lt.bairro)+(a.lt.comp?' ('+esc(a.lt.comp)+')':'')+(a.lt.phone?' · '+esc(fmtPhone(a.lt.phone)):'')+'</div>':'')+'<div class="muted">'+fmtDayLong(a.day)+' às '+esc(a.slot)+' · '+brl(a.price)+'</div>'+(a.obs?'<div class="muted">Obs.: '+esc(a.obs)+'</div>':'')+
         (canMod?'<div class="apact"><button class="ghost" data-resched="'+esc(a.id)+'">Remarcar</button><button class="ghost dangerline" data-cancelap="'+esc(a.id)+'">Cancelar</button></div>':(st==='Agendado'&&!fut?'<p class="hint" style="margin:0">Para mudar este horário, fale com a loja.</p>':''))+'</div>';
     });
+    if(D.myRec.length){
+      h+='<div class="sec" style="margin-top:18px"><h2>Minhas recompras</h2><span>'+D.myRec.filter(function(r){return r.active}).length+' ativas</span></div>';
+      D.myRec.forEach(function(r){
+        var p=byId(D.products,r.pid),ri=recInfo(p),soon=r.active&&r.next<=addDays(todayStr(),3);
+        h+='<div class="hist'+(r.active?'':' off')+(soon?' unread':'')+'"><div class="row"><b>'+r.q+' x '+esc(r.n)+'</b><span class="pill">'+(r.active?'Ativa':'Pausada')+'</span></div>'+
+          '<div class="muted">A cada '+r.every+' dias · '+brl(ri?ri.price:r.price)+' cada</div>'+
+          (r.active?'<div>'+(soon?'<b>':'')+'Próxima: '+esc(fmtDayLong(r.next))+(soon?'</b>':'')+'</div>':'')+
+          '<div class="apact"><select class="in" data-recev="'+esc(r.id)+'" aria-label="Intervalo da recompra">'+recDays().concat(recDays().indexOf(r.every)<0?[r.every]:[]).map(function(d){return '<option value="'+d+'"'+(d===r.every?' selected':'')+'>A cada '+d+' dias</option>'}).join('')+'</select>'+
+          '<button class="ghost" data-recpause="'+esc(r.id)+'">'+(r.active?'Pausar':'Retomar')+'</button><button class="ghost dangerline" data-recdel="'+esc(r.id)+'">Cancelar</button></div></div>';
+      });
+    }
     h+='<div class="sec" style="margin-top:18px"><h2>Pedidos da loja</h2><span>'+state.myOrders.length+'</span></div>';
     if(!state.myOrders.length)h+='<p class="muted">Nenhum pedido ainda. Adicione produtos ao carrinho para começar.</p>';
     state.myOrders.forEach(function(o){
@@ -1198,6 +1246,9 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
       h+='<div class="sec" style="margin-top:22px"><h2>Minha conta</h2></div><div class="hist"><div class="row"><b>Acesso da loja</b><span class="pill">Conta da loja</span></div><span class="muted">Você entrou com a conta da Gatecão. A área de gestão está liberada para você.</span><button class="primary" id="openAdm" style="margin-top:6px">Abrir gestão</button></div>';
     }
     view.innerHTML=h;
+    $$('[data-recev]',view).forEach(function(sel){sel.onchange=function(){var r=D.myRec.filter(function(x){return x.id===sel.getAttribute('data-recev')})[0];if(!r)return;var ev=+sel.value;recPatch(X.uid,r.id,{every:ev,next:addDays(todayStr(),ev)}).then(function(){toast('Intervalo atualizado')})}});
+    $$('[data-recpause]',view).forEach(function(b){b.onclick=function(){var r=D.myRec.filter(function(x){return x.id===b.getAttribute('data-recpause')})[0];if(!r)return;var on=!r.active;recPatch(X.uid,r.id,on?{active:true,next:r.next<todayStr()?addDays(todayStr(),1):r.next}:{active:false}).then(function(){toast(on?'Recompra retomada':'Recompra pausada')})}});
+    $$('[data-recdel]',view).forEach(function(b){b.onclick=function(){if(b.getAttribute('data-sure')!=='1'){b.setAttribute('data-sure','1');b.textContent='Toque de novo';return}var id=b.getAttribute('data-recdel'),r=D.myRec.filter(function(x){return x.id===id})[0];recPatch(X.uid,id,{active:false,deleted:true}).then(function(){toast('Recompra cancelada');if(r&&typeof storeNotify==='function')storeNotify('pedido','Recompra cancelada',r.q+' x '+r.n)})}});
     $$('[data-cancelap]',view).forEach(function(b){b.onclick=function(){
       if(b.getAttribute('data-sure')!=='1'){b.setAttribute('data-sure','1');b.textContent='Toque de novo para cancelar';return}
       b.disabled=true;cancelAppt(b.getAttribute('data-cancelap'),false).then(function(ok){if(ok){toast('Agendamento cancelado');render()}else{b.disabled=false;b.textContent='Cancelar'}});
@@ -1251,6 +1302,33 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     var out=[];
     D.appts.forEach(function(d){var m=d.a||{};Object.keys(m).forEach(function(k){out.push(Object.assign({uid:d.id},m[k]))})});
     return out.sort(function(a,b){return (a.day+a.slot)<(b.day+b.slot)?-1:1});
+  }
+  function allRecs(){var out=[];D.orders.forEach(function(d){var r=d.r||{};Object.keys(r).forEach(function(k){if(!r[k].deleted)out.push(Object.assign({uid:d.id},r[k]))})});return out.sort(function(a,b){return String(a.next).localeCompare(String(b.next))})}
+  function recDue(){var lim=addDays(todayStr(),2);return allRecs().filter(function(r){return r.active&&r.next<=lim})}
+  function aRecHtml(){
+    var L=allRecs(),t0=todayStr(),h='';
+    if(!recTable())h+='<div class="acard"><b>Recompra desligada</b><p class="hint" style="margin:0">Para oferecer recompra, crie uma tabela do tipo <b>Recorrência</b> em Tabelas de preço e coloque os preços. Os produtos mais baratos nessa tabela ganham a opção de recompra no app.</p></div>';
+    h+='<p class="hint">Recompras ativas aparecem por ordem de data. Quando chegar o dia, toque em <b>Gerar pedido</b>: o pedido entra em Pedidos da loja com o preço de recompra, e a próxima data é marcada sozinha.</p>';
+    if(!L.length)return h+'<div class="empty-card"><h2>Nenhuma recompra ainda</h2><p class="muted">Quando um cliente escolher recompra no app, ela aparece aqui.</p></div>';
+    L.forEach(function(r){
+      var p=byId(D.products,r.pid),ri=recInfo(p),pr=ri?ri.price:r.price,late=r.active&&r.next<t0,today=r.active&&r.next===t0;
+      h+='<div class="acard'+(r.active?'':' off')+'"><div class="rowtight"><b>'+esc(custName(r.uid)!=='Cliente sem cadastro'?custName(r.uid):r.name||'Cliente')+'</b><span class="st '+(!r.active?'off':late?'bad':today?'warn':'info')+'">'+(!r.active?'Pausada':late?'Atrasada':today?'Hoje':'Próxima '+esc(fmtDay(r.next)))+'</span></div>'+
+        '<span>'+r.q+' x '+esc(r.n)+' · '+brl(pr)+' cada · a cada '+r.every+' dias</span><span class="muted">'+esc(r.mode||'')+' · '+esc(r.pay||'')+(r.addr?' · '+esc(r.addr.addr)+', '+esc(r.addr.bairro):'')+'</span>'+
+        (r.active?'<div class="rowtight"><span class="muted">Próxima: '+esc(fmtDayLong(r.next))+'</span><button class="btn" data-act="recGen" data-id="'+esc(r.uid)+'|'+esc(r.id)+'"'+(p&&stockOf(p)>=r.q?'':' disabled title="Sem estoque"')+'>Gerar pedido</button></div>'+(p&&stockOf(p)<r.q?'<span class="hint" style="color:var(--danger)">Sem estoque suficiente para esta recompra.</span>':''):'')+'</div>';
+    });
+    return h;
+  }
+  async function recGenerate(uid,rid,btn){
+    var ref=X.db.doc('orders/'+uid),s=await ref.get(),w=s.exists?s.data():{},r=(w.r||{})[rid];if(!r)return;
+    var p=byId(D.products,r.pid),ri=recInfo(p),price=ri?ri.price:r.price,sub=r2(price*r.q);
+    var pixOff=r.pay==='Pix'?r2(sub*num(S('pixOff',5))/100):0,fee=(r.mode==='Entrega'&&sub<num(S('freeMin',99)))?num(S('fee',9.9)):0;
+    var o={id:'o'+Date.now(),ts:Date.now(),name:r.name||custName(uid),mode:r.mode||'Retirada na loja',pay:r.pay||'Pix',addr:r.addr||null,sub:sub,pixOff:pixOff,fee:fee,cashUse:0,total:r2(sub-pixOff+fee),fromRec:rid,
+      items:[{id:r.pid,n:r.n,p:price,q:r.q,rec:r.every}]};
+    var O=Object.assign({},w.o||{});O[o.id]=o;
+    var R=Object.assign({},w.r||{});R[rid]=Object.assign({},r,{next:addDays(r.next>todayStr()?r.next:todayStr(),r.every),last:todayStr(),count:num(r.count)+1});
+    await ref.set(Object.assign({},w,{o:O,r:R}));
+    notifyUser(uid,'Sua recompra chegou','Separamos '+r.q+' x '+r.n+' ('+brl(o.total)+'). '+(o.mode==='Entrega'?'Em breve sai para entrega.':'Já pode retirar na loja.'),'pedido').catch(function(){});
+    toast('Pedido da recompra criado');
   }
   function agFilt(a,f,t0,t1){
     var st=apStatus(a);
@@ -1540,11 +1618,12 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
 
   /* ----- Tabelas de preço ----- */
   function aTabelas(m){
-    var h='<div class="toolbar"><p class="hint" style="flex:1">Cada tabela ajusta o preço base em porcentagem (negativo dá desconto). Na grade abaixo você pode fixar um preço específico por produto. A tabela marcada como "No app" é a que os clientes veem.</p><button class="btn" data-act="tblNew">+ Nova tabela</button></div>';
+    var h='<div class="toolbar"><p class="hint" style="flex:1">Cada tabela ajusta o preço base em porcentagem (negativo dá desconto). Na grade abaixo você pode fixar um preço específico por produto. A tabela marcada como "No app" é a que os clientes veem. A tabela do tipo <b>Recorrência</b> define o preço de quem escolhe recompra.</p><button class="btn" data-act="tblNew">+ Nova tabela</button>'+(recTable()?'':'<button class="btn alt" data-act="tblNewRec">+ Tabela de recorrência</button>')+'</div>';
     if(!D.tables.length)h+='<div class="empty-card"><h2>Nenhuma tabela de preço</h2><p class="muted">Sem tabela, o app usa o preço base de cada produto.</p></div>';
     D.tables.slice().sort(function(a,b){return (b.app?1:0)-(a.app?1:0)||String(a.name).localeCompare(String(b.name),'pt-BR')}).forEach(function(t){
-      h+='<div class="acard"><div class="rowtight"><b>'+esc(t.name)+'</b>'+(t.app?'<span class="st ok">No app</span>':'<span class="st off">Fora do app</span>')+'</div><span class="muted">Ajuste sobre o preço base: '+(num(t.adj)>0?'+':'')+num(t.adj)+'%</span>'+
-        '<div class="rowtight"><button class="mini" data-act="tblApp" data-id="'+esc(t.id)+'"'+(t.app?' disabled':'')+'>Usar no app</button><button class="mini" data-act="tblEdit" data-id="'+esc(t.id)+'">Editar</button></div></div>';
+      h+='<div class="acard"><div class="rowtight"><b>'+esc(t.name)+'</b>'+(t.rec?'<span class="st warn">Recorrência</span>':t.app?'<span class="st ok">No app</span>':'<span class="st off">Fora do app</span>')+'</div><span class="muted">Ajuste sobre o preço base: '+(num(t.adj)>0?'+':'')+num(t.adj)+'%'+(t.rec?' · intervalos: '+recDays().join(', ')+' dias':'')+'</span>'+
+        (t.rec?'<span class="hint">Preço usado quando o cliente escolhe recompra. Só aparece no app quando fica mais barato que a compra normal.</span>':'')+
+        '<div class="rowtight">'+(t.rec?'<span></span>':'<button class="mini" data-act="tblApp" data-id="'+esc(t.id)+'"'+(t.app?' disabled':'')+'>Usar no app</button>')+'<button class="mini" data-act="tblEdit" data-id="'+esc(t.id)+'">Editar</button></div></div>';
     });
     if(D.tables.length&&D.products.length){
       var cols=D.tables.slice().sort(function(a,b){return (b.app?1:0)-(a.app?1:0)||String(a.name).localeCompare(String(b.name),'pt-BR')});
@@ -1561,19 +1640,23 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   }
   function openTable(id){
     var cur=id?byId(D.tables,id):null;
-    var t=cur?JSON.parse(JSON.stringify(cur)):{name:'',adj:0,app:!D.tables.length};
+    var t=cur?JSON.parse(JSON.stringify(cur)):(id===false?{name:'Recompra',adj:-10,app:false,rec:true,days:[15,30,45,60]}:{name:'',adj:0,app:!D.tables.length});
     var h='<div class="row"><h2>'+(cur?'Editar tabela':'Nova tabela')+'</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
     h+='<label class="fld">Nome da tabela<input class="in" id="tn" value="'+esc(t.name)+'" placeholder="Ex.: Atacado, Cliente fiel"></label>';
     h+='<label class="fld">Ajuste sobre o preço base (%)<input class="in" id="ta" inputmode="decimal" value="'+esc(String(t.adj).replace('.',','))+'"></label><p class="hint">Use -10 para 10% mais barato e 5 para 5% mais caro.</p>';
+    if(t.rec||!cur)h+='<div class="fld"><span>Tipo de tabela</span><div class="seg" style="margin:0"><button type="button" data-ttype="0" aria-pressed="'+(!t.rec)+'">Normal</button><button type="button" data-ttype="1" aria-pressed="'+(!!t.rec)+'"'+(recTable()&&(!cur||!cur.rec)?' disabled title="Já existe uma tabela de recorrência"':'')+'>Recorrência</button></div></div>';
+    h+='<label class="fld" id="tdaysW"'+(t.rec?'':' hidden')+'>Intervalos que o cliente pode escolher (dias)<input class="in" id="tdays" value="'+esc((t.days||[15,30,45,60]).join(', '))+'" placeholder="15, 30, 45, 60"></label>';
     h+='<button class="primary" id="tsave">Salvar tabela</button>';
-    if(cur&&!cur.app)h+='<button class="btn danger" id="tdel" type="button">Excluir tabela</button>';
+    if(cur&&(!cur.app||cur.rec))h+='<button class="btn danger" id="tdel" type="button">Excluir tabela</button>';
     $('#overlay').innerHTML=sheetHtml(h,'Tabela de preço');bindClose();
+    $$('[data-ttype]',$('#overlay')).forEach(function(b){b.onclick=function(){t.rec=b.getAttribute('data-ttype')==='1';$$('[data-ttype]',$('#overlay')).forEach(function(x){x.setAttribute('aria-pressed',x===b)});$('#tdaysW').hidden=!t.rec}});
     $('#tsave').onclick=async function(){
       var name=$('#tn').value.trim();if(!name){toast('Dê um nome para a tabela');return}
       var adj=num($('#ta').value);if(adj<-90||adj>300){toast('Ajuste fora do limite');return}
       this.disabled=true;
       try{
-        var data={name:name,adj:adj,app:!!t.app};
+        var data={name:name,adj:adj,app:t.rec?false:!!t.app};
+        if(t.rec){data.rec=true;data.days=$('#tdays').value.split(/[,;\s]+/).map(function(x){return Math.round(num(x))}).filter(function(x){return x>=7&&x<=180}).filter(function(v,k,a){return a.indexOf(v)===k}).sort(function(a,b){return a-b});if(!data.days.length)data.days=[30]}
         if(cur)await X.db.doc('tables/'+cur.id).set(data);else await X.db.collection('tables').doc().set(data);
         closeSheet();toast('Tabela salva');
       }catch(e){this.disabled=false;wfail(e)}
@@ -1594,7 +1677,8 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     }
   }
   function aPedidos(m){
-    var seg=state.adm.ord,h='<div class="seg"><button data-act="seg" data-id="pedidos" aria-pressed="'+(seg==='pedidos')+'">Pedidos da loja</button><button data-act="seg" data-id="agenda" aria-pressed="'+(seg==='agenda')+'">Banho e tosa</button></div>';
+    var seg=state.adm.ord,h='<div class="seg"><button data-act="seg" data-id="pedidos" aria-pressed="'+(seg==='pedidos')+'">Pedidos da loja</button><button data-act="seg" data-id="agenda" aria-pressed="'+(seg==='agenda')+'">Banho e tosa</button><button data-act="seg" data-id="rec" aria-pressed="'+(seg==='rec')+'">Recompras'+(recDue().length?' ('+recDue().length+')':'')+'</button></div>';
+    if(seg==='rec'){m.innerHTML=h+aRecHtml();return}
     if(seg==='pedidos'){
       var list=allOrders();
       if(!list.length)h+='<div class="empty-card"><h2>Nenhum pedido ainda</h2><p class="muted">Os pedidos feitos no app aparecem aqui na hora.</p></div>';
@@ -1719,6 +1803,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
       try{for(var i=0;i<D.tables.length;i++){var t=D.tables[i];var want=t.id===id;if(!!t.app!==want)await X.db.doc('tables/'+t.id).update({app:want})}toast('Tabela do app atualizada')}catch(e){wfail(e)}
     },
     svcNew:function(){openService(null)},
+    tblNewRec:function(){openTable(false)},
     svcEdit:function(id){openService(id)},
     svcOn:async function(id){var s=byId(D.services,id);if(!s)return;try{await X.db.doc('services/'+id).update({active:s.active===false})}catch(e){wfail(e)}},
     seg:function(id){state.adm.ord=id;renderAdmin()}
@@ -2783,6 +2868,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   Object.assign(ACT,{
     bnNew:function(){openBanner(null)},
     agf:function(id){state.adm.agf=id;renderAdmin()},
+    recGen:async function(id,btn){var pr=id.split('|');btn.disabled=true;try{await recGenerate(pr[0],pr[1],btn)}catch(e){btn.disabled=false;wfail(e)}},
     agCfg:function(){openAgCfg()},
     bnEdit:function(id){openBanner(id)},
     bnModel:function(i){openBanner(null,BN_MODELS[+i])},
@@ -2813,6 +2899,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
         var fresh=D.inboxReady&&arr.some(function(n){return n.ts>prevMax&&n.ts>getSeen()});
         D.inbox=arr;D.inboxReady=true;updBell();if(fresh)toast('Nova mensagem da Gatecão');schedule();
       },function(){});
+      X.db.doc('orders/'+X.uid).onSnapshot(function(s){var r=s.exists&&s.data().r?s.data().r:{};D.myRec=Object.keys(r).map(function(k){return r[k]}).filter(function(x){return !x.deleted}).sort(function(a,b){return String(a.next).localeCompare(String(b.next))});schedule()},function(){});
       X.db.doc('wallet/'+X.uid).onSnapshot(function(s){D.wallets[X.uid]=s.exists?s.data():{};D.ready.wallet=true;schedule()},function(){D.ready.wallet=true});
       X.db.doc('customers/'+X.uid).onSnapshot(function(s){D.me=s.exists?s.data():null;D.ready.me=true;schedule()},function(){D.ready.me=true});
       X.db.doc('redeems/'+X.uid).onSnapshot(function(s){var r=s.exists&&s.data().r?s.data().r:{};D.myRedeems=Object.keys(r).map(function(k){return r[k]}).sort(function(a,b){return b.ts-a.ts});schedule()},function(){});
