@@ -1,0 +1,918 @@
+<title>Gatecão Fidelidade</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito+Sans:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: balcão de loja. Barra azul-marinho fixa com abas; PDV em duas colunas (cliente + compra | resumo do caixa); demais áreas em listas e fichas. Cores e fontes do app Gatecão. */
+:root{
+  --bg:#F4F7FC; --surface:#FFFFFF; --sunk:#EEF3FA; --ink:#0B2A5B; --muted:#5E6F8E; --line:#DFE6F1;
+  --brand:#0B2A5B; --brand-ink:#FFFFFF; --accent:#FF7A00; --accent-ink:#0B2A5B; --accent-soft:#FFF1E2;
+  --good:#1D7F53; --good-soft:#E2F4EA; --warn:#9A5B00; --warn-soft:#FFF3D6; --bad:#B8392A; --bad-soft:#FCE9E5; --chip:#E4EEFF;
+  --font-display:'Fredoka','Trebuchet MS',sans-serif; --font-body:'Nunito Sans','Segoe UI',system-ui,sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#08111F; --surface:#0F1C33; --sunk:#0B1629; --ink:#E7EEFA; --muted:#9AAACB; --line:#203152;
+  --brand:#0B2A5B; --brand-ink:#FFFFFF; --accent:#FF8A1F; --accent-ink:#1A0E00; --accent-soft:#3A230C;
+  --good:#5BD19A; --good-soft:#0F2E20; --warn:#F2B44C; --warn-soft:#33270B; --bad:#FF8676; --bad-soft:#3A1611; --chip:#1A2B4C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#08111F; --surface:#0F1C33; --sunk:#0B1629; --ink:#E7EEFA; --muted:#9AAACB; --line:#203152;
+  --brand:#0B2A5B; --brand-ink:#FFFFFF; --accent:#FF8A1F; --accent-ink:#1A0E00; --accent-soft:#3A230C;
+  --good:#5BD19A; --good-soft:#0F2E20; --warn:#F2B44C; --warn-soft:#33270B; --bad:#FF8676; --bad-soft:#3A1611; --chip:#1A2B4C; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45;padding-bottom:80px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;font-weight:600}
+h2{font-size:20px} h3{font-size:16px}
+.num,td.n,.money{font-variant-numeric:tabular-nums}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--brand)}
+.wrap{max-width:1180px;margin-inline:auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--brand);color:var(--brand-ink)}
+.toprow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:12px 4px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-size:22px;font-weight:700}
+.logo svg{width:30px;height:30px;color:#FF8A1F;flex:none}
+.logo small{display:block;font-family:var(--font-body);font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;opacity:.75;margin-top:-3px}
+.sync{font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.12);display:flex;gap:6px;align-items:center}
+.sync i{width:8px;height:8px;border-radius:50%;background:#9AAACB}
+.sync.ok i{background:#5BD19A}.sync.warn i{background:#F2B44C}.sync.err i{background:#FF8676}
+nav.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding-bottom:0}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs a{color:var(--brand-ink);text-decoration:none;font-weight:800;font-size:14px;padding:10px 14px;border-radius:12px 12px 0 0;opacity:.8;white-space:nowrap}
+nav.tabs a[aria-current="page"]{background:var(--bg);color:var(--ink);opacity:1}
+main{padding-block:20px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:grid;gap:14px;min-width:0}
+.grid2{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px;align-items:start}
+.col{display:grid;gap:18px;min-width:0}
+@media (max-width:880px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.sticky{position:sticky;top:120px}
+@media (max-width:880px){.sticky{position:static}}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.between{justify-content:space-between}
+.muted{color:var(--muted)} .small{font-size:13px}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+label.f{display:grid;gap:5px;font-size:13px;font-weight:700;color:var(--muted);min-width:0}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+input[type=text],input[type=tel],input[type=email],input[type=date],input[type=number],input[type=search],select,textarea{
+  width:100%;background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--ink);min-width:0}
+textarea{resize:vertical;min-height:90px;line-height:1.45}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none}
+.big-in{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;padding:12px 14px}
+.btn{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:9px 14px;font-weight:800;font-size:14px;display:inline-flex;gap:6px;align-items:center;justify-content:center;text-decoration:none;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.pri:hover{filter:brightness(1.05)}
+.btn.dark{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.btn.wa{background:#1FA855;border-color:#1FA855;color:#fff}
+.btn.danger{color:var(--bad);border-color:var(--bad-soft)}
+.btn.ghost{border-color:transparent;background:transparent;padding-inline:8px}
+.btn.sm{padding:6px 10px;font-size:13px;border-radius:8px}
+.btn.block{width:100%}
+.btn.xl{padding:15px 18px;font-size:17px;border-radius:12px}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 12px;font-weight:800;font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:var(--chip);color:var(--ink);white-space:nowrap}
+.lv-Bronze,.lv-0{background:#F3E1CF;color:#6E3B12}
+.lv-Prata,.lv-1{background:#E3E8EF;color:#3B4A60}
+.lv-Ouro,.lv-2{background:#FFE7A0;color:#6A4A00}
+:root[data-theme="dark"] .lv-0{background:#3B2715;color:#F3C9A0}
+:root[data-theme="dark"] .lv-1{background:#26324A;color:#D2DCEB}
+:root[data-theme="dark"] .lv-2{background:#3D3110;color:#FFD866}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .lv-0{background:#3B2715;color:#F3C9A0}:root:not([data-theme="light"]) .lv-1{background:#26324A;color:#D2DCEB}:root:not([data-theme="light"]) .lv-2{background:#3D3110;color:#FFD866}}
+.chip.good{background:var(--good-soft);color:var(--good)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.bad{background:var(--bad-soft);color:var(--bad)}
+.note{border-radius:10px;padding:10px 12px;font-size:14px;font-weight:600}
+.note.warn{background:var(--warn-soft);color:var(--warn)} .note.good{background:var(--good-soft);color:var(--good)} .note.info{background:var(--sunk);color:var(--muted)}
+.wallet{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.wallet>div{background:var(--sunk);border-radius:12px;padding:12px 14px;display:grid;gap:2px}
+.wallet b{font-family:var(--font-display);font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.wallet .cb b{color:var(--good)} .wallet .pt b{color:var(--accent)}
+:root .wallet .pt b{color:var(--warn)}
+.who{display:flex;gap:12px;align-items:center;min-width:0}
+.av{width:44px;height:44px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-family:var(--font-display);font-weight:700;font-size:18px;flex:none}
+.who .nm{font-weight:800;font-size:17px;overflow-wrap:anywhere}
+.results{display:grid;gap:6px}
+.res{display:flex;justify-content:space-between;gap:10px;align-items:center;text-align:left;width:100%;border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 12px}
+.res:hover{border-color:var(--accent)}
+.res .r{text-align:right;font-size:13px;font-variant-numeric:tabular-nums}
+.sum{display:grid;gap:8px}
+.sum .l{display:flex;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums}
+.sum .tot{border-top:2px dashed var(--line);padding-top:12px;margin-top:4px;align-items:baseline}
+.sum .tot b{font-family:var(--font-display);font-size:34px;font-weight:600}
+.earn{background:var(--good-soft);color:var(--good);border-radius:12px;padding:12px 14px;font-weight:700;display:grid;gap:2px}
+.earn b{font-size:18px}
+.prizes{display:grid;gap:8px}
+.prize{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;background:var(--sunk)}
+.prize .p{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--sunk)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;white-space:nowrap}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--sunk)}
+.pos{color:var(--good);font-weight:700} .neg{color:var(--bad);font-weight:700}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:4px}
+.kpi b{font-family:var(--font-display);font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
+.kpi.hl{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.kpi.hl .eyebrow{color:var(--brand-ink);opacity:.75}
+.segs{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.segc{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 14px;text-align:left;display:grid;gap:4px}
+.segc b{font-family:var(--font-display);font-size:26px;font-weight:600}
+.segc[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.list{display:grid;gap:8px}
+.item{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);flex-wrap:wrap}
+.item .t{min-width:0;flex:1 1 200px}
+.tpl{display:grid;gap:8px;border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--surface)}
+.tpl p{margin:0;white-space:pre-wrap;color:var(--muted);font-size:14px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.vars{display:flex;gap:6px;flex-wrap:wrap}
+.vars button{border:1px dashed var(--line);background:var(--sunk);border-radius:8px;padding:4px 8px;font-size:12px;font-weight:700;font-family:ui-monospace,Menlo,monospace}
+.bubble{background:#DCF8C6;color:#102A14;border-radius:12px 12px 2px 12px;padding:12px 14px;white-space:pre-wrap;font-size:14px;max-width:100%;overflow-wrap:anywhere}
+:root[data-theme="dark"] .bubble{background:#1E4D2B;color:#E6F6EA}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .bubble{background:#1E4D2B;color:#E6F6EA}}
+.hist-note{font-size:13px;padding:8px 10px;border-radius:8px;background:var(--sunk)}
+.empty{text-align:center;padding:28px 16px;color:var(--muted);display:grid;gap:10px;justify-items:center}
+.empty b{color:var(--ink);font-size:16px}
+.ok-ico{width:52px;height:52px;border-radius:50%;background:var(--good-soft);color:var(--good);display:grid;place-items:center}
+.ok-ico svg{width:28px;height:28px}
+#modal{position:fixed;inset:0;z-index:20;background:rgba(5,12,25,.55);display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+#modal .box{background:var(--surface);border-radius:16px;max-width:560px;width:100%;max-height:100%;overflow:auto;padding:20px;display:grid;gap:14px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-weight:700;max-width:calc(100% - 32px);box-shadow:0 8px 30px rgba(0,0,0,.25)}
+#toast.err{background:var(--bad);color:#fff}
+hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
+.lvtbl input{padding:7px 9px}
+@media (prefers-reduced-motion:no-preference){.btn,.res,.segc{transition:border-color .15s,background .15s}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="toprow">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="9" r="2.2"/><circle cx="9.5" cy="5" r="2.2"/><circle cx="14.5" cy="5" r="2.2"/><circle cx="18.5" cy="9" r="2.2"/><path d="M12 10.5c-3.2 0-6.5 4.3-6.5 7.2 0 1.8 1.4 2.8 3 2.8 1.3 0 2.2-.7 3.5-.7s2.2.7 3.5.7c1.6 0 3-1 3-2.8 0-2.9-3.3-7.2-6.5-7.2z"/></svg>
+        <div><span id="loja-nome">Gatecão</span><small>Fidelidade · PDV · CRM</small></div>
+      </div>
+      <div id="sync" class="sync"><i></i><span>Conectando…</span></div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <a href="#pdv" data-tab="pdv">Caixa (PDV)</a>
+      <a href="#clientes" data-tab="clientes">Clientes</a>
+      <a href="#crm" data-tab="crm">CRM</a>
+      <a href="#premios" data-tab="premios">Prêmios</a>
+      <a href="#mensagens" data-tab="mensagens">Mensagens</a>
+      <a href="#ajustes" data-tab="ajustes">Ajustes</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div id="modal" hidden></div>
+<div id="toast" hidden></div>
+
+<script>
+/* ---------- utilidades ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const BRL = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'});
+const money = v => BRL.format(+v || 0);
+const r2 = v => Math.round((+v || 0) * 100) / 100;
+const parseMoney = s => { s = String(s ?? '').replace(/[^\d,.-]/g, ''); if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); const n = parseFloat(s); return isFinite(n) && n > 0 ? r2(n) : 0; };
+const moneyIn = v => v ? String(r2(v).toFixed(2)).replace('.', ',') : '';
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const DAY = 864e5;
+const dayKey = d => new Date(d).toLocaleDateString('sv');
+const fmtDate = d => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+const fmtDT = d => new Date(d).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'});
+const digits = s => String(s || '').replace(/\D/g, '');
+const fmtPhone = s => { const d = digits(s); if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`; if (d.length === 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`; return s || ''; };
+const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const initials = n => String(n || '?').trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+const firstName = n => String(n || '').trim().split(/\s+/)[0] || '';
+const plural = (n, a, b) => `${n.toLocaleString('pt-BR')} ${n === 1 ? a : b}`;
+const clone = o => JSON.parse(JSON.stringify(o));
+const daysAgo = d => d ? Math.floor((Date.now() - Date.parse(d)) / DAY) : null;
+const icoCheck = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+
+/* ---------- padrões ---------- */
+const DEFAULT_CFG = {
+  loja: 'Gatecão', ptsPorReal: 1, maxUsoPct: 100, validadeDias: 90,
+  niveis: [{nome:'Bronze', min:0, cb:5}, {nome:'Prata', min:1000, cb:7}, {nome:'Ouro', min:3000, cb:10}]
+};
+const DEFAULT_MSGS = [
+  {gatilho:'boas-vindas', titulo:'Boas-vindas ao clube', texto:'Oi {primeiro_nome}! Que bom ter você no clube de vantagens da {loja} 🐾\n\nA cada compra você ganha {cashback_pct} de cashback e pontos para trocar por prêmios. Seu saldo hoje: {cashback} de cashback e {pontos} pontos.'},
+  {gatilho:'pos-compra', titulo:'Comprovante pós-compra', texto:'Oi {primeiro_nome}, obrigado pela compra na {loja}!\n\nValor pago: {valor_compra}\nCashback ganho: {cashback_ganho}\nPontos ganhos: {pontos_ganhos}\n\nSeu saldo agora: {cashback} de cashback e {pontos} pontos. Use na próxima compra!'},
+  {gatilho:'vencendo', titulo:'Cashback vencendo', texto:'{primeiro_nome}, atenção: você tem {cashback_vencendo} de cashback que vence em {data_vencimento}.\n\nPasse na {loja} e use como desconto na sua compra antes que expire!'},
+  {gatilho:'inativo', titulo:'Sentimos sua falta', texto:'Oi {primeiro_nome}, sentimos sua falta aqui na {loja}! 💛\n\nVocê ainda tem {cashback} de cashback e {pontos} pontos esperando por você. Que tal aproveitar esta semana?'},
+  {gatilho:'aniversario', titulo:'Feliz aniversário', texto:'Feliz aniversário, {primeiro_nome}! 🎉\n\nToda a equipe {loja} deseja um dia incrível. Venha comemorar com a gente: seu cashback de {cashback} está te esperando.'},
+  {gatilho:'pontos', titulo:'Pontos para trocar', texto:'{primeiro_nome}, você já tem {pontos} pontos na {loja}!\n\nDá para trocar por {premio_sugerido}. É só pedir no caixa na sua próxima visita.'},
+  {gatilho:'nivel', titulo:'Subiu de nível', texto:'Parabéns, {primeiro_nome}! Você agora é cliente {nivel} na {loja} e passa a ganhar {cashback_pct} de cashback em todas as compras. Obrigado pela confiança!'},
+  {gatilho:'livre', titulo:'Promoção da semana', texto:'Oi {primeiro_nome}! Esta semana tem condição especial na {loja}.\n\nE lembrando: você tem {cashback} de cashback para usar como desconto. Te esperamos!'}
+];
+const DEFAULT_PREMIOS = [
+  {nome:'Petisco natural', pontos:100, estoque:'', descricao:'Exemplo: edite ou exclua'},
+  {nome:'Brinquedo', pontos:250, estoque:'', descricao:'Exemplo: edite ou exclua'},
+  {nome:'Vale R$ 20 em compras', pontos:300, estoque:'', descricao:'Exemplo: edite ou exclua'},
+  {nome:'Banho grátis (porte P)', pontos:400, estoque:'', descricao:'Exemplo: edite ou exclua'}
+];
+const GATILHOS = {'boas-vindas':'Boas-vindas', 'pos-compra':'Pós-compra', 'vencendo':'Cashback vencendo', 'inativo':'Cliente sumido', 'aniversario':'Aniversário', 'pontos':'Pontos para troca', 'nivel':'Mudança de nível', 'livre':'Livre / promoção'};
+const FORMAS = {pix:'Pix', dinheiro:'Dinheiro', debito:'Débito', credito:'Crédito', outro:'Outro'};
+
+/* ---------- estado ---------- */
+const S = {clientes:new Map(), premios:new Map(), mensagens:new Map(), avulsas:new Map(), config:null};
+let mode = 'connecting', db = null, statCache = new Map(), pendingRender = false;
+let tab = 'pdv', confirmKey = null;
+const pdv = {clienteId:null, avulsa:false, busca:'', valor:'', desconto:'', usarCb:'', forma:'pix', recebido:'', descricao:'', novo:false, resultado:null, resgate:null};
+const ui = {cliSel:null, cliBusca:'', cliNivel:'todos', editando:false, ajuste:false, crmPeriodo:'mes', crmSeg:null, tplSel:null, envioTpl:null, envioSeg:'aniversario', premioEdit:null, importTxt:''};
+let modal = null;
+
+const cfg = () => ({...DEFAULT_CFG, ...(S.config || {}), niveis: (S.config && S.config.niveis && S.config.niveis.length) ? S.config.niveis : DEFAULT_CFG.niveis});
+const clientes = () => [...S.clientes.values()];
+const premios = () => [...S.premios.values()].sort((a, b) => a.pontos - b.pontos);
+const mensagens = () => [...S.mensagens.values()].sort((a, b) => (a.ordem ?? 99) - (b.ordem ?? 99) || String(a.titulo).localeCompare(b.titulo));
+
+/* ---------- saldos (calculados do histórico) ---------- */
+function nivelPor(gasto) {
+  const nv = [...cfg().niveis].map((n, i) => ({...n, idx:i})).sort((a, b) => b.min - a.min);
+  return nv.find(n => gasto >= n.min) || nv[nv.length - 1];
+}
+function stats(c) {
+  if (statCache.has(c.id)) return statCache.get(c.id);
+  const v = +cfg().validadeDias || 0, now = Date.now();
+  const movs = [...(c.mov || [])].sort((a, b) => a.data < b.data ? -1 : 1);
+  const lots = []; let pts = 0, gasto12 = 0, gastoTot = 0, compras = 0, ultima = null, cbTot = 0;
+  for (const m of movs) {
+    const t = Date.parse(m.data);
+    if (m.cbUsado > 0) { let r = m.cbUsado; for (const l of lots) { if (l.exp && l.exp < t) continue; const u = Math.min(l.rest, r); l.rest = r2(l.rest - u); r = r2(r - u); if (r <= 0) break; } }
+    if (m.cbGerado > 0) { lots.push({rest:m.cbGerado, exp: v ? t + v * DAY : 0}); cbTot += m.cbGerado; }
+    pts += (m.pts || 0) - (m.ptsUsados || 0);
+    if (m.t === 'compra') { gastoTot += m.pago; compras++; ultima = m.data; if (now - t < 365 * DAY) gasto12 += m.pago; }
+  }
+  const ativos = lots.filter(l => l.rest > 0.004 && (!l.exp || l.exp > now));
+  const saldo = r2(ativos.reduce((s, l) => s + l.rest, 0));
+  const venc = ativos.filter(l => l.exp && l.exp - now <= 7 * DAY);
+  const s = {saldo, pts:Math.max(0, pts), gasto12:r2(gasto12), gastoTot:r2(gastoTot), compras, ultima, cbTot:r2(cbTot),
+    ticket: compras ? r2(gastoTot / compras) : 0, nivel: nivelPor(gasto12),
+    vencendo: r2(venc.reduce((s, l) => s + l.rest, 0)), vencData: venc.length ? Math.min(...venc.map(l => l.exp)) : null};
+  statCache.set(c.id, s); return s;
+}
+
+/* ---------- armazenamento ---------- */
+const LS_KEY = 'gatecao-fidelidade-v1';
+function saveLocal() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify({clientes:[...S.clientes.values()], premios:[...S.premios.values()], mensagens:[...S.mensagens.values()], avulsas:[...S.avulsas.values()], config:S.config})); }
+  catch (e) { toast('Não foi possível salvar neste navegador.', true); }
+}
+function startLocal(motivo) {
+  mode = 'local';
+  let data = null; try { data = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch (e) {}
+  if (!data) {
+    data = {clientes:[], avulsas:[], config:{...DEFAULT_CFG},
+      premios: DEFAULT_PREMIOS.map(p => ({...p, id:newId()})),
+      mensagens: DEFAULT_MSGS.map((m, i) => ({...m, ordem:i, id:newId()}))};
+  }
+  for (const k of ['clientes', 'premios', 'mensagens', 'avulsas']) S[k] = new Map((data[k] || []).map(d => [d.id, d]));
+  S.config = data.config || {...DEFAULT_CFG};
+  setSync('warn', motivo || 'Salvo neste navegador');
+  saveLocal(); changed();
+}
+function startDb() {
+  mode = 'db';
+  let pending = new Set(['clientes', 'premios', 'mensagens', 'avulsas', 'config']);
+  const timer = setTimeout(() => { if (pending.size) setSync('warn', 'Sem resposta do banco ainda'); }, 10000);
+  const done = (k, snap) => { if (!snap.metadata.fromCache) { pending.delete(k); if (!pending.size) { clearTimeout(timer); setSync('ok', 'Salvo na nuvem'); } } };
+  const onErr = e => { clearTimeout(timer); setSync('err', e && e.code === 'revoked' ? 'Acesso aos dados encerrado' : 'Erro ao ler os dados'); };
+  for (const col of ['clientes', 'premios', 'mensagens', 'avulsas']) {
+    db.collection(col).onSnapshot(snap => {
+      S[col] = new Map(snap.docs.map(d => [d.id, {...clone(d.data()), id:d.id}]));
+      done(col, snap); changed(true);
+    }, onErr);
+  }
+  db.doc('config/geral').onSnapshot(snap => { S.config = snap.exists ? clone(snap.data()) : null; done('config', snap); changed(true); }, onErr);
+}
+async function put(col, id, data) {
+  const body = {...data}; delete body.id;
+  if (col === 'config') S.config = body; else S[col].set(id, {...body, id});
+  changed();
+  if (mode === 'local') { saveLocal(); return true; }
+  try { await (col === 'config' ? db.doc('config/geral') : db.collection(col).doc(id)).set(body); return true; }
+  catch (e) { toast(e && e.code === 'quota_exceeded' ? 'Limite de armazenamento atingido. Exporte um backup e exclua registros antigos.' : 'Não foi possível salvar: ' + (e && e.message || 'erro'), true); return false; }
+}
+async function del(col, id) {
+  S[col].delete(id); changed();
+  if (mode === 'local') { saveLocal(); return; }
+  try { await db.collection(col).doc(id).delete(); } catch (e) { toast('Não foi possível excluir: ' + (e && e.message || 'erro'), true); }
+}
+function setSync(kind, text) { const el = $('#sync'); el.className = 'sync ' + kind; el.querySelector('span').textContent = text; }
+function changed(fromSnapshot) {
+  statCache = new Map();
+  $('#loja-nome').textContent = cfg().loja || 'Gatecão';
+  if (fromSnapshot) requestRender(); else render();
+}
+function requestRender() {
+  const a = document.activeElement;
+  if ((a && a.matches('input,textarea,select') && $('#main').contains(a)) || !$('#modal').hidden) { pendingRender = true; return; }
+  render();
+}
+
+/* ---------- toast / modal ---------- */
+let toastT;
+function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = err ? 'err' : ''; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, err ? 6000 : 3000); }
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast('Texto copiado'); }
+  catch (e) { const ta = $('#msg-text') || $('#bk-text'); if (ta) { ta.focus(); ta.select(); } toast('Selecione o texto e copie com Ctrl+C', true); }
+}
+
+/* ---------- mensagens: variáveis ---------- */
+const VARS = ['nome', 'primeiro_nome', 'loja', 'cashback', 'pontos', 'nivel', 'cashback_pct', 'cashback_vencendo', 'data_vencimento', 'ultima_compra', 'premio_sugerido', 'valor_compra', 'cashback_ganho', 'pontos_ganhos'];
+function varsFor(c, extra = {}) {
+  const s = c ? stats(c) : null, ps = premios();
+  const pode = s ? ps.filter(p => p.pontos <= s.pts) : [];
+  const sug = pode.length ? pode[pode.length - 1].nome : (ps[0] ? ps[0].nome : 'prêmios');
+  return {
+    nome: c ? c.nome : '', primeiro_nome: c ? firstName(c.nome) : '', loja: cfg().loja,
+    cashback: money(s ? s.saldo : 0), pontos: s ? s.pts.toLocaleString('pt-BR') : '0',
+    nivel: s ? s.nivel.nome : '', cashback_pct: (s ? s.nivel.cb : cfg().niveis[0].cb) + '%',
+    cashback_vencendo: money(s ? s.vencendo : 0), data_vencimento: s && s.vencData ? fmtDate(s.vencData) : '—',
+    ultima_compra: s && s.ultima ? fmtDate(s.ultima) : '—', premio_sugerido: sug,
+    valor_compra: money(extra.pago || 0), cashback_ganho: money(extra.cbGerado || 0), pontos_ganhos: String(extra.pts || 0), ...extra.vars
+  };
+}
+const fill = (text, c, extra) => { const v = varsFor(c, extra); return String(text || '').replace(/\{(\w+)\}/g, (m, k) => k in v ? v[k] : m); };
+function waLink(phone, text) { let d = digits(phone); if (d && d.length <= 11) d = '55' + d; return `https://wa.me/${d}?text=${encodeURIComponent(text)}`; }
+const tplByGatilho = g => mensagens().find(m => m.gatilho === g) || mensagens()[0];
+
+function openMsg(cid, tplId, extra) {
+  const c = S.clientes.get(cid); if (!c) return;
+  const tpl = S.mensagens.get(tplId) || mensagens()[0];
+  modal = {cid, tplId: tpl ? tpl.id : null, extra: extra || {}, text: tpl ? fill(tpl.texto, c, extra) : ''};
+  renderModal();
+}
+function renderModal() {
+  const m = $('#modal');
+  if (!modal) { m.hidden = true; m.innerHTML = ''; if (pendingRender) { pendingRender = false; render(); } return; }
+  const c = S.clientes.get(modal.cid);
+  m.innerHTML = `<div class="box" role="dialog" aria-modal="true" aria-labelledby="msg-h">
+    <div class="row between"><h2 id="msg-h">Mensagem para ${esc(firstName(c.nome))}</h2><button class="btn ghost" data-act="modal-close" aria-label="Fechar">✕</button></div>
+    <label class="f">Modelo<select id="msg-tpl">${mensagens().map(t => `<option value="${t.id}" ${t.id === modal.tplId ? 'selected' : ''}>${esc(t.titulo)}</option>`).join('')}</select></label>
+    <label class="f">Texto (pode editar antes de enviar)<textarea id="msg-text" rows="8">${esc(modal.text)}</textarea></label>
+    <div class="small muted">Para: <b>${esc(c.nome)}</b> · ${c.telefone ? esc(fmtPhone(c.telefone)) : 'sem telefone'}</div>
+    <div class="row">
+      <a class="btn wa" id="msg-wa" href="${esc(waLink(c.telefone, modal.text))}" target="_blank" rel="noopener" data-act="wa-log" data-c="${c.id}">Abrir no WhatsApp</a>
+      <button class="btn" data-act="msg-copy">Copiar texto</button>
+    </div>
+    <p class="small muted" style="margin:0">O WhatsApp abre com a mensagem pronta; confira e toque em enviar lá.</p>
+  </div>`;
+  m.hidden = false;
+}
+
+/* ---------- render ---------- */
+function render() {
+  pendingRender = false;
+  document.querySelectorAll('#tabs a').forEach(a => a.dataset.tab === tab ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
+  const v = {pdv:viewPdv, clientes:viewClientes, crm:viewCrm, premios:viewPremios, mensagens:viewMensagens, ajustes:viewAjustes}[tab];
+  $('#main').innerHTML = mode === 'connecting' ? `<div class="card empty"><b>Carregando seus dados…</b><span>Conectando ao banco de dados da loja.</span></div>` : v();
+  if (tab === 'pdv') renderResumo();
+}
+function confirmBtn(key, label, act, data = '', cls = 'btn sm danger') {
+  if (confirmKey === key) return `<span class="row" style="gap:6px"><span class="small"><b>Confirmar?</b></span><button class="btn sm danger" data-act="${act}" ${data}>Sim, ${esc(label.toLowerCase())}</button><button class="btn sm" data-act="ask" data-key="">Não</button></span>`;
+  return `<button class="${cls}" data-act="ask" data-key="${esc(key)}">${esc(label)}</button>`;
+}
+const lvChip = n => `<span class="chip lv-${n.idx}">${esc(n.nome)}</span>`;
+
+/* ---------- PDV ---------- */
+function calc() {
+  const c = pdv.clienteId ? S.clientes.get(pdv.clienteId) : null, s = c ? stats(c) : null, conf = cfg();
+  const valor = parseMoney(pdv.valor), desconto = Math.min(parseMoney(pdv.desconto), valor), base = r2(valor - desconto);
+  const maxCb = s ? r2(Math.min(s.saldo, base * (+conf.maxUsoPct || 0) / 100)) : 0;
+  const pedido = parseMoney(pdv.usarCb), usar = Math.min(pedido, maxCb);
+  const total = r2(base - usar), pct = s ? s.nivel.cb : 0;
+  const cbGanho = c ? r2(total * pct / 100) : 0, pts = c ? Math.floor(total * (+conf.ptsPorReal || 0)) : 0;
+  const recebido = parseMoney(pdv.recebido), troco = pdv.forma === 'dinheiro' && recebido ? r2(recebido - total) : null;
+  return {c, s, valor, desconto, base, maxCb, pedido, usar, total, pct, cbGanho, pts, recebido, troco};
+}
+function clienteForm(c, form, submitLabel) {
+  c = c || {};
+  return `<form data-form="${form}" class="card" style="background:var(--sunk)">
+    <div class="fields">
+      <label class="f">Nome completo *<input type="text" name="nome" id="${form}-nome" required value="${esc(c.nome)}" autocomplete="off"></label>
+      <label class="f">Telefone / WhatsApp *<input type="tel" name="telefone" id="${form}-tel" required value="${esc(fmtPhone(c.telefone))}" placeholder="(11) 98765-4321"></label>
+      <label class="f">Data de nascimento<input type="date" name="aniversario" id="${form}-aniv" value="${esc(c.aniversario)}"></label>
+      <label class="f">CPF<input type="text" name="cpf" id="${form}-cpf" inputmode="numeric" value="${esc(c.cpf)}"></label>
+      <label class="f">E-mail<input type="email" name="email" id="${form}-email" value="${esc(c.email)}"></label>
+      <label class="f">Etiquetas (separe por vírgula)<input type="text" name="tags" id="${form}-tags" value="${esc((c.tags || []).join(', '))}" placeholder="ex.: tutor de gato, VIP"></label>
+    </div>
+    <label class="f">Observações<textarea name="obs" id="${form}-obs" rows="2">${esc(c.obs)}</textarea></label>
+    <div class="row"><button class="btn pri">${esc(submitLabel)}</button><button type="button" class="btn ghost" data-act="${form}-cancel">Cancelar</button></div>
+  </form>`;
+}
+function viewPdv() {
+  if (pdv.resultado) return viewRecibo();
+  const k = calc(), {c, s} = k;
+  let cli;
+  if (c) {
+    cli = `<div class="card">
+      <div class="row between"><span class="eyebrow">Cliente</span><button class="btn sm ghost" data-act="pdv-trocar">Trocar cliente</button></div>
+      <div class="who"><div class="av">${esc(initials(c.nome))}</div><div style="min-width:0"><div class="nm">${esc(c.nome)}</div><div class="small muted">${esc(fmtPhone(c.telefone))} · ${lvChip(s.nivel)} · ganha ${s.nivel.cb}% de cashback</div></div></div>
+      <div class="wallet"><div class="cb"><span class="eyebrow">Cashback disponível</span><b>${money(s.saldo)}</b></div><div class="pt"><span class="eyebrow">Pontos</span><b>${s.pts.toLocaleString('pt-BR')}</b></div></div>
+      ${s.vencendo > 0 ? `<div class="note warn">${money(s.vencendo)} de cashback vence em ${fmtDate(s.vencData)}. Ofereça para usar agora.</div>` : ''}
+      <div class="small muted">Última compra: ${s.ultima ? `${fmtDate(s.ultima)} (${daysAgo(s.ultima)} dias)` : 'primeira compra'} · ${plural(s.compras, 'compra', 'compras')} · ticket médio ${money(s.ticket)}</div>
+      <div class="row"><button class="btn sm" data-act="msg" data-c="${c.id}">Mensagem</button><button class="btn sm" data-act="ver-cliente" data-c="${c.id}">Ver ficha</button></div>
+    </div>`;
+  } else if (pdv.avulsa) {
+    cli = `<div class="card"><div class="row between"><span class="eyebrow">Cliente</span><button class="btn sm ghost" data-act="pdv-trocar">Identificar cliente</button></div>
+      <div class="who"><div class="av">?</div><div><div class="nm">Venda sem cadastro</div><div class="small muted">Não gera cashback nem pontos.</div></div></div></div>`;
+  } else {
+    cli = `<div class="card">
+      <div class="row between"><h2>Quem está comprando?</h2></div>
+      <label class="f">Buscar por nome, telefone ou CPF<input type="search" id="pdv-busca" data-bind="busca" value="${esc(pdv.busca)}" placeholder="Digite para buscar…" autocomplete="off"></label>
+      <div class="results" id="pdv-res">${pdvResults()}</div>
+      <div class="row"><button class="btn" data-act="pdv-novo">+ Cadastrar cliente</button><button class="btn ghost" data-act="pdv-avulsa">Venda sem cadastro</button></div>
+      ${pdv.novo ? clienteForm({nome: /\d/.test(pdv.busca) ? '' : pdv.busca, telefone: /\d/.test(pdv.busca) ? pdv.busca : ''}, 'pdvnovo', 'Cadastrar e continuar') : ''}
+    </div>`;
+  }
+  const ativo = c || pdv.avulsa;
+  const compra = ativo ? `<div class="card">
+    <h2>Compra</h2>
+    <div class="fields">
+      <label class="f">Valor da compra (R$)<input type="text" inputmode="decimal" class="big-in" id="pdv-valor" data-bind="valor" value="${esc(pdv.valor)}" placeholder="0,00" autocomplete="off"></label>
+      <label class="f">Desconto (R$)<input type="text" inputmode="decimal" class="big-in" id="pdv-desc" data-bind="desconto" value="${esc(pdv.desconto)}" placeholder="0,00" autocomplete="off"></label>
+    </div>
+    ${c ? `<div class="fields" style="align-items:end">
+      <label class="f">Usar cashback (R$)<input type="text" inputmode="decimal" class="big-in" id="pdv-cb" data-bind="usarCb" value="${esc(pdv.usarCb)}" placeholder="0,00" autocomplete="off" ${s.saldo > 0 ? '' : 'disabled'}></label>
+      <div class="row" style="padding-bottom:6px"><button class="btn" data-act="usar-tudo" ${s.saldo > 0 ? '' : 'disabled'}>Usar o máximo</button><button class="btn ghost" data-act="usar-nada">Não usar</button></div>
+    </div><div class="small muted" id="pdv-cbhint"></div>` : ''}
+    <div class="f" style="display:grid;gap:6px"><span class="small muted" style="font-weight:700">Forma de pagamento</span>
+      <div class="seg">${Object.entries(FORMAS).map(([k, v]) => `<button type="button" data-act="forma" data-v="${k}" aria-pressed="${pdv.forma === k}">${v}</button>`).join('')}</div></div>
+    <div class="fields">
+      ${pdv.forma === 'dinheiro' ? `<label class="f">Valor recebido (R$)<input type="text" inputmode="decimal" id="pdv-rec" data-bind="recebido" value="${esc(pdv.recebido)}" placeholder="0,00"></label>` : ''}
+      <label class="f">Descrição (opcional)<input type="text" id="pdv-descr" data-bind="descricao" value="${esc(pdv.descricao)}" placeholder="ex.: ração 15 kg + banho"></label>
+    </div>
+  </div>` : '';
+  const right = ativo ? `<div class="card sticky" id="pdv-resumo"></div>${c ? viewTroca(c, s) : ''}` :
+    `<div class="card empty"><div class="ok-ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg></div><b>Comece identificando o cliente</b><span>Ao escolher o cliente, o saldo de cashback e os pontos aparecem aqui, e você já pode descontar na compra.</span></div>`;
+  return `<div class="grid2"><div class="col">${cli}${compra}</div><div class="col">${right}</div></div>`;
+}
+function pdvResults() {
+  const q = norm(pdv.busca).trim(), qd = digits(pdv.busca);
+  let list = clientes();
+  if (!list.length) return `<div class="note info">Nenhum cliente cadastrado ainda. Cadastre o primeiro no botão abaixo.</div>`;
+  if (q) list = list.filter(c => norm(c.nome).includes(q) || (qd.length >= 3 && (digits(c.telefone).includes(qd) || digits(c.cpf).includes(qd))));
+  else list = list.sort((a, b) => String(stats(b).ultima || b.criadoEm).localeCompare(String(stats(a).ultima || a.criadoEm))).slice(0, 5);
+  if (!list.length) return `<div class="note info">Nenhum cliente encontrado para “${esc(pdv.busca)}”.</div>`;
+  return (q ? '' : '<div class="eyebrow">Atendidos recentemente</div>') + list.slice(0, 8).map(c => { const s = stats(c); return `<button class="res" data-act="pdv-sel" data-c="${c.id}"><span><b>${esc(c.nome)}</b><br><span class="small muted">${esc(fmtPhone(c.telefone))}</span></span><span class="r"><span class="pos">${money(s.saldo)}</span><br><span class="muted">${s.pts.toLocaleString('pt-BR')} pts</span></span></button>`; }).join('');
+}
+function renderResumo() {
+  const el = $('#pdv-resumo'); if (!el) return;
+  const k = calc();
+  const hint = $('#pdv-cbhint');
+  if (hint) hint.innerHTML = k.s ? (k.pedido > k.maxCb ? `<span class="neg">Máximo permitido nesta compra: ${money(k.maxCb)}.</span> Vou usar ${money(k.usar)}.` : `Pode usar até ${money(k.maxCb)} nesta compra${+cfg().maxUsoPct < 100 ? ` (limite de ${cfg().maxUsoPct}% do valor)` : ''}.`) : '';
+  el.innerHTML = `<span class="eyebrow">Resumo da venda</span>
+    <div class="sum">
+      <div class="l"><span>Valor da compra</span><span>${money(k.valor)}</span></div>
+      ${k.desconto ? `<div class="l"><span>Desconto</span><span class="neg">− ${money(k.desconto)}</span></div>` : ''}
+      ${k.c ? `<div class="l"><span>Cashback usado</span><span class="${k.usar ? 'neg' : 'muted'}">− ${money(k.usar)}</span></div>` : ''}
+      <div class="l tot"><span style="font-weight:800">Total a pagar</span><b>${money(k.total)}</b></div>
+      ${k.troco !== null ? `<div class="l"><span>Troco</span><b class="${k.troco < 0 ? 'neg' : 'pos'}">${k.troco < 0 ? 'faltam ' + money(-k.troco) : money(k.troco)}</b></div>` : ''}
+    </div>
+    ${k.c ? `<div class="earn"><span class="small">Nesta compra o cliente ganha</span><b>+ ${money(k.cbGanho)} de cashback · + ${k.pts.toLocaleString('pt-BR')} pontos</b><span class="small">Saldo depois: ${money(r2(k.s.saldo - k.usar + k.cbGanho))} · ${(k.s.pts + k.pts).toLocaleString('pt-BR')} pts</span></div>` : ''}
+    <button class="btn pri xl block" data-act="finalizar" ${k.valor > 0 ? '' : 'disabled'}>Finalizar venda · ${money(k.total)}</button>`;
+}
+function viewTroca(c, s) {
+  const ps = premios();
+  if (!ps.length) return `<div class="card"><h3>Trocar pontos</h3><div class="note info">Cadastre prêmios na aba Prêmios para o cliente trocar pontos.</div></div>`;
+  return `<div class="card"><div class="row between"><h3>Trocar pontos</h3><span class="chip">${s.pts.toLocaleString('pt-BR')} pts</span></div>
+    <div class="prizes">${ps.map(p => { const sem = p.estoque !== '' && p.estoque != null && +p.estoque <= 0; const ok = s.pts >= p.pontos && !sem; const key = 'res-' + p.id;
+      return `<div class="prize"><div style="min-width:0"><b>${esc(p.nome)}</b><div class="small muted">${sem ? 'sem estoque' : ok ? 'disponível' : `faltam ${(p.pontos - s.pts).toLocaleString('pt-BR')} pts`}</div></div>
+      <div class="row" style="gap:8px"><span class="p">${p.pontos.toLocaleString('pt-BR')} pts</span>${ok ? (confirmKey === key ? `<button class="btn sm pri" data-act="resgatar" data-p="${p.id}">Confirmar</button><button class="btn sm" data-act="ask" data-key="">Não</button>` : `<button class="btn sm" data-act="ask" data-key="${key}">Trocar</button>`) : ''}</div></div>`; }).join('')}</div></div>`;
+}
+function viewRecibo() {
+  const r = pdv.resultado, c = r.cid ? S.clientes.get(r.cid) : null, s = c ? stats(c) : null;
+  return `<div class="grid2"><div class="card" style="justify-items:start">
+    <div class="ok-ico">${icoCheck}</div>
+    <h2>${r.tipo === 'resgate' ? 'Troca registrada' : 'Venda registrada'}</h2>
+    <div class="sum" style="width:100%">
+      ${r.tipo === 'resgate' ? `<div class="l"><span>Prêmio</span><b>${esc(r.premio)}</b></div><div class="l"><span>Pontos usados</span><span class="neg">− ${r.ptsUsados.toLocaleString('pt-BR')}</span></div>` : `
+      <div class="l"><span>Valor da compra</span><span>${money(r.valor)}</span></div>
+      ${r.desconto ? `<div class="l"><span>Desconto</span><span class="neg">− ${money(r.desconto)}</span></div>` : ''}
+      ${r.cbUsado ? `<div class="l"><span>Cashback usado</span><span class="neg">− ${money(r.cbUsado)}</span></div>` : ''}
+      <div class="l tot"><span style="font-weight:800">Pago (${esc(FORMAS[r.forma] || r.forma)})</span><b>${money(r.pago)}</b></div>
+      ${r.troco ? `<div class="l"><span>Troco</span><b class="pos">${money(r.troco)}</b></div>` : ''}`}
+    </div>
+    ${c ? `<div class="earn" style="width:100%">${r.tipo === 'compra' ? `<b>+ ${money(r.cbGerado)} de cashback · + ${r.pts.toLocaleString('pt-BR')} pontos</b>` : ''}<span>${esc(firstName(c.nome))} agora tem ${money(s.saldo)} de cashback e ${s.pts.toLocaleString('pt-BR')} pontos.</span></div>` : ''}
+    ${r.subiu ? `<div class="note good" style="width:100%">${esc(firstName(c.nome))} subiu para o nível ${esc(s.nivel.nome)} e passa a ganhar ${s.nivel.cb}% de cashback.</div>` : ''}
+    <div class="row">
+      ${c ? `<button class="btn wa" data-act="msg" data-c="${c.id}" data-g="${r.subiu ? 'nivel' : r.tipo === 'compra' ? 'pos-compra' : 'pontos'}">Enviar comprovante no WhatsApp</button>` : ''}
+      <button class="btn pri" data-act="nova-venda">Nova venda</button>
+    </div></div>
+    <div class="card"><h3>Dica de atendimento</h3><p class="muted" style="margin:0">${c ? (s.pts >= (premios()[0] || {pontos:Infinity}).pontos ? `${esc(firstName(c.nome))} já tem pontos para trocar por <b>${esc(varsFor(c).premio_sugerido)}</b>. Vale avisar no balcão.` : `Lembre ${esc(firstName(c.nome))} de que o cashback ${cfg().validadeDias ? `vale por ${cfg().validadeDias} dias` : 'não expira'} e pode ser usado como desconto na próxima compra.`) : 'Cadastre o cliente na próxima compra: leva menos de um minuto e ele começa a acumular cashback e pontos.'}</p></div>
+  </div>`;
+}
+async function finalizar() {
+  const k = calc(); if (!(k.valor > 0)) return;
+  const now = new Date().toISOString();
+  if (k.c) {
+    const c = clone(k.c), antes = k.s.nivel.nome;
+    const m = {id:newId(), t:'compra', data:now, valor:k.valor, desconto:k.desconto, cbUsado:k.usar, cbGerado:k.cbGanho, pts:k.pts, ptsUsados:0, pago:k.total, forma:pdv.forma, desc:pdv.descricao.trim(), pct:k.pct};
+    c.mov = [...(c.mov || []), m];
+    if (!await put('clientes', c.id, c)) return;
+    const depois = stats(S.clientes.get(c.id)).nivel.nome;
+    pdv.resultado = {...m, tipo:'compra', cid:c.id, troco:k.troco > 0 ? k.troco : 0, subiu: depois !== antes && stats(S.clientes.get(c.id)).nivel.min > 0};
+  } else {
+    const mes = now.slice(0, 7), doc = clone(S.avulsas.get(mes) || {vendas:[]});
+    const m = {id:newId(), data:now, valor:k.valor, desconto:k.desconto, pago:k.total, forma:pdv.forma, desc:pdv.descricao.trim()};
+    doc.vendas = [...(doc.vendas || []), m];
+    if (!await put('avulsas', mes, doc)) return;
+    pdv.resultado = {...m, tipo:'compra', cid:null, cbUsado:0, troco:k.troco > 0 ? k.troco : 0};
+  }
+  Object.assign(pdv, {valor:'', desconto:'', usarCb:'', recebido:'', descricao:''});
+  toast('Venda registrada'); render();
+}
+async function resgatar(pid) {
+  const p = S.premios.get(pid), c0 = S.clientes.get(pdv.clienteId); if (!p || !c0) return;
+  if (stats(c0).pts < p.pontos) return toast('Pontos insuficientes', true);
+  const c = clone(c0), m = {id:newId(), t:'resgate', data:new Date().toISOString(), ptsUsados:p.pontos, premio:p.nome, premioId:p.id};
+  c.mov = [...(c.mov || []), m]; confirmKey = null;
+  if (!await put('clientes', c.id, c)) return;
+  if (p.estoque !== '' && p.estoque != null) await put('premios', p.id, {...p, estoque: Math.max(0, +p.estoque - 1)});
+  pdv.resultado = {...m, tipo:'resgate', cid:c.id}; render();
+}
+
+/* ---------- clientes ---------- */
+function viewClientes() {
+  if (ui.cliSel && S.clientes.get(ui.cliSel)) return viewFicha(S.clientes.get(ui.cliSel));
+  const q = norm(ui.cliBusca).trim(), qd = digits(ui.cliBusca);
+  let list = clientes().map(c => ({c, s:stats(c)}));
+  const total = list.length;
+  if (q) list = list.filter(({c}) => norm(c.nome).includes(q) || (qd.length >= 3 && (digits(c.telefone).includes(qd) || digits(c.cpf).includes(qd))) || (c.tags || []).some(t => norm(t).includes(q)));
+  if (ui.cliNivel !== 'todos') list = list.filter(({s}) => s.nivel.nome === ui.cliNivel);
+  list.sort((a, b) => norm(a.c.nome).localeCompare(norm(b.c.nome)));
+  return `<div class="col">
+    <div class="row between"><h2>Clientes <span class="muted small">(${total})</span></h2><button class="btn pri" data-act="cli-novo">+ Novo cliente</button></div>
+    ${ui.editando === 'novo' ? clienteForm({}, 'clinovo', 'Cadastrar cliente') : ''}
+    <div class="row"><input type="search" id="cli-busca" data-bind-ui="cliBusca" value="${esc(ui.cliBusca)}" placeholder="Buscar por nome, telefone, CPF ou etiqueta" style="flex:1 1 240px">
+      <div class="seg">${['todos', ...cfg().niveis.map(n => n.nome)].map(n => `<button data-act="cli-nivel" data-v="${esc(n)}" aria-pressed="${ui.cliNivel === n}">${n === 'todos' ? 'Todos' : esc(n)}</button>`).join('')}</div></div>
+    ${!total ? `<div class="card empty"><b>Nenhum cliente cadastrado</b><span>Cadastre clientes aqui ou direto no caixa, na hora da compra.</span><button class="btn pri" data-act="cli-novo">+ Cadastrar o primeiro cliente</button></div>` :
+    !list.length ? `<div class="note info">Nenhum cliente encontrado com esse filtro.</div>` :
+    `<div class="tbl"><table><thead><tr><th>Cliente</th><th>Nível</th><th class="n">Cashback</th><th class="n">Pontos</th><th class="n">Gasto 12 meses</th><th>Última compra</th></tr></thead><tbody>
+    ${list.map(({c, s}) => `<tr class="click" data-act="ver-cliente" data-c="${c.id}"><td><b>${esc(c.nome)}</b><div class="small muted">${esc(fmtPhone(c.telefone))}</div></td><td>${lvChip(s.nivel)}</td><td class="n pos">${money(s.saldo)}</td><td class="n">${s.pts.toLocaleString('pt-BR')}</td><td class="n">${money(s.gasto12)}</td><td class="small">${s.ultima ? `${fmtDate(s.ultima)}<div class="muted">há ${daysAgo(s.ultima)} dias</div>` : '<span class="muted">nunca comprou</span>'}</td></tr>`).join('')}
+    </tbody></table></div>`}
+  </div>`;
+}
+function viewFicha(c) {
+  const s = stats(c), conf = cfg();
+  const prox = conf.niveis.map((n, i) => ({...n, idx:i})).filter(n => n.min > s.gasto12).sort((a, b) => a.min - b.min)[0];
+  const movs = [...(c.mov || [])].sort((a, b) => a.data < b.data ? 1 : -1);
+  const notas = [...(c.notas || [])].sort((a, b) => a.data < b.data ? 1 : -1);
+  const atras = c.proximo && c.proximo.data && c.proximo.data <= dayKey(Date.now());
+  return `<div class="col">
+    <div class="row"><button class="btn ghost" data-act="cli-voltar">← Todos os clientes</button></div>
+    <div class="card">
+      <div class="row between" style="align-items:flex-start">
+        <div class="who"><div class="av">${esc(initials(c.nome))}</div><div style="min-width:0"><h2>${esc(c.nome)}</h2><div class="small muted">${esc(fmtPhone(c.telefone))}${c.email ? ' · ' + esc(c.email) : ''}${c.aniversario ? ' · nasc. ' + fmtDate(c.aniversario + 'T12:00') : ''}</div>
+          <div class="row" style="gap:6px;margin-top:6px">${lvChip(s.nivel)}${(c.tags || []).map(t => `<span class="chip">${esc(t)}</span>`).join('')}</div></div></div>
+        <div class="row"><button class="btn pri" data-act="vender" data-c="${c.id}">Nova venda</button><button class="btn wa" data-act="msg" data-c="${c.id}">Mensagem</button></div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><span class="eyebrow">Cashback</span><b class="pos">${money(s.saldo)}</b>${s.vencendo ? `<span class="small" style="color:var(--warn)">${money(s.vencendo)} vence ${fmtDate(s.vencData)}</span>` : ''}</div>
+        <div class="kpi"><span class="eyebrow">Pontos</span><b>${s.pts.toLocaleString('pt-BR')}</b></div>
+        <div class="kpi"><span class="eyebrow">Gasto 12 meses</span><b>${money(s.gasto12)}</b>${prox ? `<span class="small muted">faltam ${money(prox.min - s.gasto12)} para ${esc(prox.nome)}</span>` : ''}</div>
+        <div class="kpi"><span class="eyebrow">Compras</span><b>${s.compras}</b><span class="small muted">ticket médio ${money(s.ticket)}</span></div>
+        <div class="kpi"><span class="eyebrow">Última compra</span><b>${s.ultima ? fmtDate(s.ultima) : '—'}</b>${s.ultima ? `<span class="small muted">há ${daysAgo(s.ultima)} dias</span>` : ''}</div>
+      </div>
+      ${c.obs ? `<div class="note info">${esc(c.obs)}</div>` : ''}
+      <div class="row"><button class="btn sm" data-act="cli-editar">Editar dados</button><button class="btn sm" data-act="cli-ajuste">Ajustar saldo</button>${confirmBtn('delcli-' + c.id, 'Excluir cliente', 'cli-excluir', `data-c="${c.id}"`)}</div>
+      ${ui.editando === c.id ? clienteForm(c, 'cliedit', 'Salvar alterações') : ''}
+      ${ui.ajuste ? `<form data-form="ajuste" class="card" style="background:var(--sunk)"><h3>Ajuste manual de saldo</h3><div class="fields">
+        <label class="f">O que ajustar<select name="tipo" id="aj-tipo"><option value="cb">Cashback (R$)</option><option value="pts">Pontos</option></select></label>
+        <label class="f">Operação<select name="op" id="aj-op"><option value="+">Adicionar</option><option value="-">Retirar</option></select></label>
+        <label class="f">Quantidade<input type="text" inputmode="decimal" name="qtd" id="aj-qtd" required></label>
+        <label class="f">Motivo<input type="text" name="motivo" id="aj-mot" placeholder="ex.: bônus de indicação" required></label></div>
+        <div class="row"><button class="btn pri">Aplicar ajuste</button><button type="button" class="btn ghost" data-act="cli-ajuste">Cancelar</button></div></form>` : ''}
+    </div>
+    <div class="grid2">
+      <div class="card"><h3>Histórico</h3>
+        ${movs.length ? `<div class="tbl"><table><thead><tr><th>Data</th><th>Movimento</th><th class="n">Pago</th><th class="n">Cashback</th><th class="n">Pontos</th><th></th></tr></thead><tbody>
+        ${movs.map(m => `<tr><td class="small">${fmtDT(m.data)}</td><td>${m.t === 'compra' ? `Compra${m.desc ? ` <span class="muted small">· ${esc(m.desc)}</span>` : ''}<div class="small muted">${esc(FORMAS[m.forma] || '')}${m.desconto ? ' · desc. ' + money(m.desconto) : ''}</div>` : m.t === 'resgate' ? `Troca: <b>${esc(m.premio)}</b>` : `Ajuste <span class="small muted">· ${esc(m.desc)}</span>`}</td>
+          <td class="n">${m.t === 'compra' ? money(m.pago) : '—'}</td>
+          <td class="n">${m.cbGerado ? `<span class="pos">+${money(m.cbGerado)}</span>` : ''}${m.cbUsado ? `<div class="neg">−${money(m.cbUsado)}</div>` : ''}${!m.cbGerado && !m.cbUsado ? '—' : ''}</td>
+          <td class="n">${m.pts ? `<span class="pos">+${m.pts}</span>` : ''}${m.ptsUsados ? `<div class="neg">−${m.ptsUsados}</div>` : ''}${!m.pts && !m.ptsUsados ? '—' : ''}</td>
+          <td class="n">${confirmBtn('est-' + m.id, 'Cancelar', 'estornar', `data-c="${c.id}" data-m="${m.id}"`, 'btn sm ghost')}</td></tr>`).join('')}
+        </tbody></table></div>` : `<div class="note info">Nenhuma compra ainda. Use “Nova venda” para registrar a primeira.</div>`}
+      </div>
+      <div class="col">
+        <form data-form="proximo" class="card"><h3>Próximo contato</h3>
+          ${c.proximo && c.proximo.data ? `<div class="note ${atras ? 'warn' : 'info'}">${atras ? 'Pendente' : 'Agendado'}: ${fmtDate(c.proximo.data + 'T12:00')}${c.proximo.assunto ? ' · ' + esc(c.proximo.assunto) : ''}</div>` : ''}
+          <div class="fields"><label class="f">Data<input type="date" name="data" id="px-data" value="${esc(c.proximo && c.proximo.data)}"></label>
+          <label class="f">Assunto<input type="text" name="assunto" id="px-ass" value="${esc(c.proximo && c.proximo.assunto)}" placeholder="ex.: avisar chegada da ração"></label></div>
+          <div class="row"><button class="btn sm pri">Agendar</button>${c.proximo && c.proximo.data ? `<button type="button" class="btn sm" data-act="px-ok" data-c="${c.id}">Marcar como feito</button>` : ''}</div>
+        </form>
+        <form data-form="nota" class="card"><h3>Anotações e contatos</h3>
+          <textarea name="texto" id="nota-txt" rows="2" placeholder="Ex.: prefere ser chamado à tarde; tem 2 gatos (Mimi e Tom)"></textarea>
+          <div><button class="btn sm">Adicionar anotação</button></div>
+          <div class="list">${notas.length ? notas.map(n => `<div class="hist-note"><div class="row between"><span class="small muted">${fmtDT(n.data)}${n.tipo === 'msg' ? ' · WhatsApp' : ''}</span>${confirmBtn('nota-' + n.id, 'Apagar', 'nota-del', `data-c="${c.id}" data-n="${n.id}"`, 'btn sm ghost')}</div>${esc(n.texto)}</div>`).join('') : '<span class="small muted">Sem anotações.</span>'}</div>
+        </form>
+      </div>
+    </div>
+  </div>`;
+}
+function readClienteForm(f, existing) {
+  const fd = new FormData(f), tel = digits(fd.get('telefone'));
+  const nome = String(fd.get('nome') || '').trim();
+  if (!nome) { toast('Informe o nome do cliente', true); return null; }
+  if (tel.length < 10) { toast('Telefone com DDD, ex.: (11) 98765-4321', true); return null; }
+  const dup = clientes().find(c => digits(c.telefone) === tel && (!existing || c.id !== existing.id));
+  if (dup) { toast(`Já existe cliente com esse telefone: ${dup.nome}`, true); return null; }
+  return {...(existing ? clone(existing) : {id:newId(), criadoEm:new Date().toISOString(), mov:[], notas:[]}),
+    nome, telefone:tel, email:String(fd.get('email') || '').trim(), cpf:digits(fd.get('cpf')), aniversario:fd.get('aniversario') || '',
+    tags:String(fd.get('tags') || '').split(',').map(t => t.trim()).filter(Boolean), obs:String(fd.get('obs') || '').trim()};
+}
+
+/* ---------- CRM ---------- */
+function periodo() {
+  const now = new Date(), p = ui.crmPeriodo, today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return {hoje:today, '7d':today - 6 * DAY, '30d':today - 29 * DAY, mes:new Date(now.getFullYear(), now.getMonth(), 1).getTime(), tudo:0}[p];
+}
+function vendasTodas() {
+  const out = [];
+  for (const c of clientes()) for (const m of (c.mov || [])) if (m.t === 'compra') out.push({...m, cid:c.id, nome:c.nome});
+  for (const a of S.avulsas.values()) for (const m of (a.vendas || [])) out.push({...m, cbUsado:0, cbGerado:0, pts:0, nome:null, mes:a.id});
+  return out.sort((a, b) => a.data < b.data ? 1 : -1);
+}
+function segmentos() {
+  const mes = new Date().getMonth() + 1, list = clientes().map(c => ({c, s:stats(c)})), minP = premios()[0];
+  const dia = c => +String(c.aniversario).slice(8, 10);
+  return [
+    {id:'aniversario', nome:'Aniversariantes do mês', desc:'Mande parabéns e convide para comprar', g:'aniversario', itens:list.filter(({c}) => c.aniversario && +c.aniversario.slice(5, 7) === mes).sort((a, b) => dia(a.c) - dia(b.c)), info:({c}) => 'dia ' + dia(c)},
+    {id:'vencendo', nome:'Cashback vencendo (7 dias)', desc:'Avise antes que o saldo expire', g:'vencendo', itens:list.filter(({s}) => s.vencendo > 0).sort((a, b) => a.s.vencData - b.s.vencData), info:({s}) => `${money(s.vencendo)} até ${fmtDate(s.vencData)}`},
+    {id:'inativo30', nome:'Sumidos há 30–59 dias', desc:'Hora de lembrar que o cashback está esperando', g:'inativo', itens:list.filter(({s}) => s.ultima && daysAgo(s.ultima) >= 30 && daysAgo(s.ultima) < 60), info:({s}) => `há ${daysAgo(s.ultima)} dias`},
+    {id:'inativo60', nome:'Em risco: 60+ dias sem comprar', desc:'Clientes que podem estar indo embora', g:'inativo', itens:list.filter(({s}) => s.ultima && daysAgo(s.ultima) >= 60), info:({s}) => `há ${daysAgo(s.ultima)} dias`},
+    {id:'pontos', nome:'Podem trocar pontos', desc:'Já têm pontos para algum prêmio', g:'pontos', itens:minP ? list.filter(({s}) => s.pts >= minP.pontos).sort((a, b) => b.s.pts - a.s.pts) : [], info:({s}) => `${s.pts.toLocaleString('pt-BR')} pts`},
+    {id:'cashback', nome:'Com cashback para usar', desc:'Saldo parado é motivo para voltar', g:'livre', itens:list.filter(({s}) => s.saldo > 0).sort((a, b) => b.s.saldo - a.s.saldo), info:({s}) => money(s.saldo)},
+    {id:'novos', nome:'Novos (últimos 7 dias)', desc:'Dê boas-vindas ao clube', g:'boas-vindas', itens:list.filter(({c}) => c.criadoEm && daysAgo(c.criadoEm) < 7), info:({c}) => 'desde ' + fmtDate(c.criadoEm)},
+    {id:'top', nome:'Melhores clientes', desc:'Os 10 que mais gastaram em 12 meses', g:'livre', itens:list.filter(({s}) => s.gasto12 > 0).sort((a, b) => b.s.gasto12 - a.s.gasto12).slice(0, 10), info:({s}) => money(s.gasto12)},
+    {id:'todos', nome:'Todos os clientes', desc:'Para campanhas gerais', g:'livre', itens:list.sort((a, b) => norm(a.c.nome).localeCompare(norm(b.c.nome))), info:({s}) => money(s.saldo), oculto:true}
+  ];
+}
+function viewCrm() {
+  const ini = periodo(), vs = vendasTodas().filter(v => Date.parse(v.data) >= ini);
+  const fat = r2(vs.reduce((s, v) => s + v.pago, 0)), n = vs.length;
+  const cbG = r2(vs.reduce((s, v) => s + (v.cbGerado || 0), 0)), cbU = r2(vs.reduce((s, v) => s + (v.cbUsado || 0), 0));
+  const atend = new Set(vs.filter(v => v.cid).map(v => v.cid)).size;
+  const all = clientes().map(c => ({c, s:stats(c)}));
+  const aberto = r2(all.reduce((s, x) => s + x.s.saldo, 0)), ptsCirc = all.reduce((s, x) => s + x.s.pts, 0);
+  const ativos = all.filter(x => x.s.ultima && daysAgo(x.s.ultima) < 30).length;
+  const hoje = dayKey(Date.now());
+  const agenda = all.filter(x => x.c.proximo && x.c.proximo.data && x.c.proximo.data <= dayKey(Date.now() + 7 * DAY)).sort((a, b) => a.c.proximo.data.localeCompare(b.c.proximo.data));
+  const segs = segmentos().filter(s => !s.oculto), sel = segs.find(s => s.id === ui.crmSeg);
+  const P = {hoje:'Hoje', '7d':'7 dias', '30d':'30 dias', mes:'Este mês', tudo:'Tudo'};
+  return `<div class="col">
+    <div class="row between"><h2>Painel</h2><div class="seg">${Object.entries(P).map(([k, v]) => `<button data-act="crm-per" data-v="${k}" aria-pressed="${ui.crmPeriodo === k}">${v}</button>`).join('')}</div></div>
+    <div class="kpis">
+      <div class="kpi hl"><span class="eyebrow">Faturamento</span><b>${money(fat)}</b><span class="small">${plural(n, 'venda', 'vendas')}</span></div>
+      <div class="kpi"><span class="eyebrow">Ticket médio</span><b>${money(n ? fat / n : 0)}</b></div>
+      <div class="kpi"><span class="eyebrow">Cashback gerado</span><b class="pos">${money(cbG)}</b><span class="small muted">usado: ${money(cbU)}</span></div>
+      <div class="kpi"><span class="eyebrow">Clientes atendidos</span><b>${atend}</b><span class="small muted">no período</span></div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><span class="eyebrow">Cashback em aberto</span><b>${money(aberto)}</b><span class="small muted">saldo que os clientes podem usar</span></div>
+      <div class="kpi"><span class="eyebrow">Pontos em circulação</span><b>${ptsCirc.toLocaleString('pt-BR')}</b></div>
+      <div class="kpi"><span class="eyebrow">Clientes</span><b>${all.length}</b><span class="small muted">${ativos} compraram nos últimos 30 dias</span></div>
+    </div>
+    ${agenda.length ? `<div class="card"><h3>Contatos agendados</h3><div class="list">${agenda.map(({c}) => `<div class="item"><div class="t"><b>${esc(c.nome)}</b> <span class="chip ${c.proximo.data < hoje ? 'bad' : c.proximo.data === hoje ? 'warn' : ''}">${c.proximo.data < hoje ? 'atrasado · ' : c.proximo.data === hoje ? 'hoje · ' : ''}${fmtDate(c.proximo.data + 'T12:00')}</span><div class="small muted">${esc(c.proximo.assunto || 'sem assunto')}</div></div><div class="row"><button class="btn sm wa" data-act="msg" data-c="${c.id}">Mensagem</button><button class="btn sm" data-act="ver-cliente" data-c="${c.id}">Ficha</button></div></div>`).join('')}</div></div>` : ''}
+    <div class="card"><div><h3>Oportunidades de relacionamento</h3><p class="small muted" style="margin:4px 0 0">Toque em um grupo para ver os clientes e mandar a mensagem certa.</p></div>
+      <div class="segs">${segs.map(s => `<button class="segc" data-act="crm-seg" data-v="${s.id}" aria-pressed="${ui.crmSeg === s.id}"><span class="eyebrow">${esc(s.nome)}</span><b>${s.itens.length}</b><span class="small muted">${esc(s.desc)}</span></button>`).join('')}</div>
+      ${sel ? `<hr><div class="row between"><h3>${esc(sel.nome)}</h3><button class="btn sm" data-act="envio-seg" data-v="${sel.id}">Enviar para o grupo</button></div>
+        ${sel.itens.length ? `<div class="list">${sel.itens.map(x => `<div class="item"><div class="t"><b>${esc(x.c.nome)}</b> <span class="small muted">· ${esc(sel.info(x))}</span><div class="small muted">${esc(fmtPhone(x.c.telefone))} · ${money(x.s.saldo)} · ${x.s.pts} pts</div></div><div class="row"><button class="btn sm wa" data-act="msg" data-c="${x.c.id}" data-g="${sel.g}">Mensagem</button><button class="btn sm" data-act="ver-cliente" data-c="${x.c.id}">Ficha</button></div></div>`).join('')}</div>` : '<div class="note info">Nenhum cliente neste grupo agora.</div>'}` : ''}
+    </div>
+    <div class="card"><h3>Vendas do período</h3>
+      ${vs.length ? `<div class="tbl"><table><thead><tr><th>Data</th><th>Cliente</th><th>Pagamento</th><th class="n">Valor</th><th class="n">Cashback usado</th><th class="n">Pago</th><th></th></tr></thead><tbody>
+      ${vs.slice(0, 100).map(v => `<tr><td class="small">${fmtDT(v.data)}</td><td>${v.cid ? `<button class="btn sm ghost" style="padding:0" data-act="ver-cliente" data-c="${v.cid}">${esc(v.nome)}</button>` : '<span class="muted">Sem cadastro</span>'}${v.desc ? `<div class="small muted">${esc(v.desc)}</div>` : ''}</td><td>${esc(FORMAS[v.forma] || v.forma)}</td><td class="n">${money(v.valor)}</td><td class="n">${v.cbUsado ? `<span class="neg">−${money(v.cbUsado)}</span>` : '—'}</td><td class="n"><b>${money(v.pago)}</b></td>
+        <td class="n">${v.cid ? '' : confirmBtn('estav-' + v.id, 'Cancelar', 'estornar-av', `data-mes="${v.mes}" data-m="${v.id}"`, 'btn sm ghost')}</td></tr>`).join('')}
+      </tbody></table></div>${vs.length > 100 ? '<span class="small muted">Mostrando as 100 mais recentes.</span>' : ''}` : '<div class="note info">Nenhuma venda neste período.</div>'}
+    </div>
+  </div>`;
+}
+
+/* ---------- prêmios ---------- */
+function viewPremios() {
+  const ps = premios(), e = ui.premioEdit ? (ui.premioEdit === 'novo' ? {} : S.premios.get(ui.premioEdit) || {}) : null;
+  const resg = []; for (const c of clientes()) for (const m of (c.mov || [])) if (m.t === 'resgate') resg.push({...m, nome:c.nome, cid:c.id});
+  resg.sort((a, b) => a.data < b.data ? 1 : -1);
+  return `<div class="grid2"><div class="col">
+    <div class="row between"><h2>Prêmios para troca</h2><button class="btn pri" data-act="pr-novo">+ Novo prêmio</button></div>
+    <p class="muted small" style="margin:0">O cliente ganha ${cfg().ptsPorReal} ponto${cfg().ptsPorReal == 1 ? '' : 's'} a cada R$ 1 pago. As trocas são feitas no Caixa, depois de escolher o cliente.</p>
+    ${e ? `<form data-form="premio" class="card" style="background:var(--sunk)"><h3>${ui.premioEdit === 'novo' ? 'Novo prêmio' : 'Editar prêmio'}</h3><div class="fields">
+      <label class="f">Nome do prêmio *<input type="text" name="nome" id="pr-nome" required value="${esc(e.nome)}"></label>
+      <label class="f">Custo em pontos *<input type="number" name="pontos" id="pr-pts" min="1" step="1" required value="${esc(e.pontos)}"></label>
+      <label class="f">Estoque (vazio = ilimitado)<input type="number" name="estoque" id="pr-est" min="0" step="1" value="${esc(e.estoque)}"></label></div>
+      <label class="f">Descrição<input type="text" name="descricao" id="pr-desc" value="${esc(e.descricao)}"></label>
+      <div class="row"><button class="btn pri">Salvar prêmio</button><button type="button" class="btn ghost" data-act="pr-cancel">Cancelar</button></div></form>` : ''}
+    ${ps.length ? `<div class="list">${ps.map(p => `<div class="item"><div class="t"><b>${esc(p.nome)}</b><div class="small muted">${esc(p.descricao || '')}${p.estoque !== '' && p.estoque != null ? ` · estoque: ${p.estoque}` : ''}</div></div>
+      <div class="row"><span class="chip" style="font-size:14px">${p.pontos.toLocaleString('pt-BR')} pts</span><button class="btn sm" data-act="pr-edit" data-p="${p.id}">Editar</button>${confirmBtn('delpr-' + p.id, 'Excluir', 'pr-del', `data-p="${p.id}"`)}</div></div>`).join('')}</div>` :
+      `<div class="card empty"><b>Nenhum prêmio cadastrado</b><span>Crie prêmios (produtos, serviços ou vales) que o cliente pode trocar pelos pontos.</span></div>`}
+  </div>
+  <div class="card"><h3>Últimas trocas</h3>${resg.length ? `<div class="list">${resg.slice(0, 30).map(r => `<div class="item"><div class="t"><b>${esc(r.premio)}</b><div class="small muted">${esc(r.nome)} · ${fmtDT(r.data)}</div></div><span class="neg">−${r.ptsUsados} pts</span></div>`).join('')}</div>` : '<div class="note info">Nenhuma troca feita ainda.</div>'}</div></div>`;
+}
+
+/* ---------- mensagens ---------- */
+function viewMensagens() {
+  const ts = mensagens(), t = ui.tplSel ? (ui.tplSel === 'novo' ? {gatilho:'livre'} : S.mensagens.get(ui.tplSel)) : null;
+  const segs = segmentos(), sg = segs.find(s => s.id === ui.envioSeg) || segs[0];
+  const et = S.mensagens.get(ui.envioTpl) || tplByGatilho(sg.g);
+  const exemplo = clientes()[0];
+  return `<div class="col">
+    <div class="grid2">
+      <div class="col">
+        <div class="row between"><h2>Mensagens prontas</h2><button class="btn pri" data-act="tpl-novo">+ Novo modelo</button></div>
+        ${t ? `<form data-form="tpl" class="card" style="background:var(--sunk)"><h3>${ui.tplSel === 'novo' ? 'Novo modelo' : 'Editar modelo'}</h3>
+          <div class="fields"><label class="f">Título *<input type="text" name="titulo" id="tpl-tit" required value="${esc(t.titulo)}"></label>
+          <label class="f">Usar para<select name="gatilho" id="tpl-gat">${Object.entries(GATILHOS).map(([k, v]) => `<option value="${k}" ${t.gatilho === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label></div>
+          <label class="f">Texto *<textarea name="texto" id="tpl-txt" rows="7" required>${esc(t.texto)}</textarea></label>
+          <div class="small muted">Toque para inserir no texto. São trocadas pelos dados de cada cliente:</div>
+          <div class="vars">${VARS.map(v => `<button type="button" data-act="ins-var" data-v="${v}">{${v}}</button>`).join('')}</div>
+          <div class="row"><button class="btn pri">Salvar modelo</button><button type="button" class="btn ghost" data-act="tpl-cancel">Cancelar</button></div></form>` : ''}
+        ${ts.length ? ts.map(m => `<div class="tpl"><div class="row between"><b>${esc(m.titulo)}</b><span class="chip">${esc(GATILHOS[m.gatilho] || 'Livre')}</span></div><p>${esc(m.texto)}</p>
+          <div class="row"><button class="btn sm" data-act="tpl-edit" data-t="${m.id}">Editar</button><button class="btn sm" data-act="tpl-usar" data-t="${m.id}">Enviar para grupo</button>${confirmBtn('deltpl-' + m.id, 'Excluir', 'tpl-del', `data-t="${m.id}"`)}</div></div>`).join('') :
+          `<div class="card empty"><b>Nenhum modelo de mensagem</b><span>Carregue os modelos prontos (boas-vindas, pós-compra, aniversário, cashback vencendo e mais) ou crie o seu.</span><button class="btn pri" data-act="tpl-padrao">Carregar modelos prontos</button></div>`}
+      </div>
+      <div class="card sticky" id="envio">
+        <h3>Enviar para um grupo</h3>
+        <div class="fields"><label class="f">Grupo de clientes<select id="envio-seg" data-act-change="envio-seg">${segs.map(s => `<option value="${s.id}" ${s.id === sg.id ? 'selected' : ''}>${esc(s.nome)} (${s.itens.length})</option>`).join('')}</select></label>
+        <label class="f">Modelo<select id="envio-tpl" data-act-change="envio-tpl">${ts.map(m => `<option value="${m.id}" ${et && m.id === et.id ? 'selected' : ''}>${esc(m.titulo)}</option>`).join('')}</select></label></div>
+        ${et && exemplo ? `<div class="small muted">Prévia com ${esc(firstName((sg.itens[0] || {c:exemplo}).c.nome))}:</div><div class="bubble">${esc(fill(et.texto, (sg.itens[0] || {c:exemplo}).c))}</div>` : ''}
+        ${!et ? '<div class="note info">Crie um modelo de mensagem primeiro.</div>' : sg.itens.length ? `<div class="list">${sg.itens.map(x => { const txt = fill(et.texto, x.c); return `<div class="item"><div class="t"><b>${esc(x.c.nome)}</b><div class="small muted">${esc(fmtPhone(x.c.telefone))}${(x.c.notas || []).some(n => n.tipo === 'msg' && n.texto.includes(et.titulo) && daysAgo(n.data) < 7) ? ' · <span class="pos">aberto nesta semana</span>' : ''}</div></div><a class="btn sm wa" href="${esc(waLink(x.c.telefone, txt))}" target="_blank" rel="noopener" data-act="wa-log" data-c="${x.c.id}" data-tit="${esc(et.titulo)}">WhatsApp</a></div>`; }).join('')}</div>
+          <p class="small muted" style="margin:0">O WhatsApp não permite envio automático em massa por aqui: cada botão abre a conversa com o texto pronto, é só tocar em enviar.</p>` : '<div class="note info">Nenhum cliente neste grupo agora.</div>'}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------- ajustes ---------- */
+function viewAjustes() {
+  const c = cfg();
+  return `<div class="grid2">
+    <form data-form="cfg" class="card"><h2>Regras do programa</h2>
+      <div class="fields">
+        <label class="f">Nome da loja<input type="text" name="loja" id="cfg-loja" value="${esc(c.loja)}"></label>
+        <label class="f">Pontos por R$ 1 pago<input type="number" name="ptsPorReal" id="cfg-pts" min="0" step="0.1" value="${esc(c.ptsPorReal)}"></label>
+        <label class="f">Validade do cashback (dias, 0 = não vence)<input type="number" name="validadeDias" id="cfg-val" min="0" step="1" value="${esc(c.validadeDias)}"></label>
+        <label class="f">Cashback pode pagar até (% da compra)<input type="number" name="maxUsoPct" id="cfg-max" min="0" max="100" step="1" value="${esc(c.maxUsoPct)}"></label>
+      </div>
+      <div><h3>Níveis e % de cashback</h3><p class="small muted" style="margin:4px 0 0">O nível é definido pelo total gasto nos últimos 12 meses. O cashback é calculado sobre o valor pago.</p></div>
+      <div class="tbl lvtbl"><table><thead><tr><th>Nível</th><th>Gasto mínimo (R$)</th><th>Cashback (%)</th></tr></thead><tbody>
+        ${c.niveis.map((n, i) => `<tr><td><input type="text" name="nv${i}nome" id="nv${i}nome" value="${esc(n.nome)}"></td><td><input type="number" name="nv${i}min" id="nv${i}min" min="0" step="1" value="${esc(n.min)}" ${i === 0 ? 'readonly' : ''}></td><td><input type="number" name="nv${i}cb" id="nv${i}cb" min="0" max="100" step="0.5" value="${esc(n.cb)}"></td></tr>`).join('')}
+      </tbody></table></div>
+      <div><button class="btn pri">Salvar regras</button></div>
+    </form>
+    <div class="col">
+      <div class="card"><h3>Onde ficam os dados</h3>
+        ${mode === 'db' ? '<div class="note good">Os dados ficam salvos na nuvem, junto com esta página. Qualquer pessoa da equipe com acesso de edição vê as mesmas informações em qualquer aparelho.</div>' : '<div class="note warn">Os dados estão salvos só neste navegador. Exporte um backup com frequência para não perder nada.</div>'}
+      </div>
+      <div class="card"><h3>Backup</h3>
+        <p class="small muted" style="margin:0">Exporte tudo (clientes, histórico, prêmios, mensagens e regras) como texto, ou restaure a partir de um backup.</p>
+        <div class="row"><button class="btn" data-act="bk-export">Gerar backup</button><button class="btn" data-act="bk-save">Baixar arquivo</button><label class="btn" for="bk-file">Abrir arquivo…</label><input type="file" id="bk-file" accept=".json,application/json,text/plain" hidden></div>
+        <textarea id="bk-text" rows="5" placeholder="O backup aparece aqui. Para restaurar, cole o texto de um backup e toque em Restaurar.">${esc(ui.importTxt)}</textarea>
+        <div class="row"><button class="btn sm" data-act="bk-copy">Copiar</button>${confirmBtn('bk-imp', 'Restaurar este backup', 'bk-import', '', 'btn sm danger')}</div>
+        <span class="small muted">Restaurar substitui os dados atuais pelos do backup.</span>
+      </div>
+    </div>
+  </div>`;
+}
+function backupJson() {
+  return JSON.stringify({app:'gatecao-fidelidade', versao:1, exportadoEm:new Date().toISOString(), config:S.config || DEFAULT_CFG,
+    clientes:clientes(), premios:[...S.premios.values()], mensagens:[...S.mensagens.values()], avulsas:[...S.avulsas.values()]});
+}
+async function importar(txt) {
+  let d; try { d = JSON.parse(txt); } catch (e) { return toast('Texto de backup inválido', true); }
+  if (!d || d.app !== 'gatecao-fidelidade') return toast('Esse texto não é um backup deste sistema', true);
+  toast('Restaurando…');
+  for (const col of ['clientes', 'premios', 'mensagens', 'avulsas']) {
+    const novos = new Set((d[col] || []).map(x => x.id));
+    for (const id of [...S[col].keys()]) if (!novos.has(id)) await del(col, id);
+    for (const x of (d[col] || [])) await put(col, x.id, x);
+  }
+  if (d.config) await put('config', 'geral', d.config);
+  ui.importTxt = ''; confirmKey = null; toast('Backup restaurado'); render();
+}
+
+/* ---------- eventos ---------- */
+function go(t) { if (location.hash !== '#' + t) location.hash = t; else { tab = t; render(); } }
+window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (['pdv', 'clientes', 'crm', 'premios', 'mensagens', 'ajustes'].includes(h)) { tab = h; confirmKey = null; render(); window.scrollTo(0, 0); } });
+
+const A = {
+  ask: el => { confirmKey = el.dataset.key || null; render(); },
+  'pdv-sel': el => { Object.assign(pdv, {clienteId:el.dataset.c, avulsa:false, novo:false, busca:'', usarCb:''}); render(); },
+  'pdv-trocar': () => { Object.assign(pdv, {clienteId:null, avulsa:false, usarCb:''}); render(); setTimeout(() => $('#pdv-busca') && $('#pdv-busca').focus()); },
+  'pdv-novo': () => { pdv.novo = !pdv.novo; render(); setTimeout(() => $('#pdvnovo-nome') && $('#pdvnovo-nome').focus()); },
+  'pdvnovo-cancel': () => { pdv.novo = false; render(); },
+  'pdv-avulsa': () => { Object.assign(pdv, {avulsa:true, clienteId:null, novo:false}); render(); },
+  forma: el => { pdv.forma = el.dataset.v; render(); },
+  'usar-tudo': () => { pdv.usarCb = moneyIn(calc().maxCb); render(); },
+  'usar-nada': () => { pdv.usarCb = ''; render(); },
+  finalizar: () => finalizar(),
+  resgatar: el => resgatar(el.dataset.p),
+  'nova-venda': () => { Object.assign(pdv, {resultado:null, clienteId:null, avulsa:false, busca:'', forma:'pix'}); render(); setTimeout(() => $('#pdv-busca') && $('#pdv-busca').focus()); },
+  vender: el => { Object.assign(pdv, {resultado:null, clienteId:el.dataset.c, avulsa:false, usarCb:''}); go('pdv'); },
+  'ver-cliente': el => { ui.cliSel = el.dataset.c; ui.editando = false; ui.ajuste = false; go('clientes'); window.scrollTo(0, 0); },
+  msg: el => { const c = S.clientes.get(el.dataset.c); if (!mensagens().length) return toast('Crie um modelo na aba Mensagens primeiro', true);
+    const g = el.dataset.g, extra = g && pdv.resultado && pdv.resultado.cid === el.dataset.c ? pdv.resultado : {};
+    openMsg(c.id, (g ? tplByGatilho(g) : mensagens()[0]).id, extra); },
+  'modal-close': () => { modal = null; renderModal(); },
+  'msg-copy': () => copyText($('#msg-text').value),
+  'wa-log': el => { const cid = el.dataset.c, tit = el.dataset.tit || (modal && S.mensagens.get(modal.tplId) || {}).titulo || 'mensagem';
+    setTimeout(async () => { const c0 = S.clientes.get(cid); if (!c0) return; const c = clone(c0); c.notas = [...(c.notas || []), {id:newId(), data:new Date().toISOString(), tipo:'msg', texto:`WhatsApp aberto com a mensagem “${tit}”`}]; await put('clientes', c.id, c); }, 400); },
+  'cli-novo': () => { ui.editando = ui.editando === 'novo' ? false : 'novo'; render(); setTimeout(() => $('#clinovo-nome') && $('#clinovo-nome').focus()); },
+  'clinovo-cancel': () => { ui.editando = false; render(); },
+  'cliedit-cancel': () => { ui.editando = false; render(); },
+  'cli-voltar': () => { ui.cliSel = null; ui.editando = false; ui.ajuste = false; render(); },
+  'cli-editar': () => { ui.editando = ui.editando === ui.cliSel ? false : ui.cliSel; ui.ajuste = false; render(); },
+  'cli-ajuste': () => { ui.ajuste = !ui.ajuste; ui.editando = false; render(); },
+  'cli-nivel': el => { ui.cliNivel = el.dataset.v; render(); },
+  'cli-excluir': async el => { const id = el.dataset.c; confirmKey = null; ui.cliSel = null; if (pdv.clienteId === id) pdv.clienteId = null; await del('clientes', id); toast('Cliente excluído'); },
+  estornar: async el => { const c = clone(S.clientes.get(el.dataset.c)); c.mov = (c.mov || []).filter(m => m.id !== el.dataset.m); confirmKey = null; await put('clientes', c.id, c); toast('Movimento cancelado e saldos recalculados'); },
+  'estornar-av': async el => { const d = clone(S.avulsas.get(el.dataset.mes)); d.vendas = (d.vendas || []).filter(m => m.id !== el.dataset.m); confirmKey = null; await put('avulsas', el.dataset.mes, d); toast('Venda cancelada'); },
+  'px-ok': async el => { const c = clone(S.clientes.get(el.dataset.c)); c.notas = [...(c.notas || []), {id:newId(), data:new Date().toISOString(), tipo:'nota', texto:'Contato feito: ' + (c.proximo.assunto || 'sem assunto')}]; c.proximo = null; await put('clientes', c.id, c); toast('Contato concluído'); },
+  'nota-del': async el => { const c = clone(S.clientes.get(el.dataset.c)); c.notas = (c.notas || []).filter(n => n.id !== el.dataset.n); confirmKey = null; await put('clientes', c.id, c); },
+  'crm-per': el => { ui.crmPeriodo = el.dataset.v; render(); },
+  'crm-seg': el => { ui.crmSeg = ui.crmSeg === el.dataset.v ? null : el.dataset.v; render(); },
+  'envio-seg': el => { ui.envioSeg = el.dataset.v; ui.envioTpl = null; go('mensagens'); },
+  'pr-novo': () => { ui.premioEdit = 'novo'; render(); },
+  'pr-edit': el => { ui.premioEdit = el.dataset.p; render(); },
+  'pr-cancel': () => { ui.premioEdit = null; render(); },
+  'pr-del': async el => { confirmKey = null; await del('premios', el.dataset.p); toast('Prêmio excluído'); },
+  'tpl-novo': () => { ui.tplSel = 'novo'; render(); window.scrollTo(0, 0); },
+  'tpl-edit': el => { ui.tplSel = el.dataset.t; render(); window.scrollTo(0, 0); },
+  'tpl-cancel': () => { ui.tplSel = null; render(); },
+  'tpl-del': async el => { confirmKey = null; await del('mensagens', el.dataset.t); toast('Modelo excluído'); },
+  'tpl-usar': el => { ui.envioTpl = el.dataset.t; render(); const e = $('#envio'); if (e) e.scrollIntoView({behavior:'smooth', block:'start'}); },
+  'tpl-padrao': async () => { for (const [i, m] of DEFAULT_MSGS.entries()) await put('mensagens', newId(), {...m, ordem:i}); toast('Modelos carregados'); },
+  'ins-var': el => { const ta = $('#tpl-txt'), v = `{${el.dataset.v}}`, s = ta.selectionStart ?? ta.value.length; ta.value = ta.value.slice(0, s) + v + ta.value.slice(ta.selectionEnd ?? s); ta.focus(); ta.selectionStart = ta.selectionEnd = s + v.length; },
+  'bk-export': () => { ui.importTxt = backupJson(); render(); toast('Backup gerado. Copie e guarde em local seguro.'); },
+  'bk-copy': () => copyText($('#bk-text').value),
+  'bk-save': async () => {
+    const txt = backupJson(), name = `backup-fidelidade-${dayKey(Date.now())}.json`;
+    let dl = null; try { dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch (e) {}
+    if (dl) { try { await dl.save({filename:name, data:txt}); } catch (e) { toast('Download não concluído. Use “Gerar backup” e copie o texto.', true); } return; }
+    if (mode === 'local' && !(window.claude && window.claude.use)) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], {type:'application/json'})); a.download = name; a.click(); return; }
+    toast('Download indisponível aqui. Use “Gerar backup” e copie o texto.', true);
+  },
+  'bk-import': () => importar($('#bk-text').value)
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  if (el.id === 'modal') return;
+  const f = A[el.dataset.act]; if (f) { if (el.tagName !== 'A') e.preventDefault(); f(el); }
+});
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') { modal = null; renderModal(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal) { modal = null; renderModal(); } if (e.key === 'Enter' && e.target.matches('#pdv-valor,#pdv-desc,#pdv-cb,#pdv-rec') && calc().valor > 0) { e.preventDefault(); finalizar(); } });
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (el.dataset.bind) { pdv[el.dataset.bind] = el.value; if (el.dataset.bind === 'busca') $('#pdv-res').innerHTML = pdvResults(); else renderResumo(); }
+  else if (el.dataset.bindUi === 'cliBusca') { ui.cliBusca = el.value; const pos = el.selectionStart; render(); const n = $('#cli-busca'); n.focus(); n.setSelectionRange(pos, pos); }
+  else if (el.id === 'msg-text' && modal) { modal.text = el.value; $('#msg-wa').href = waLink(S.clientes.get(modal.cid).telefone, el.value); }
+});
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el.id === 'msg-tpl' && modal) { const t = S.mensagens.get(el.value); modal.tplId = el.value; modal.text = fill(t.texto, S.clientes.get(modal.cid), modal.extra); renderModal(); }
+  else if (el.id === 'envio-seg') { ui.envioSeg = el.value; ui.envioTpl = null; render(); }
+  else if (el.id === 'envio-tpl') { ui.envioTpl = el.value; render(); }
+  else if (el.id === 'bk-file' && el.files[0]) { const r = new FileReader(); r.onload = () => { ui.importTxt = String(r.result); confirmKey = 'bk-imp'; render(); toast('Arquivo carregado. Confira e confirme a restauração.'); }; r.readAsText(el.files[0]); }
+});
+document.addEventListener('focusout', () => setTimeout(() => { if (pendingRender && !document.activeElement.matches('input,textarea,select')) render(); }, 150));
+document.addEventListener('submit', async e => {
+  e.preventDefault(); const f = e.target, fd = new FormData(f), k = f.dataset.form;
+  if (k === 'pdvnovo') { const c = readClienteForm(f); if (!c) return; if (await put('clientes', c.id, c)) { Object.assign(pdv, {clienteId:c.id, novo:false, busca:''}); toast('Cliente cadastrado'); render(); } }
+  else if (k === 'clinovo') { const c = readClienteForm(f); if (!c) return; if (await put('clientes', c.id, c)) { ui.editando = false; ui.cliSel = c.id; toast('Cliente cadastrado'); render(); } }
+  else if (k === 'cliedit') { const c = readClienteForm(f, S.clientes.get(ui.cliSel)); if (!c) return; if (await put('clientes', c.id, c)) { ui.editando = false; toast('Dados salvos'); render(); } }
+  else if (k === 'ajuste') {
+    const c = clone(S.clientes.get(ui.cliSel)), q = fd.get('tipo') === 'cb' ? parseMoney(fd.get('qtd')) : Math.round(parseMoney(fd.get('qtd'))), add = fd.get('op') === '+';
+    if (!q) return toast('Informe a quantidade', true);
+    const m = {id:newId(), t:'ajuste', data:new Date().toISOString(), desc:String(fd.get('motivo')).trim()};
+    if (fd.get('tipo') === 'cb') add ? m.cbGerado = q : m.cbUsado = Math.min(q, stats(c).saldo); else add ? m.pts = q : m.ptsUsados = Math.min(q, stats(c).pts);
+    c.mov = [...(c.mov || []), m]; ui.ajuste = false; await put('clientes', c.id, c); toast('Saldo ajustado');
+  }
+  else if (k === 'proximo') { const c = clone(S.clientes.get(ui.cliSel)); if (!fd.get('data')) return toast('Escolha a data do contato', true); c.proximo = {data:fd.get('data'), assunto:String(fd.get('assunto')).trim()}; await put('clientes', c.id, c); toast('Contato agendado'); }
+  else if (k === 'nota') { const txt = String(fd.get('texto')).trim(); if (!txt) return; const c = clone(S.clientes.get(ui.cliSel)); c.notas = [...(c.notas || []), {id:newId(), data:new Date().toISOString(), tipo:'nota', texto:txt}]; await put('clientes', c.id, c); }
+  else if (k === 'premio') { const id = ui.premioEdit === 'novo' ? newId() : ui.premioEdit, pts = Math.round(+fd.get('pontos'));
+    if (!String(fd.get('nome')).trim() || !(pts > 0)) return toast('Informe nome e custo em pontos', true);
+    const est = String(fd.get('estoque')).trim();
+    ui.premioEdit = null; await put('premios', id, {nome:String(fd.get('nome')).trim(), pontos:pts, estoque: est === '' ? '' : Math.max(0, Math.round(+est)), descricao:String(fd.get('descricao')).trim()}); toast('Prêmio salvo'); }
+  else if (k === 'tpl') { const id = ui.tplSel === 'novo' ? newId() : ui.tplSel, old = S.mensagens.get(id) || {};
+    ui.tplSel = null; await put('mensagens', id, {...old, titulo:String(fd.get('titulo')).trim(), gatilho:fd.get('gatilho'), texto:String(fd.get('texto')), ordem: old.ordem ?? 50}); toast('Modelo salvo'); }
+  else if (k === 'cfg') {
+    const n = cfg().niveis.map((x, i) => ({nome:String(fd.get(`nv${i}nome`)).trim() || x.nome, min: i === 0 ? 0 : Math.max(0, +fd.get(`nv${i}min`) || 0), cb: Math.max(0, Math.min(100, +fd.get(`nv${i}cb`) || 0))}));
+    await put('config', 'geral', {loja:String(fd.get('loja')).trim() || 'Gatecão', ptsPorReal:Math.max(0, +fd.get('ptsPorReal') || 0), validadeDias:Math.max(0, Math.round(+fd.get('validadeDias') || 0)), maxUsoPct:Math.max(0, Math.min(100, +fd.get('maxUsoPct') || 0)), niveis:n});
+    toast('Regras salvas');
+  }
+});
+
+/* ---------- início ---------- */
+{ const h = location.hash.slice(1); if (['pdv', 'clientes', 'crm', 'premios', 'mensagens', 'ajustes'].includes(h)) tab = h; }
+render();
+(async () => {
+  if (!(window.claude && typeof window.claude.use === 'function')) return startLocal('Salvo neste navegador');
+  try { db = await window.claude.use('db'); } catch (e) { db = null; }
+  if (db) startDb(); else startLocal('Sem nuvem: salvo neste navegador');
+})();
+</script>
