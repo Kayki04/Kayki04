@@ -387,6 +387,8 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
 .chk.sq{border-radius:7px}
 [aria-pressed="true"]>.chk.sq{box-shadow:none;background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.500' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.500l4.500 4.500L19 7.500'/%3E%3C/svg%3E") center/16px no-repeat}
 .xopt .pz .old{font-family:var(--font-body);font-size:12px;font-weight:600}
+.addrbox{background:var(--soft);border-radius:16px;padding:14px;display:grid;gap:12px}
+.addrbox>b{font-family:var(--font-display);font-size:17px}
 .oksum{background:var(--soft);border-radius:16px;padding:14px;display:grid;gap:6px}
 </style>
 <div id="cust">
@@ -623,6 +625,11 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
   }
   function bindClose(){var a=$('#scrim'),b=$('#closeSheet');if(a)a.onclick=closeSheet;if(b)b.onclick=closeSheet}
 
+  function coGrab(){
+    var v=function(id){var e=$(id);return e?e.value:null};
+    if(v('#cname')!=null)state.co.name=v('#cname');
+    if(v('#caddr')!=null){var A=state.ag;A.ltAddr=v('#caddr');A.ltBairro=v('#cbairro');A.ltComp=v('#ccomp');A.ltPhone=v('#cphone');state.co.ref=v('#cref');saveAg()}
+  }
   function openCart(){
     var lines=cartLines();
     var h='<div class="row"><h2>Seu carrinho</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
@@ -642,7 +649,16 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     ['Pix','Cartão na entrega','Dinheiro'].forEach(function(m){h+='<button class="opt" data-pay="'+m+'" aria-pressed="'+(state.co.pay===m)+'"><b>'+m+'</b><span class="muted">'+(m==='Pix'&&pixPct?pixPct+'% de desconto':'')+'</span></button>'});
     h+='</div>';
     if(wl&&wl.cash>0)h+='<button class="opt" id="useCash" aria-pressed="'+(!!state.co.useCash)+'"><span><b>Usar meu cashback</b><br><span class="muted">Saldo disponível: '+brl(wl.cash)+'</span></span><b>'+(cashUse?'- '+brl(cashUse):'Não usar')+'</b></button>';
-    h+='<label class="f">Seu nome<input class="in" id="cname" value="'+esc(state.co.name||(D.me&&D.me.name)||'')+'" placeholder="Nome para o pedido"></label>';
+    h+='<label class="f">Seu nome<input class="in" id="cname" value="'+esc(state.co.name||(D.me&&D.me.name)||'')+'" placeholder="Nome para o pedido" autocomplete="name"></label>';
+    if(state.co.mode==='Entrega'){
+      var A=state.ag;if(!A.ltPhone&&D.me&&D.me.phone)A.ltPhone=fmtPhone(D.me.phone);
+      h+='<div class="addrbox"><b>Endereço de entrega</b>'+
+        '<label class="f">Rua e número<input class="in" id="caddr" value="'+esc(A.ltAddr)+'" placeholder="Ex.: Rua das Flores, 120" autocomplete="street-address"></label>'+
+        '<div class="two"><label class="f">Bairro<input class="in" id="cbairro" value="'+esc(A.ltBairro)+'" autocomplete="address-level3"></label><label class="f">Complemento<input class="in" id="ccomp" value="'+esc(A.ltComp)+'" placeholder="Apto, bloco"></label></div>'+
+        '<label class="f"><span>Ponto de referência <small class="muted">(opcional)</small></span><input class="in" id="cref" value="'+esc(state.co.ref||'')+'" placeholder="Ex.: ao lado da padaria"></label>'+
+        '<label class="f">Telefone para contato<input class="in" id="cphone" inputmode="tel" value="'+esc(A.ltPhone)+'" placeholder="(11) 90000-0000" autocomplete="tel"></label>'+
+        '<p class="hint" style="margin:0">Guardamos este endereço neste aparelho para as próximas compras.</p></div>';
+    }
     h+='<div class="row"><span class="muted">Subtotal</span><span>'+brl(sub)+'</span></div>';
     if(pixOff)h+='<div class="row"><span class="muted">Desconto Pix</span><span>- '+brl(pixOff)+'</span></div>';
     if(cashUse)h+='<div class="row"><span class="muted">Cashback</span><span>- '+brl(cashUse)+'</span></div>';
@@ -654,18 +670,23 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     var s=$('#overlay');
     $$('[data-inc]',s).forEach(function(b){b.onclick=function(){addToCart(b.getAttribute('data-inc'));openCart()}});
     $$('[data-dec]',s).forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-dec');state.cart[k]=(state.cart[k]||1)-1;if(state.cart[k]<=0)delete state.cart[k];persist();openCart()}});
-    $$('[data-mode]',s).forEach(function(b){b.onclick=function(){state.co.name=$('#cname').value;state.co.mode=b.getAttribute('data-mode');openCart()}});
-    $$('[data-pay]',s).forEach(function(b){b.onclick=function(){state.co.name=$('#cname').value;state.co.pay=b.getAttribute('data-pay');openCart()}});
-    var uc=$('#useCash');if(uc)uc.onclick=function(){state.co.name=$('#cname').value;state.co.useCash=!state.co.useCash;openCart()};
+    $$('[data-mode]',s).forEach(function(b){b.onclick=function(){coGrab();state.co.mode=b.getAttribute('data-mode');openCart()}});
+    $$('[data-pay]',s).forEach(function(b){b.onclick=function(){coGrab();state.co.pay=b.getAttribute('data-pay');openCart()}});
+    var uc=$('#useCash');if(uc)uc.onclick=function(){coGrab();state.co.useCash=!state.co.useCash;openCart()};
     $('#finish').onclick=function(){
-      state.co.name=$('#cname').value;
+      coGrab();
       if(!state.co.name.trim()){toast('Informe seu nome para o pedido');$('#cname').focus();return}
+      if(state.co.mode==='Entrega'){
+        var A=state.ag,miss=!A.ltAddr.trim()?['#caddr','o endereço']:!A.ltBairro.trim()?['#cbairro','o bairro']:String(A.ltPhone||'').replace(/\D/g,'').length<10?['#cphone','o telefone com DDD']:null;
+        if(miss){toast('Informe '+miss[1]+' para a entrega');var el=$(miss[0]);if(el){el.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'});el.focus({preventScroll:true})}return}
+      }
       finishOrder(lines,sub,pixOff,frete,tot,cashUse);
     };
   }
 
   async function finishOrder(lines,sub,pixOff,fee,tot,cashUse){
-    var o={id:'o'+Date.now(),ts:Date.now(),name:state.co.name.trim(),mode:state.co.mode,pay:state.co.pay,sub:sub,pixOff:pixOff,fee:fee,cashUse:cashUse||0,total:tot,
+    var A=state.ag,o={id:'o'+Date.now(),ts:Date.now(),name:state.co.name.trim(),mode:state.co.mode,pay:state.co.pay,
+      addr:state.co.mode==='Entrega'?{addr:A.ltAddr.trim().slice(0,160),bairro:A.ltBairro.trim().slice(0,80),comp:A.ltComp.trim().slice(0,120),ref:String(state.co.ref||'').trim().slice(0,160),phone:String(A.ltPhone).replace(/\D/g,'').slice(0,11)}:null,sub:sub,pixOff:pixOff,fee:fee,cashUse:cashUse||0,total:tot,
       items:lines.map(function(l){return{id:l.p.id,n:l.p.name,p:l.price,q:l.q}})};
     var synced=false;
     if(X.db&&X.uid){
@@ -1090,7 +1111,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
       var st=(D.status[o.id]&&D.status[o.id].status)||'Novo';
       h+='<div class="hist"><div class="row"><b>Pedido #'+esc(String(o.id).slice(-5))+'</b><span class="pill">'+esc(st)+'</span></div>'+
         o.items.map(function(i){return '<div class="row"><span>'+i.q+' x '+esc(i.n)+'</span><span>'+brl(i.q*i.p)+'</span></div>'}).join('')+
-        '<div class="row"><span class="muted">'+fmtTs(o.ts)+' · '+esc(o.mode)+' · '+esc(o.pay)+'</span><b>'+brl(o.total)+'</b></div></div>';
+        (o.addr?'<div class="muted">Entregar em: '+esc(o.addr.addr)+', '+esc(o.addr.bairro)+(o.addr.comp?' · '+esc(o.addr.comp):'')+(o.addr.ref?' · Ref.: '+esc(o.addr.ref):'')+(o.addr.phone?' · '+esc(fmtPhone(o.addr.phone)):'')+'</div>':'')+'<div class="row"><span class="muted">'+fmtTs(o.ts)+' · '+esc(o.mode)+' · '+esc(o.pay)+'</span><b>'+brl(o.total)+'</b></div></div>';
     });
     if(X.isAdmin){
       h+='<div class="sec" style="margin-top:22px"><h2>Minha conta</h2></div><div class="hist"><div class="row"><b>Acesso da loja</b><span class="pill">Conta da loja</span></div><span class="muted">Você entrou com a conta da Gatecão. A área de gestão está liberada para você.</span><button class="primary" id="openAdm" style="margin-top:6px">Abrir gestão</button></div>';
@@ -1395,7 +1416,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
         var st=ordStatus(o),applied=D.status[o.id]&&D.status[o.id].stockApplied;
         h+='<div class="acard ord"><div class="rowtight"><b>'+esc(o.name)+' · #'+esc(String(o.id).slice(-5))+'</b><span class="st '+stClass(st)+'">'+esc(st)+'</span></div>'+
           '<div class="items">'+o.items.map(function(i){return '<div class="rowtight"><span>'+i.q+' x '+esc(i.n)+'</span><span>'+brl(i.q*i.p)+'</span></div>'}).join('')+'</div>'+
-          '<div class="rowtight"><span class="muted">'+fmtTs(o.ts)+' · '+esc(o.mode)+' · '+esc(o.pay)+'</span><b>'+brl(o.total)+'</b></div>'+
+          (o.addr?'<div class="muted">Entregar em: '+esc(o.addr.addr)+', '+esc(o.addr.bairro)+(o.addr.comp?' · '+esc(o.addr.comp):'')+(o.addr.ref?' · Ref.: '+esc(o.addr.ref):'')+(o.addr.phone?' · '+esc(fmtPhone(o.addr.phone)):'')+'</div>':'')+'<div class="rowtight"><span class="muted">'+fmtTs(o.ts)+' · '+esc(o.mode)+' · '+esc(o.pay)+'</span><b>'+brl(o.total)+'</b></div>'+
           '<label class="fld">Situação<select class="in" data-chg="ordSt" data-id="'+esc(o.uid)+'|'+esc(o.id)+'">'+opts(ORDER_ST,st)+'</select></label>'+
           (applied?'<span class="hint">Estoque já descontado deste pedido.</span>':'<span class="hint">Ao confirmar, o estoque dos produtos é descontado.</span>')+'</div>';
       });
