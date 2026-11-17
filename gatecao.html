@@ -493,6 +493,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     return 'ativa';
   }
   function promoApplies(pr,p){
+    if(String(pr.scope||'').indexOf('svc')===0)return false;
     if(pr.scope==='all')return true;
     if(pr.scope==='cat')return (p.t||[]).indexOf(pr.target)>-1;
     return pr.target===p.id;
@@ -556,7 +557,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
       if(sv.length){
         h+='<div class="sec" style="margin-top:4px"><h2>Banho e tosa</h2><span>Agende em 1 minuto</span></div><div class="svcs">';
         sv.forEach(function(s,i){
-          h+='<button class="svc s'+(i%4)+'" data-svc="'+esc(s.id)+'">'+(s.hot?'<span class="hot">Mais pedido</span>':'')+'<span class="si">'+svg(s.i||'paw')+'</span><b>'+esc(s.name)+'</b><span class="d">'+esc(s.desc||'')+'</span><span class="pp"><span>a partir de '+brl(svcFrom(s))+'</span><i>Agendar</i></span></button>';
+          var mp=mainPrice(s,null);h+='<button class="svc s'+(i%4)+'" data-svc="'+esc(s.id)+'">'+(mp.promo?'<span class="hot">-'+mp.off+'%</span>':s.hot?'<span class="hot">Mais pedido</span>':'')+'<span class="si">'+svg(s.i||'paw')+'</span><b>'+esc(s.name)+'</b><span class="d">'+esc(s.desc||'')+'</span><span class="pp"><span>a partir de '+brl(mp.price)+(mp.promo?' <s style="opacity:.6;font-weight:600">'+brl(mp.full)+'</s>':'')+'</span><i>Agendar</i></span></button>';
         });
         h+='</div>';
       }
@@ -745,10 +746,27 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     return Math.min.apply(null,v.filter(function(x){return x>0}).concat([num(svc.price)||0]));
   }
   function isExtra(s){return s&&s.kind==='extra'}
-  function extraPrice(x,pet){var full=svcPriceFor(x,pet),off=Math.min(90,Math.max(0,num(x.off)));return{full:full,price:r2(full*(1-off/100)),off:off}}
-  function extraFrom(x){var f=svcFrom(x),off=Math.min(90,Math.max(0,num(x.off)));return{full:f,price:r2(f*(1-off/100)),off:off}}
+  function svcPromo(svc,role,base){
+    var best=base,hit=null;
+    D.promos.forEach(function(x){
+      if(promoState(x)!=='ativa')return;
+      if(!(x.scope==='svcAll'||(x.scope==='svc'&&x.target===svc.id)))return;
+      var w=x.when||'any';if(w!=='any'&&w!==role)return;
+      var v=x.kind==='fixed'?Math.max(0,base-num(x.value)):r2(base*(1-num(x.value)/100));
+      if(v<best){best=v;hit=x}
+    });
+    return{full:base,price:r2(best),promo:hit,off:hit&&base>0?Math.round((1-best/base)*100):0};
+  }
+  function mainPrice(svc,pet){return svcPromo(svc,'main',pet?svcPriceFor(svc,pet):svcFrom(svc))}
+  function addPrice(x,pet){
+    var full=pet?svcPriceFor(x,pet):svcFrom(x),off=Math.min(90,Math.max(0,num(x.off))),a=r2(full*(1-off/100)),pp=svcPromo(x,'extra',full);
+    return pp.price<a?{full:full,price:pp.price,off:pp.off,promo:pp.promo}:{full:full,price:a,off:off,promo:null};
+  }
+  function extraPrice(x,pet){return addPrice(x,pet)}
+  function extraFrom(x){return addPrice(x,null)}
+  function priceTag(v){return brl(v.price)+(v.price<v.full?' <span class="old">'+brl(v.full)+'</span>':'')}
   function agExtras(){var ag=state.ag;ag.extras=(ag.extras||[]).filter(function(id){var x=byId(D.services,id);return x&&x.active!==false&&id!==ag.svc});return ag.extras.map(function(id){return byId(D.services,id)})}
-  function agTotal(pet){var svc=byId(D.services,state.ag.svc);if(!svc)return 0;var t=pet?svcPriceFor(svc,pet):svcFrom(svc);agExtras().forEach(function(x){t+=pet?extraPrice(x,pet).price:extraFrom(x).price});return r2(t)}
+  function agTotal(pet){var svc=byId(D.services,state.ag.svc);if(!svc)return 0;var t=mainPrice(svc,pet).price;agExtras().forEach(function(x){t+=pet?extraPrice(x,pet).price:extraFrom(x).price});return r2(t)}
   function petReady(){var ag=state.ag;return !!(ag.pet.trim()&&num(ag.weight)>0&&ag.coat&&ag.breed.trim())}
   function svcPriceFor(svc,pet){
     var size=sizeOf(pet.weight),k=size+'|'+pet.coat,base=num(svc.pt&&svc.pt[k])>0?num(svc.pt[k]):num(svc.price);
@@ -879,9 +897,9 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     var so=$('#sizeOut');if(so)so.textContent=ag.size||'Pelo peso';
     var pets=knownPets();
     $$('[data-pet]',view).forEach(function(b){var p=pets[+b.getAttribute('data-pet')];b.setAttribute('aria-pressed',!!p&&ag.pet.trim().toLowerCase()===String(p.pet).trim().toLowerCase())});
-    $$('[data-pz]',view).forEach(function(el){var sv=byId(D.services,el.getAttribute('data-pz'));if(!sv)return;el.textContent=ready?brl(svcPriceFor(sv,pet))+' para '+ag.pet.trim():'a partir de '+brl(svcFrom(sv))});
+    $$('[data-pz]',view).forEach(function(el){var sv=byId(D.services,el.getAttribute('data-pz'));if(!sv)return;var v=mainPrice(sv,ready?pet:null);el.innerHTML=(ready?'':'a partir de ')+priceTag(v)+(ready?' para '+esc(ag.pet.trim()):'')+(v.promo?' <span class="hotb">'+esc(v.promo.name||('-'+v.off+'%'))+'</span>':'')});
     $$('[data-extra]',view).forEach(function(b){var id=b.getAttribute('data-extra');b.hidden=id===ag.svc;b.setAttribute('aria-pressed',(ag.extras||[]).indexOf(id)>-1)});
-    $$('[data-xz]',view).forEach(function(el){var x=byId(D.services,el.getAttribute('data-xz'));if(!x)return;var v=ready?extraPrice(x,pet):extraFrom(x);el.innerHTML=(ready?'+ ':'+ a partir de ')+brl(v.price)+(v.off?' <span class="old">'+brl(v.full)+'</span>':'')});
+    $$('[data-xz]',view).forEach(function(el){var x=byId(D.services,el.getAttribute('data-xz'));if(!x)return;var v=ready?extraPrice(x,pet):extraFrom(x);el.innerHTML=(ready?'+ ':'+ a partir de ')+priceTag(v)+(v.promo?' <span class="hotb">'+esc(v.promo.name||('-'+v.off+'%'))+'</span>':'')});
     var pn=$('#bPriceNote');if(pn)pn.textContent=ready?'Valor calculado para '+ag.pet.trim()+': '+ag.size+', pelagem '+ag.coat.toLowerCase()+', '+ag.breed.trim()+'.':'Os valores variam com peso, pelagem e raça. Complete o cadastro do pet para ver o valor exato.';
     var done=[ready&&!!ag.tutor.trim(),!!ag.svc,!!ag.slot];
     done.forEach(function(d,i){var st=$('#st'+(i+1));if(!st)return;st.classList.toggle('done',d);$('.sn',st).innerHTML=d?CHECK:String(i+1)});
@@ -896,7 +914,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     if(!svc){toast('Escolha um serviço');render();return}
     if(!slotFree(ag.day,ag.slot)){toast('Esse horário não está mais disponível. Escolha outro.');ag.slot='';render();return}
     var pet0={weight:ag.weight,coat:ag.coat,breed:ag.breed},xs0=agExtras();
-    var rec={id:id,ts:Date.now(),day:ag.day,slot:ag.slot,svc:svc.name+(xs0.length?' + '+xs0.map(function(x){return x.name}).join(' + '):''),base:svcPriceFor(svc,pet0),extras:xs0.map(function(x){var v=extraPrice(x,pet0);return{n:x.name,p:v.price,full:v.full}}),price:agTotal(pet0),pet:ag.pet.trim(),kind:ag.kind,size:sizeOf(ag.weight),weight:num(ag.weight),coat:ag.coat,breed:ag.breed.trim().slice(0,60),obs:(ag.obs||'').trim().slice(0,300),tutor:ag.tutor.trim()};
+    var rec={id:id,ts:Date.now(),day:ag.day,slot:ag.slot,svc:svc.name+(xs0.length?' + '+xs0.map(function(x){return x.name}).join(' + '):''),base:mainPrice(svc,pet0).price,extras:xs0.map(function(x){var v=extraPrice(x,pet0);return{n:x.name,p:v.price,full:v.full}}),price:agTotal(pet0),pet:ag.pet.trim(),kind:ag.kind,size:sizeOf(ag.weight),weight:num(ag.weight),coat:ag.coat,breed:ag.breed.trim().slice(0,60),obs:(ag.obs||'').trim().slice(0,300),tutor:ag.tutor.trim()};
     var synced=false;
     if(X.db&&X.uid){
       try{
@@ -1101,7 +1119,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
   function ordStatus(o){return (D.status[o.id]&&D.status[o.id].status)||'Novo'}
   function minStock(p){return p.minStock==null||p.minStock===''?3:num(p.minStock)}
   function stockBadge(p){var s=stockOf(p);return s<=0?'<span class="st bad">Esgotado</span>':s<=minStock(p)?'<span class="st warn">Estoque baixo</span>':''}
-  function promoText(pr){return (pr.kind==='fixed'?brl(pr.value)+' de desconto':num(pr.value)+'% de desconto')+' · '+(pr.scope==='all'?'todos os produtos':pr.scope==='cat'?'categoria '+pr.target:(byId(D.products,pr.target)||{name:'produto removido'}).name)}
+  function promoText(pr){return (pr.kind==='fixed'?brl(pr.value)+' de desconto':num(pr.value)+'% de desconto')+' · '+(pr.scope==='all'?'todos os produtos':pr.scope==='cat'?'categoria '+pr.target:pr.scope==='svcAll'?'todos os serviços de banho e tosa':pr.scope==='svc'?'serviço '+(byId(D.services,pr.target)||{name:'removido'}).name:(byId(D.products,pr.target)||{name:'produto removido'}).name)+(String(pr.scope).indexOf('svc')===0&&pr.when&&pr.when!=='any'?(pr.when==='main'?' (só como principal)':' (só como adicional)'):'')}
   function promoRange(pr){return (pr.start?fmtDay(pr.start):'sem início')+' até '+(pr.end?fmtDay(pr.end):'sem fim')}
   function opts(list,sel){return list.map(function(o){var v=Array.isArray(o)?o[0]:o,l=Array.isArray(o)?o[1]:o;return '<option value="'+esc(v)+'"'+(String(v)===String(sel)?' selected':'')+'>'+esc(l)+'</option>'}).join('')}
   function swHtml(on,act,id,label){return '<button class="sw" role="switch" aria-checked="'+(on?'true':'false')+'" aria-label="'+esc(label)+'" data-act="'+act+'" data-id="'+esc(id)+'"></button>'}
@@ -1237,7 +1255,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
   /* ----- Promoções ----- */
   function aPromos(m){
     var h='<div class="toolbar"><p class="hint" style="flex:1">Promoções com data valem sozinhas: começam e terminam no dia marcado. O app mostra o preço antigo riscado e a porcentagem.</p><button class="btn" data-act="promoNew">+ Nova promoção</button></div>';
-    if(!D.promos.length)h+='<div class="empty-card"><h2>Nenhuma promoção</h2><p class="muted">Crie descontos por produto, por categoria ou para a loja toda.</p></div>';
+    if(!D.promos.length)h+='<div class="empty-card"><h2>Nenhuma promoção</h2><p class="muted">Crie descontos em produtos, categorias, serviços de banho e tosa ou adicionais.</p></div>';
     D.promos.slice().sort(function(a,b){return String(b.start||'').localeCompare(String(a.start||''))}).forEach(function(pr){
       var s=promoState(pr),cls=s==='ativa'?'ok':s==='agendada'?'info':s==='pausada'?'warn':'off';
       h+='<div class="acard"><div class="rowtight"><b>'+esc(pr.name)+'</b><span class="st '+cls+'">'+s[0].toUpperCase()+s.slice(1)+'</span></div><span class="muted">'+esc(promoText(pr))+'</span><span class="muted">'+esc(promoRange(pr))+'</span>'+
@@ -1251,8 +1269,9 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     var h='<div class="row"><h2>'+(cur?'Editar promoção':'Nova promoção')+'</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
     h+='<label class="fld">Nome<input class="in" id="rn" value="'+esc(p.name)+'" placeholder="Ex.: Semana da ração"></label>';
     h+='<div class="two"><label class="fld">Tipo de desconto<select class="in" id="rk">'+opts([['percent','Porcentagem (%)'],['fixed','Valor fixo (R$)']],p.kind)+'</select></label><label class="fld">Valor<input class="in" id="rv" inputmode="decimal" value="'+esc(String(p.value).replace('.',','))+'"></label></div>';
-    h+='<label class="fld">Vale para<select class="in" id="rs">'+opts([['all','Todos os produtos'],['cat','Uma categoria'],['product','Um produto']],p.scope)+'</select></label>';
+    h+='<label class="fld">Vale para<select class="in" id="rs">'+opts([['all','Todos os produtos'],['cat','Uma categoria de produtos'],['product','Um produto'],['svcAll','Todos os serviços de banho e tosa'],['svc','Um serviço ou adicional']],p.scope)+'</select></label>';
     h+='<label class="fld" id="rtw">Escolha<select class="in" id="rt"></select></label>';
+    h+='<label class="fld" id="rww">Quando vale<select class="in" id="rw">'+opts([['any','Sempre'],['main','Só quando é o serviço principal'],['extra','Só quando é adicionado a outro serviço']],p.when||'any')+'</select><span class="hint">Ex.: hidratação com 30% de desconto só quando contratada junto com um banho.</span></label>';
     h+='<div class="two"><label class="fld">Começa em<input class="in" type="date" id="rb" value="'+esc(p.start||'')+'"></label><label class="fld">Termina em<input class="in" type="date" id="re" value="'+esc(p.end||'')+'"></label></div><p class="hint">Deixe o fim em branco para a promoção não ter data de término.</p>';
     h+='<div class="rowtight"><span class="fld" style="font-weight:700">Promoção ligada</span><button class="sw" id="ra" role="switch" aria-checked="'+(p.active?'true':'false')+'" aria-label="Promoção ligada"></button></div>';
     h+='<button class="primary" id="rsave">Salvar promoção</button>';
@@ -1260,8 +1279,9 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     $('#overlay').innerHTML=sheetHtml(h,'Promoção');bindClose();
     function fillTarget(){
       var sc=$('#rs').value,sel=$('#rt'),w=$('#rtw');
-      w.hidden=sc==='all';
+      w.hidden=sc==='all'||sc==='svcAll';$('#rww').hidden=sc.indexOf('svc')!==0;
       if(sc==='cat')sel.innerHTML=opts(CATS.slice(1).map(function(c){return c[0]}),p.scope==='cat'?p.target:'');
+      else if(sc==='svc')sel.innerHTML=opts(D.services.map(function(x){return [x.id,x.name+(isExtra(x)?' (adicional)':'')]}),p.scope==='svc'?p.target:'');
       else if(sc==='product')sel.innerHTML=opts(D.products.slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),'pt-BR')}).map(function(x){return [x.id,x.name]}),p.scope==='product'?p.target:'');
     }
     fillTarget();$('#rs').onchange=function(){p.scope=this.value;p.target='';fillTarget()};
@@ -1270,11 +1290,11 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
       var name=$('#rn').value.trim(),val=num($('#rv').value),sc=$('#rs').value,kind=$('#rk').value;
       if(!name){toast('Dê um nome para a promoção');$('#rn').focus();return}
       if(!(val>0)||(kind==='percent'&&val>90)){toast(kind==='percent'?'Use um desconto entre 1% e 90%':'Informe o valor do desconto');$('#rv').focus();return}
-      var target=sc==='all'?'':$('#rt').value;
-      if(sc!=='all'&&!target){toast('Escolha a categoria ou o produto');return}
+      var target=(sc==='all'||sc==='svcAll')?'':$('#rt').value;
+      if(sc!=='all'&&sc!=='svcAll'&&!target){toast('Escolha a categoria, o produto ou o serviço');return}
       var b=$('#rb').value,e=$('#re').value;
       if(b&&e&&e<b){toast('A data final vem antes da inicial');return}
-      var data={name:name,kind:kind,value:val,scope:sc,target:target,start:b,end:e,active:p.active};
+      var data={name:name,kind:kind,value:val,scope:sc,target:target,when:sc.indexOf('svc')===0?$('#rw').value:'any',start:b,end:e,active:p.active};
       this.disabled=true;
       try{
         if(cur)await X.db.doc('promos/'+cur.id).set(data);else await X.db.collection('promos').doc().set(data);
