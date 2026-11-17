@@ -422,6 +422,11 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
 .bnmini.big .hero{min-height:160px}
 .bnmodels{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:8px}
 button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px var(--accent)}
+.apact{display:flex;gap:8px;margin-top:4px}.apact .ghost{flex:1;padding:9px}
+.dangerline{color:var(--danger);border-color:#F3C9C1!important}
+.hist.off,.acard.off{opacity:.6}
+.slothead{display:flex;align-items:center;gap:10px;margin:10px 0 6px;padding-left:4px}
+.slothead b{font-family:var(--font-display);font-size:18px;color:var(--brand)}
 .oksum{background:var(--soft);border-radius:16px;padding:14px;display:grid;gap:6px}
 </style>
 <div id="cust">
@@ -739,11 +744,32 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   }
 
   /* ---------- banho e tosa ---------- */
+  var WD=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  function agHours(){
+    var h=S('agHours',null);
+    if(h&&typeof h==='object')return h;
+    var d={};for(var i=1;i<=6;i++)d[i]=SLOTS.slice();d[0]=[];return d;
+  }
+  function agBlocked(){var b=S('agBlock',[]);return Array.isArray(b)?b:[]}
+  function daySlots(day){
+    if(agBlocked().indexOf(day)>-1)return [];
+    var w=new Date(day+'T12:00:00').getDay(),l=agHours()[w];
+    return (Array.isArray(l)?l:[]).filter(function(x){return /^\d{2}:\d{2}$/.test(x)}).sort();
+  }
   function nextDays(){
-    var out=[],d=new Date();
-    for(var i=0;out.length<7;i++){var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()+i);if(x.getDay()!==0)out.push(x)}
+    var out=[],d=new Date(),n=Math.min(30,Math.max(1,Math.round(num(S('agAhead',7)))||7));
+    for(var i=0;out.length<n&&i<90;i++){var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()+i);if(daySlots(iso(x)).length)out.push(x)}
     return out;
   }
+  function agDaysText(){
+    var h=agHours(),open=[1,2,3,4,5,6,0].filter(function(i){return Array.isArray(h[i])&&h[i].length});
+    if(!open.length)return 'Agenda fechada';
+    var nm=['dom','seg','ter','qua','qui','sex','sáb'];
+    var seq=[1,2,3,4,5,6,0],idx=open.map(function(i){return seq.indexOf(i)}),cont=idx.every(function(v,k){return !k||v===idx[k-1]+1});
+    return cont&&open.length>2?nm[open[0]][0].toUpperCase()+nm[open[0]].slice(1)+' a '+nm[open[open.length-1]]:open.map(function(i){return nm[i]}).join(', ');
+  }
+  function apStatus(a){return a.canceled?'Cancelado':(D.status[a.id]&&D.status[a.id].status)||'Agendado'}
+  function apWhen(a){return new Date(a.day+'T'+a.slot+':00').getTime()}
   function iso(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
   function slotKey(day,slot){return day+'_'+slot.replace(':','')}
 
@@ -754,7 +780,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   function slotPast(day,s){
     if(day!==todayStr())return false;
     var d=new Date(),p=s.split(':');
-    return (+p[0])*60+(+p[1])<=d.getHours()*60+d.getMinutes()+30;
+    return (+p[0])*60+(+p[1])<=d.getHours()*60+d.getMinutes()+Math.max(0,num(S('agLead',30)));
   }
   function slotCap(){return Math.max(1,Math.floor(num(S('slotCap',3)))||3)}
   function slotUsed(day,s){return D.slots[slotKey(day,s)]||0}
@@ -780,7 +806,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     }
     return false;
   }
-  function freeCount(day){return SLOTS.filter(function(s){return slotFree(day,s)}).length}
+  function freeCount(day){return daySlots(day).filter(function(s){return slotFree(day,s)}).length}
   function dayLabel(d){
     var t=iso(d),today=todayStr(),tm=new Date();tm.setDate(tm.getDate()+1);
     var wd=t===today?'Hoje':t===iso(tm)?'Amanhã':d.toLocaleDateString('pt-BR',{weekday:'short'}).replace('.','');
@@ -868,7 +894,8 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     if(ag.slot&&!slotFree(ag.day,ag.slot))ag.slot='';
     if(!byId(sv,ag.svc))ag.svc=(sv.filter(function(s){return s.hot})[0]||sv[0]).id;
 
-    var h='<section class="bhero"><span class="tag">Banho e tosa</span><h2>Seu pet cheiroso e feliz</h2><p>Conte sobre o seu pet e veja o valor exato do banho.</p><div class="bchips"><span>Segunda a sábado</span><span>Pague na loja</span></div>'+BANHO_ART+'</section>';
+    var rs=ag.resched&&state.myAppts.filter(function(x){return x.id===ag.resched&&!x.canceled})[0];if(ag.resched&&!rs)ag.resched='';
+    var h=(rs?'<div class="loynote" style="margin-top:14px;display:flex;gap:10px;align-items:center;justify-content:space-between"><span>Remarcando o horário de <b>'+esc(rs.pet)+'</b> ('+esc(fmtDay(rs.day))+' às '+esc(rs.slot)+'). O horário antigo é liberado quando você confirmar o novo.</span><button class="mini" id="rsCancel">Desistir</button></div>':'')+'<section class="bhero"><span class="tag">Banho e tosa</span><h2>Seu pet cheiroso e feliz</h2><p>Conte sobre o seu pet e veja o valor exato do banho.</p><div class="bchips"><span>'+esc(agDaysText())+'</span><span>Pague na loja</span></div>'+BANHO_ART+'</section>';
 
     var pets=knownPets();
     h+='<section class="step" id="st1"><div class="sh"><span class="sn">1</span><h3>Cadastro do pet</h3></div>';
@@ -925,10 +952,11 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
       h+='<div class="sec"><h2>Cheirinho que dura</h2><span>Toque para ver o guia</span></div><div class="hscroll">'+hig.map(miniCard).join('')+'</div>';
     }
     h+='<div class="agbar" id="bSum"></div>';
-    h+='<p class="note">Atendemos de segunda a sábado. Pagamento na loja. Avisamos pelo app quando o pet estiver pronto.</p>';
+    h+='<p class="note">Pagamento na loja. Avisamos pelo app quando o pet estiver pronto. Você pode remarcar ou cancelar em Pedidos.</p>';
     view.innerHTML=h;
     function fillBreeds(){$('#breedList').innerHTML=(BREEDS[ag.kind]||[]).map(function(b){return '<option value="'+esc(b)+'">'}).join('')}
     fillBreeds();bSlots();bUpd();
+    var rsc=$('#rsCancel');if(rsc)rsc.onclick=function(){ag.resched='';renderBanho()};
 
     $$('[data-svc]',view).forEach(function(b){b.onclick=function(){ag.svc=b.getAttribute('data-svc');ag.extras=(ag.extras||[]).filter(function(i){return i!==ag.svc});bUpd()}});
     $$('[data-extra]',view).forEach(function(b){b.onclick=function(){var id=b.getAttribute('data-extra'),l=ag.extras||(ag.extras=[]),i=l.indexOf(id);if(i>-1)l.splice(i,1);else l.push(id);bUpd()}});
@@ -960,7 +988,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   function bSlots(){
     var ag=state.ag,el=$('#bSlots');if(!el)return;
     var fc=freeCount(ag.day),h='<div class="slots" role="radiogroup" aria-label="Horário">';
-    SLOTS.forEach(function(s){var off=!slotFree(ag.day,s),lf=slotLeft(ag.day,s),cap=slotCap();h+='<button class="slot" data-slot="'+s+'" '+(off?'disabled':'')+' aria-pressed="'+(ag.slot===s)+'" aria-label="'+s+(off?(lf?', indisponível':', lotado'):', '+lf+' vaga'+(lf>1?'s':''))+'">'+s+(off?'':(lf===1&&cap>1?'<small class="vg">última vaga</small>':''))+'</button>'});
+    daySlots(ag.day).forEach(function(s){var off=!slotFree(ag.day,s),lf=slotLeft(ag.day,s),cap=slotCap();h+='<button class="slot" data-slot="'+s+'" '+(off?'disabled':'')+' aria-pressed="'+(ag.slot===s)+'" aria-label="'+s+(off?(lf?', indisponível':', lotado'):', '+lf+' vaga'+(lf>1?'s':''))+'">'+s+(off?'':(lf===1&&cap>1?'<small class="vg">última vaga</small>':''))+'</button>'});
     h+='</div><p class="muted" style="margin:8px 0 0">'+(fc?fc+' horário'+(fc>1?'s':'')+' livre'+(fc>1?'s':'')+' em '+esc(fmtDayLong(ag.day)):'Sem horários livres neste dia. Escolha outro dia.')+'</p>';
     el.innerHTML=h;
   }
@@ -989,6 +1017,20 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     $('#bSum').innerHTML='<div class="txt"><b>'+priceHtml+'</b><span>'+esc(line||'Escolha o serviço')+'</span></div><button class="primary" id="confirmAg" '+(miss?'aria-disabled="true" style="opacity:.6"':'')+'>'+(miss?'Falta: '+esc(miss.toLowerCase()):'Agendar')+'</button>';
   }
 
+  async function cancelAppt(id,silent){
+    var a=state.myAppts.filter(function(x){return x.id===id})[0];if(!a)return false;
+    try{
+      if(X.db&&X.uid){
+        var ref=X.db.doc('appts/'+X.uid),cs=await ref.get(),cur=(cs.exists&&cs.data().a)||{},nx=Object.assign({},cur);
+        if(nx[id])nx[id]=Object.assign({},nx[id],{canceled:true,cancelTs:Date.now()});
+        await ref.set({a:nx});
+        await slotRelease(a.day,a.slot,id);
+      }
+      a.canceled=true;a.cancelTs=Date.now();save('gc_appts',state.myAppts);
+      if(typeof storeNotify==='function')storeNotify('agenda','Agendamento cancelado',a.pet+' · '+a.svc+' · '+fmtDay(a.day)+' às '+a.slot+(silent?' (remarcado)':''));
+      return true;
+    }catch(e){if(!silent)toast('Não foi possível cancelar. Tente de novo.');return false}
+  }
   async function confirmAppt(svc){
     var ag=state.ag,id='a'+Date.now();
     if(!svc){toast('Escolha um serviço');render();return}
@@ -1006,9 +1048,11 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
       }catch(e){}
     }
     state.myAppts.unshift(rec);save('gc_appts',state.myAppts);
+    var wasResched=ag.resched;
+    if(wasResched&&synced){await cancelAppt(wasResched,true);ag.resched=''}
     ag.slot='';ag.obs='';ag.extras=[];ag.lt='loja';saveAg();
     render();
-    var h='<div class="okmark">'+CHECK+'</div><h2 style="text-align:center">'+(synced?'Banho agendado!':'Agendamento salvo')+'</h2>'+
+    var h='<div class="okmark">'+CHECK+'</div><h2 style="text-align:center">'+(synced?(wasResched?'Horário remarcado!':'Banho agendado!'):'Agendamento salvo')+'</h2>'+
       '<p class="muted" style="text-align:center;margin:0">'+(synced?'A loja já recebeu seu horário. Você recebe um aviso pelo app quando o pet estiver pronto.':'Sem conexão com a loja: o agendamento ficou salvo só neste aparelho.')+'</p>'+
       '<div class="oksum"><div class="row"><b>'+esc(rec.pet)+'</b><span class="pill">'+esc(rec.kind)+(rec.size?' · '+esc(rec.size):'')+'</span></div><div class="muted">'+esc(rec.breed)+' · '+String(rec.weight).replace('.',',')+' kg · pelagem '+esc(String(rec.coat).toLowerCase())+'</div><div>'+esc(svc.name)+' · '+brl(rec.base)+'</div>'+rec.extras.map(function(e){return '<div class="muted">+ '+esc(e.n)+' · '+brl(e.p)+'</div>'}).join('')+(rec.lt?'<div class="muted">+ Leva e traz ('+esc(rec.lt.label.toLowerCase())+') · '+(rec.lt.feeSet?(rec.lt.fee>0?brl(rec.lt.fee):'grátis'):'a combinar')+'<br>'+esc(rec.lt.addr)+', '+esc(rec.lt.bairro)+(rec.lt.comp?' · '+esc(rec.lt.comp):'')+'</div>':'')+'<div class="muted">'+esc(fmtDayLong(rec.day))+' às '+esc(rec.slot)+'</div><div class="row"><span class="muted">Pagamento na loja</span><span class="total" style="font-size:20px">'+brl(rec.price)+'</span></div></div>'+
       '<button class="primary" id="okAppts">Ver meus agendamentos</button><button class="ghost" id="okShop" type="button" style="padding:12px">Voltar para a loja</button>';
@@ -1138,8 +1182,9 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     var h='<div class="sec" style="margin-top:14px"><h2>Agendamentos</h2><span>'+state.myAppts.length+'</span></div>';
     if(!state.myAppts.length)h+='<p class="muted" style="margin:0 0 14px">Nenhum agendamento ainda. Use a aba Banho e tosa para marcar.</p>';
     state.myAppts.forEach(function(a){
-      var st=(D.status[a.id]&&D.status[a.id].status)||'Agendado';
-      h+='<div class="hist"><div class="row"><b>'+esc(a.pet)+' ('+esc(a.kind)+(a.size?', '+esc(a.size):'')+')</b><span class="pill">'+esc(st)+'</span></div><div>'+esc(a.svc)+'</div>'+((a.breed||a.weight)?'<div class="muted">'+esc([a.breed,a.weight?String(a.weight).replace('.',',')+' kg':'',a.coat?'pelagem '+String(a.coat).toLowerCase():''].filter(Boolean).join(' · '))+'</div>':'')+(a.lt?'<div class="muted">Leva e traz: '+esc(a.lt.label)+' · '+esc(a.lt.addr)+', '+esc(a.lt.bairro)+(a.lt.comp?' ('+esc(a.lt.comp)+')':'')+(a.lt.phone?' · '+esc(fmtPhone(a.lt.phone)):'')+'</div>':'')+'<div class="muted">'+fmtDayLong(a.day)+' às '+esc(a.slot)+' · '+brl(a.price)+'</div>'+(a.obs?'<div class="muted">Obs.: '+esc(a.obs)+'</div>':'')+'</div>';
+      var st=apStatus(a),fut=apWhen(a)>Date.now()+Math.max(0,num(S('agCancelH',2)))*3600000,canMod=st==='Agendado'&&fut&&X.db&&X.uid;
+      h+='<div class="hist'+(st==='Cancelado'?' off':'')+'"><div class="row"><b>'+esc(a.pet)+' ('+esc(a.kind)+(a.size?', '+esc(a.size):'')+')</b><span class="pill">'+esc(st)+'</span></div><div>'+esc(a.svc)+'</div>'+((a.breed||a.weight)?'<div class="muted">'+esc([a.breed,a.weight?String(a.weight).replace('.',',')+' kg':'',a.coat?'pelagem '+String(a.coat).toLowerCase():''].filter(Boolean).join(' · '))+'</div>':'')+(a.lt?'<div class="muted">Leva e traz: '+esc(a.lt.label)+' · '+esc(a.lt.addr)+', '+esc(a.lt.bairro)+(a.lt.comp?' ('+esc(a.lt.comp)+')':'')+(a.lt.phone?' · '+esc(fmtPhone(a.lt.phone)):'')+'</div>':'')+'<div class="muted">'+fmtDayLong(a.day)+' às '+esc(a.slot)+' · '+brl(a.price)+'</div>'+(a.obs?'<div class="muted">Obs.: '+esc(a.obs)+'</div>':'')+
+        (canMod?'<div class="apact"><button class="ghost" data-resched="'+esc(a.id)+'">Remarcar</button><button class="ghost dangerline" data-cancelap="'+esc(a.id)+'">Cancelar</button></div>':(st==='Agendado'&&!fut?'<p class="hint" style="margin:0">Para mudar este horário, fale com a loja.</p>':''))+'</div>';
     });
     h+='<div class="sec" style="margin-top:18px"><h2>Pedidos da loja</h2><span>'+state.myOrders.length+'</span></div>';
     if(!state.myOrders.length)h+='<p class="muted">Nenhum pedido ainda. Adicione produtos ao carrinho para começar.</p>';
@@ -1153,6 +1198,17 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
       h+='<div class="sec" style="margin-top:22px"><h2>Minha conta</h2></div><div class="hist"><div class="row"><b>Acesso da loja</b><span class="pill">Conta da loja</span></div><span class="muted">Você entrou com a conta da Gatecão. A área de gestão está liberada para você.</span><button class="primary" id="openAdm" style="margin-top:6px">Abrir gestão</button></div>';
     }
     view.innerHTML=h;
+    $$('[data-cancelap]',view).forEach(function(b){b.onclick=function(){
+      if(b.getAttribute('data-sure')!=='1'){b.setAttribute('data-sure','1');b.textContent='Toque de novo para cancelar';return}
+      b.disabled=true;cancelAppt(b.getAttribute('data-cancelap'),false).then(function(ok){if(ok){toast('Agendamento cancelado');render()}else{b.disabled=false;b.textContent='Cancelar'}});
+    }});
+    $$('[data-resched]',view).forEach(function(b){b.onclick=function(){
+      var a=state.myAppts.filter(function(x){return x.id===b.getAttribute('data-resched')})[0];if(!a)return;
+      var ag=state.ag;ag.resched=a.id;ag.pet=a.pet||'';ag.kind=a.kind||'Cachorro';ag.weight=a.weight?String(a.weight):'';ag.coat=a.coat||'';ag.breed=a.breed||'';ag.obs=a.obs||'';ag.slot='';
+      var base=String(a.svc||'').split(' + ')[0],sv=D.services.filter(function(x){return x.name===base})[0];if(sv)ag.svc=sv.id;
+      ag.extras=String(a.svc||'').split(' + ').slice(1).map(function(n){var x=D.services.filter(function(y){return y.name===n})[0];return x&&x.id}).filter(Boolean);
+      toast('Escolha o novo dia e horário');go('banho');
+    }});
     var oa=$('#openAdm');if(oa)oa.onclick=function(){go('gestao')};
   }
 
@@ -1196,6 +1252,45 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     D.appts.forEach(function(d){var m=d.a||{};Object.keys(m).forEach(function(k){out.push(Object.assign({uid:d.id},m[k]))})});
     return out.sort(function(a,b){return (a.day+a.slot)<(b.day+b.slot)?-1:1});
   }
+  function agFilt(a,f,t0,t1){
+    var st=apStatus(a);
+    if(f==='canc')return st==='Cancelado';
+    if(st==='Cancelado')return false;
+    if(f==='hoje')return a.day===t0;
+    if(f==='amanha')return a.day===t1;
+    if(f==='prox')return a.day>=t0;
+    if(f==='ant')return a.day<t0;
+    return true;
+  }
+  function openAgCfg(){
+    var H=JSON.parse(JSON.stringify(agHours())),B=agBlocked().slice().sort();
+    function draw(){
+      var h='<div class="row"><h2>Horários e folgas</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
+      h+='<p class="hint" style="margin:0">Ligue os dias em que vocês atendem e escreva os horários separados por vírgula. Cada horário aceita até '+slotCap()+' pets (muda em Loja).</p>';
+      [1,2,3,4,5,6,0].forEach(function(i){var on=Array.isArray(H[i])&&H[i].length;
+        h+='<div class="acard" style="margin:0;gap:8px"><div class="rowtight"><b>'+WD[i]+'</b><button class="sw" data-wd="'+i+'" role="switch" aria-checked="'+(on?'true':'false')+'" aria-label="Atender '+WD[i]+'"></button></div>'+
+          (on?'<input class="in" data-wh="'+i+'" value="'+esc(H[i].join(', '))+'" aria-label="Horários de '+WD[i]+'" placeholder="09:00, 10:00, 11:00">':'<span class="muted">Fechado</span>')+'</div>'});
+      h+='<div class="acard" style="margin:0"><b>Feriados e folgas</b><p class="hint" style="margin:0">Nesses dias ninguém consegue agendar.</p><div class="rowtight"><input class="in" type="date" id="bkDate" min="'+todayStr()+'" style="flex:1"><button class="btn" id="bkAdd" type="button">Bloquear dia</button></div>'+
+        (B.length?'<div class="chips" style="flex-wrap:wrap">'+B.map(function(d){return '<button class="chip" data-bk="'+d+'" aria-label="Liberar '+esc(fmtDayLong(d))+'">'+esc(fmtDay(d))+' ✕</button>'}).join('')+'</div>':'<span class="muted">Nenhum dia bloqueado.</span>')+'</div>';
+      h+='<div class="two"><label class="fld">Dias abertos para agendar<input class="in" id="agAhead" inputmode="numeric" value="'+esc(S('agAhead',7))+'"></label><label class="fld">Antecedência mínima (min)<input class="in" id="agLead" inputmode="numeric" value="'+esc(S('agLead',30))+'"></label></div>';
+      h+='<label class="fld">Cliente pode cancelar ou remarcar até (horas antes)<input class="in" id="agCancelH" inputmode="numeric" value="'+esc(S('agCancelH',2))+'"></label>';
+      h+='<button class="primary" id="agSave">Salvar horários</button>';
+      $('#overlay').innerHTML=sheetHtml(h,'Horários e folgas');bindClose();
+      $$('[data-wd]').forEach(function(b){b.onclick=function(){grab();var i=+b.getAttribute('data-wd');H[i]=Array.isArray(H[i])&&H[i].length?[]:(H[1]&&H[1].length?H[1].slice():SLOTS.slice());draw()}});
+      $$('[data-bk]').forEach(function(b){b.onclick=function(){grab();B=B.filter(function(d){return d!==b.getAttribute('data-bk')});draw()}});
+      $('#bkAdd').onclick=function(){grab();var d=$('#bkDate').value;if(!d){toast('Escolha a data');return}if(B.indexOf(d)<0)B.push(d);B.sort();draw()};
+      $('#agSave').onclick=async function(){
+        grab();var bad=[];
+        Object.keys(H).forEach(function(i){H[i]=(H[i]||[]).map(function(x){var m=String(x).trim().match(/^(\d{1,2})(?::|h)?(\d{2})?$/);if(!m){if(String(x).trim())bad.push(x);return null}var hh=+m[1],mm=+(m[2]||0);if(hh>23||mm>59){bad.push(x);return null}return pad(hh)+':'+pad(mm)}).filter(Boolean).filter(function(v,k,a){return a.indexOf(v)===k}).sort()});
+        if(bad.length){toast('Horário inválido: '+bad[0]);return}
+        var data={agHours:H,agBlock:B.filter(function(d){return d>=todayStr()}),agAhead:Math.min(30,Math.max(1,Math.round(num($('#agAhead').value))||7)),agLead:Math.max(0,Math.round(num($('#agLead').value))),agCancelH:Math.max(0,num($('#agCancelH').value))};
+        this.disabled=true;
+        try{await X.db.doc('settings/store').set(Object.assign({},D.settings,data));closeSheet();toast('Horários salvos')}catch(e){this.disabled=false;wfail(e)}
+      };
+    }
+    function grab(){$$('[data-wh]').forEach(function(i){H[i.getAttribute('data-wh')]=i.value.split(/[,;\s]+/).filter(Boolean)})}
+    draw();
+  }
   function ordStatus(o){return (D.status[o.id]&&D.status[o.id].status)||'Novo'}
   function minStock(p){return p.minStock==null||p.minStock===''?3:num(p.minStock)}
   function stockBadge(p){var s=stockOf(p);return s<=0?'<span class="st bad">Esgotado</span>':s<=minStock(p)?'<span class="st warn">Estoque baixo</span>':''}
@@ -1223,7 +1318,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   function aResumo(m){
     var ords=allOrders(),aps=allAppts(),t=todayStr(),month=t.slice(0,7);
     var novos=ords.filter(function(o){return ordStatus(o)==='Novo'}).length;
-    var hoje=aps.filter(function(a){return a.day===t&&((D.status[a.id]&&D.status[a.id].status)||'Agendado')==='Agendado'}).length;
+    var hoje=aps.filter(function(a){return a.day===t&&apStatus(a)==='Agendado'}).length;
     var fat=ords.filter(function(o){var s=ordStatus(o);return s!=='Novo'&&s!=='Cancelado'&&new Date(o.ts).toISOString().slice(0,7)===month||false}).reduce(function(a,o){return a+num(o.total)},0);
     var low=D.products.filter(function(p){return p.active!==false&&stockOf(p)<=minStock(p)});
     var promosOn=D.promos.filter(function(p){return promoState(p)==='ativa'}).length;
@@ -1512,12 +1607,23 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
           (applied?'<span class="hint">Estoque já descontado deste pedido.</span>':'<span class="hint">Ao confirmar, o estoque dos produtos é descontado.</span>')+'</div>';
       });
     }else{
-      var aps=allAppts();
-      if(!aps.length)h+='<div class="empty-card"><h2>Nenhum agendamento ainda</h2><p class="muted">Os horários marcados no app aparecem aqui.</p></div>';
-      aps.forEach(function(a){
-        var st=(D.status[a.id]&&D.status[a.id].status)||'Agendado';
-        h+='<div class="acard"><div class="rowtight"><b>'+esc(a.pet)+' ('+esc(a.kind)+(a.size?', '+esc(a.size):'')+') · '+esc(a.tutor)+'</b><span class="st '+stClass(st)+'">'+esc(st)+'</span></div>'+((a.breed||a.weight)?'<div class="muted">'+esc([a.breed,a.weight?String(a.weight).replace('.',',')+' kg':'',a.coat?'pelagem '+String(a.coat).toLowerCase():''].filter(Boolean).join(' · '))+'</span>':'')+(a.lt?'<span class="muted">Leva e traz: '+esc(a.lt.label)+' · '+esc(a.lt.addr)+', '+esc(a.lt.bairro)+(a.lt.comp?' ('+esc(a.lt.comp)+')':'')+(a.lt.phone?' · '+esc(fmtPhone(a.lt.phone)):'')+'</span>':'')+'<span>'+esc(a.svc)+' · '+brl(a.price)+'</span><span class="muted">'+fmtDayLong(a.day)+' às '+esc(a.slot)+'</span>'+(a.obs?'<span class="hint">Obs.: '+esc(a.obs)+'</span>':'')+
-          '<label class="fld">Situação<select class="in" data-chg="apSt" data-id="'+esc(a.id)+'|'+esc(a.day)+'|'+esc(a.slot)+'|'+esc(a.uid)+'">'+opts(APPT_ST,st)+'</select></label></div>';
+      var aps=allAppts(),t0=todayStr(),tm=new Date();tm.setDate(tm.getDate()+1);var t1=iso(tm);
+      var f=state.adm.agf||'hoje';
+      var F=[['hoje','Hoje'],['amanha','Amanhã'],['prox','Próximos'],['ant','Anteriores'],['canc','Cancelados']];
+      h+='<div class="toolbar"><div class="chips" style="flex:1">'+F.map(function(x){var n=aps.filter(function(a){return agFilt(a,x[0],t0,t1)}).length;return '<button class="chip" data-act="agf" data-id="'+x[0]+'" aria-pressed="'+(f===x[0])+'">'+x[1]+' ('+n+')</button>'}).join('')+'</div><button class="btn line" data-act="agCfg">Horários e folgas</button></div>';
+      var L=aps.filter(function(a){return agFilt(a,f,t0,t1)});
+      if(f==='ant'||f==='canc')L.reverse();
+      if(!L.length)h+='<div class="empty-card"><h2>Nada por aqui</h2><p class="muted">'+(f==='hoje'?'Nenhum banho marcado para hoje.':'Nenhum agendamento neste filtro.')+'</p></div>';
+      var lastDay='',lastSlot='';
+      L.forEach(function(a){
+        var st=apStatus(a);
+        if(a.day!==lastDay){lastDay=a.day;lastSlot='';var nday=aps.filter(function(x){return x.day===a.day&&apStatus(x)!=='Cancelado'}).length;h+='<div class="sec" style="margin-top:14px"><h2 style="font-size:19px">'+esc(fmtDayLong(a.day))+'</h2><span>'+nday+' pet'+(nday===1?'':'s')+'</span></div>'}
+        if(a.slot!==lastSlot&&f!=='canc'){lastSlot=a.slot;var used=aps.filter(function(x){return x.day===a.day&&x.slot===a.slot&&apStatus(x)!=='Cancelado'}).length;h+='<div class="slothead"><b>'+esc(a.slot)+'</b><span class="muted">'+used+' de '+slotCap()+' vagas</span></div>'}
+        h+='<div class="acard'+(st==='Cancelado'?' off':'')+'"><div class="rowtight"><b>'+esc(a.pet)+' ('+esc(a.kind)+(a.size?', '+esc(a.size):'')+') · '+esc(a.tutor)+'</b><span class="st '+stClass(st)+'">'+esc(a.canceled?'Cancelado pelo cliente':st)+'</span></div>'+
+          ((a.breed||a.weight)?'<span class="muted">'+esc([a.breed,a.weight?String(a.weight).replace('.',',')+' kg':'',a.coat?'pelagem '+String(a.coat).toLowerCase():''].filter(Boolean).join(' · '))+'</span>':'')+
+          (a.lt?'<span class="muted">Leva e traz: '+esc(a.lt.label)+' · '+esc(a.lt.addr)+', '+esc(a.lt.bairro)+(a.lt.comp?' ('+esc(a.lt.comp)+')':'')+(a.lt.phone?' · '+esc(fmtPhone(a.lt.phone)):'')+'</span>':'')+
+          '<span>'+esc(a.svc)+' · '+brl(a.price)+'</span>'+(f==='canc'?'<span class="muted">'+fmtDayLong(a.day)+' às '+esc(a.slot)+'</span>':'')+(a.obs?'<span class="hint">Obs.: '+esc(a.obs)+'</span>':'')+
+          (a.canceled?'':'<label class="fld">Situação<select class="in" data-chg="apSt" data-id="'+esc(a.id)+'|'+esc(a.day)+'|'+esc(a.slot)+'|'+esc(a.uid)+'">'+opts(APPT_ST,st)+'</select></label>')+'</div>';
       });
     }
     m.innerHTML=h;
@@ -1845,7 +1951,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     var m={};
     function g(u){return m[u]||(m[u]={orders:0,appts:0,spent:0,last:0})}
     allOrders().forEach(function(o){if(ordStatus(o)==='Entregue'){var s=g(o.uid);s.orders++;s.spent+=num(o.total);s.last=Math.max(s.last,o.ts)}});
-    allAppts().forEach(function(a){var st=(D.status[a.id]&&D.status[a.id].status)||'Agendado';if(st==='Concluído'){var s=g(a.uid);s.appts++;s.spent+=num(a.price);s.last=Math.max(s.last,new Date(a.day+'T12:00:00').getTime())}});
+    allAppts().forEach(function(a){var st=apStatus(a);if(st==='Concluído'){var s=g(a.uid);s.appts++;s.spent+=num(a.price);s.last=Math.max(s.last,new Date(a.day+'T12:00:00').getTime())}});
     Object.keys(m).forEach(function(k){m[k].spent=r2(m[k].spent)});
     return m;
   }
@@ -2676,6 +2782,8 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   }
   Object.assign(ACT,{
     bnNew:function(){openBanner(null)},
+    agf:function(id){state.adm.agf=id;renderAdmin()},
+    agCfg:function(){openAgCfg()},
     bnEdit:function(id){openBanner(id)},
     bnModel:function(i){openBanner(null,BN_MODELS[+i])},
     bnUp:function(id){bnMove(id,-1)},
