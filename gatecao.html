@@ -747,7 +747,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
   function isExtra(s){return s&&s.kind==='extra'}
   function extraPrice(x,pet){var full=svcPriceFor(x,pet),off=Math.min(90,Math.max(0,num(x.off)));return{full:full,price:r2(full*(1-off/100)),off:off}}
   function extraFrom(x){var f=svcFrom(x),off=Math.min(90,Math.max(0,num(x.off)));return{full:f,price:r2(f*(1-off/100)),off:off}}
-  function agExtras(){var ag=state.ag;ag.extras=(ag.extras||[]).filter(function(id){var x=byId(D.services,id);return x&&x.active!==false&&isExtra(x)});return ag.extras.map(function(id){return byId(D.services,id)})}
+  function agExtras(){var ag=state.ag;ag.extras=(ag.extras||[]).filter(function(id){var x=byId(D.services,id);return x&&x.active!==false&&id!==ag.svc});return ag.extras.map(function(id){return byId(D.services,id)})}
   function agTotal(pet){var svc=byId(D.services,state.ag.svc);if(!svc)return 0;var t=pet?svcPriceFor(svc,pet):svcFrom(svc);agExtras().forEach(function(x){t+=pet?extraPrice(x,pet).price:extraFrom(x).price});return r2(t)}
   function petReady(){var ag=state.ag;return !!(ag.pet.trim()&&num(ag.weight)>0&&ag.coat&&ag.breed.trim())}
   function svcPriceFor(svc,pet){
@@ -808,9 +808,10 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
       h+='<button class="opt svcopt" data-svc="'+esc(s.id)+'" role="radio" aria-pressed="'+(ag.svc===s.id)+'"><span class="si s'+(i%4)+'">'+svg(s.i||'paw')+'</span><span><b>'+esc(s.name)+'</b>'+(s.hot?'<span class="hotb">Mais pedido</span>':'')+(s.desc?'<br><span class="muted">'+esc(s.desc)+'</span>':'')+'<br><span class="pz" data-pz="'+esc(s.id)+'"></span></span><span class="chk" aria-hidden="true"></span></button>';
     });
     h+='</div>';
-    if(ex.length){
-      h+='<div class="lbl" style="margin-top:4px">Adicionais <small>(opcional, escolha quantos quiser)</small></div><div class="opts" role="group" aria-label="Adicionais">';
-      ex.forEach(function(x){
+    var addl=ex.concat(sv);
+    if(addl.length>1){
+      h+='<div class="lbl" style="margin-top:6px">Adicionar mais serviços <small>(opcional, escolha quantos quiser)</small></div><div class="opts" role="group" aria-label="Adicionar mais serviços">';
+      addl.forEach(function(x){
         h+='<button class="opt svcopt xopt" data-extra="'+esc(x.id)+'" aria-pressed="'+((ag.extras||[]).indexOf(x.id)>-1)+'"><span class="si s2">'+svg(x.i||'spark')+'</span><span><b>'+esc(x.name)+'</b>'+(num(x.off)>0?'<span class="hotb">-'+Math.round(num(x.off))+'% junto</span>':'')+(x.desc?'<br><span class="muted">'+esc(x.desc)+'</span>':'')+'<br><span class="pz" data-xz="'+esc(x.id)+'"></span></span><span class="chk sq" aria-hidden="true"></span></button>';
       });
       h+='</div>';
@@ -834,7 +835,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     function fillBreeds(){$('#breedList').innerHTML=(BREEDS[ag.kind]||[]).map(function(b){return '<option value="'+esc(b)+'">'}).join('')}
     fillBreeds();bSlots();bUpd();
 
-    $$('[data-svc]',view).forEach(function(b){b.onclick=function(){ag.svc=b.getAttribute('data-svc');bUpd()}});
+    $$('[data-svc]',view).forEach(function(b){b.onclick=function(){ag.svc=b.getAttribute('data-svc');ag.extras=(ag.extras||[]).filter(function(i){return i!==ag.svc});bUpd()}});
     $$('[data-extra]',view).forEach(function(b){b.onclick=function(){var id=b.getAttribute('data-extra'),l=ag.extras||(ag.extras=[]),i=l.indexOf(id);if(i>-1)l.splice(i,1);else l.push(id);bUpd()}});
     $$('[data-day]',view).forEach(function(b){b.onclick=function(){if(ag.day!==b.getAttribute('data-day')){ag.day=b.getAttribute('data-day');ag.slot='';bSlots()}bUpd()}});
     $$('[data-kind]',view).forEach(function(b){b.onclick=function(){ag.kind=b.getAttribute('data-kind');fillBreeds();saveAg();bUpd()}});
@@ -879,7 +880,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     var pets=knownPets();
     $$('[data-pet]',view).forEach(function(b){var p=pets[+b.getAttribute('data-pet')];b.setAttribute('aria-pressed',!!p&&ag.pet.trim().toLowerCase()===String(p.pet).trim().toLowerCase())});
     $$('[data-pz]',view).forEach(function(el){var sv=byId(D.services,el.getAttribute('data-pz'));if(!sv)return;el.textContent=ready?brl(svcPriceFor(sv,pet))+' para '+ag.pet.trim():'a partir de '+brl(svcFrom(sv))});
-    $$('[data-extra]',view).forEach(function(b){b.setAttribute('aria-pressed',(ag.extras||[]).indexOf(b.getAttribute('data-extra'))>-1)});
+    $$('[data-extra]',view).forEach(function(b){var id=b.getAttribute('data-extra');b.hidden=id===ag.svc;b.setAttribute('aria-pressed',(ag.extras||[]).indexOf(id)>-1)});
     $$('[data-xz]',view).forEach(function(el){var x=byId(D.services,el.getAttribute('data-xz'));if(!x)return;var v=ready?extraPrice(x,pet):extraFrom(x);el.innerHTML=(ready?'+ ':'+ a partir de ')+brl(v.price)+(v.off?' <span class="old">'+brl(v.full)+'</span>':'')});
     var pn=$('#bPriceNote');if(pn)pn.textContent=ready?'Valor calculado para '+ag.pet.trim()+': '+ag.size+', pelagem '+ag.coat.toLowerCase()+', '+ag.breed.trim()+'.':'Os valores variam com peso, pelagem e raça. Complete o cadastro do pet para ver o valor exato.';
     var done=[ready&&!!ag.tutor.trim(),!!ag.svc,!!ag.slot];
