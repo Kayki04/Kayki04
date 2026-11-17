@@ -181,6 +181,9 @@ body.adm::before{background:#F1F5FB}
 .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .photo{display:flex;gap:14px;align-items:center}
 .photo .pv{width:96px;height:96px;border-radius:16px;background:var(--soft);display:grid;place-items:center;color:var(--accent);overflow:hidden;position:relative;flex:none}
+.dropzone{outline:3px dashed var(--accent);outline-offset:-3px;background:var(--soft)!important}
+.arow.dropzone .athumb{outline:3px solid var(--accent)}
+.drophint{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:40;background:var(--brand);color:#fff;padding:10px 18px;border-radius:999px;font-weight:800;pointer-events:none;box-shadow:0 10px 30px rgba(11,42,91,.3);max-width:calc(100vw - 32px);text-align:center}
 .photo .pv svg{width:55%;height:55%}
 .checks{display:flex;flex-wrap:wrap;gap:8px}
 .checks label{display:flex;gap:6px;align-items:center;border:2px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:700;background:#fff}
@@ -1214,7 +1217,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
   /* ----- Produtos ----- */
   function prodRow(p){
     var pr=priced(p);
-    return '<div class="arow"><div class="athumb">'+(p.img?'<img class="pimg" src="/_blob/'+esc(p.img)+'" alt="">':svg(p.i||'paw'))+'</div>'+
+    return '<div class="arow" data-pid="'+esc(p.id)+'"><div class="athumb">'+(p.img?'<img class="pimg" src="/_blob/'+esc(p.img)+'" alt="">':svg(p.i||'paw'))+'</div>'+
       '<div class="main"><b>'+esc(p.name)+'</b><span class="muted">'+esc((p.t||[]).join(', '))+(p.code?' · '+esc(p.code):'')+'</span><div><b>'+brl(pr.price)+'</b>'+(pr.off?' <span class="old">'+brl(pr.base)+'</span> <span class="st ok">-'+pr.off+'%</span>':'')+' '+stockBadge(p)+(p.active===false?' <span class="st off">Oculto no app</span>':'')+'</div></div>'+
       '<div class="ctl"><div class="stk'+(stockOf(p)<=minStock(p)?' low':'')+'"><button data-act="stockDec" data-id="'+esc(p.id)+'" aria-label="Tirar 1 do estoque">-</button><b>'+stockOf(p)+'</b><button data-act="stockInc" data-id="'+esc(p.id)+'" aria-label="Colocar 1 no estoque">+</button><span class="muted">em estoque</span></div>'+
       '<div class="stk"><span class="muted">No app</span>'+swHtml(p.active!==false,'prodOn',p.id,'Mostrar no app')+'<button class="mini" data-act="prodEdit" data-id="'+esc(p.id)+'">Editar</button></div></div></div>';
@@ -1231,7 +1234,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     var p=cur?JSON.parse(JSON.stringify(cur)):{code:'',name:'',desc:'',t:[],price:'',stock:0,minStock:3,active:true,i:'bag',img:'',badge:''};
     var h='<div class="row"><h2>'+(cur?'Editar produto':'Novo produto')+'</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
     h+='<div class="photo"><div class="pv" id="pv">'+(p.img?'<img class="pimg" src="/_blob/'+esc(p.img)+'" alt="">':svg(p.i||'paw'))+'</div><div class="fld"><span>Foto do produto</span>'+
-      (X.assets?'<input type="file" id="pfile" accept="image/*"><input type="file" id="pcam" accept="image/*" capture="environment"><span class="hint" id="pmsg">A foto é ajustada para carregar rápido no app.</span>'+(p.img?'<button class="mini" id="prm" type="button">Remover foto</button>':''):'<span class="hint">O envio de fotos não está disponível neste acesso.</span>')+'</div></div>';
+      (X.assets?'<input type="file" id="pfile" accept="image/*"><input type="file" id="pcam" accept="image/*" capture="environment"><span class="hint" id="pmsg">Arraste a foto para cá ou cole com Ctrl+V. Ela é ajustada para carregar rápido no app.</span>'+(p.img?'<button class="mini" id="prm" type="button">Remover foto</button>':''):'<span class="hint">O envio de fotos não está disponível neste acesso.</span>')+'</div></div>';
     h+='<label class="fld">Nome<input class="in" id="pn" value="'+esc(p.name)+'" placeholder="Ex.: Ração Premium Gatos"></label>';
     h+='<label class="fld">Código (EAN ou SKU)<input class="in" id="pcode" value="'+esc(p.code||'')+'" placeholder="Ex.: 7891000100103"></label>';
     h+='<label class="fld">Descrição curta<input class="in" id="pd" value="'+esc(p.desc||'')+'" placeholder="Ex.: Frango e arroz, 1 kg"></label>';
@@ -1251,16 +1254,23 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     $('#pa').onclick=function(){var on=this.getAttribute('aria-checked')!=='true';this.setAttribute('aria-checked',on);p.active=on};
     $('#pi').onchange=function(){p.i=this.value;if(!p.img)$('#pv').innerHTML=svg(p.i,'')};
     var f=$('#pfile');
-    if(f)f.onchange=async function(){
-      var file=f.files&&f.files[0];if(!file)return;
+    async function upPhoto(file){
+      if(!file||!X.assets)return;
+      if(!isImg(file)){toast('Esse arquivo não é uma foto');return}
       var msg=$('#pmsg');msg.textContent='Enviando foto...';
       try{
         var blob=await resizeImage(file,900);
         var r=await X.assets.upload(blob,{type:'image/jpeg'});
         p.img=r.id;$('#pv').innerHTML='<img class="pimg" src="/_blob/'+esc(r.id)+'" alt="">';msg.textContent='Foto enviada. Clique em Salvar produto para aplicar.';
       }catch(e){msg.textContent=e&&e.code==='too_large'?'Foto muito grande.':e&&e.code==='quota_or_state'?'Espaço de fotos esgotado.':'Não foi possível enviar a foto.'}
-    };
-    var cam=$('#pcam');if(cam&&f)cam.onchange=function(){try{f.files=cam.files}catch(e){}f.onchange()};
+    }
+    if(f)f.onchange=function(){upPhoto(f.files&&f.files[0])};
+    var cam=$('#pcam');if(cam)cam.onchange=function(){upPhoto(cam.files&&cam.files[0])};
+    if(X.assets){
+      var sh=$('#overlay .sheet'),pvz=$('#pv');
+      dropZone(sh,function(files){upPhoto(files[0])},pvz);
+      sh.addEventListener('paste',function(e){var it=[].slice.call((e.clipboardData&&e.clipboardData.files)||[]).filter(isImg);if(it.length){e.preventDefault();upPhoto(it[0])}});
+    }
     var rm=$('#prm');if(rm)rm.onclick=function(){p.img='';$('#pv').innerHTML=svg(p.i||'paw','');rm.hidden=true};
     $('#psave').onclick=async function(){
       var name=$('#pn').value.trim(),price=num($('#pp').value),stock=Math.max(0,Math.floor(num($('#ps').value)));
@@ -1281,6 +1291,54 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
       try{await X.db.doc('products/'+cur.id).delete();closeSheet();toast('Produto excluído')}catch(e){wfail(e)}
     };
   }
+  function isImg(f){return f&&(/^image\//.test(f.type)||/\.(jpe?g|png|webp|gif|heic)$/i.test(f.name||''))}
+  function hasFiles(e){var t=e.dataTransfer&&e.dataTransfer.types;return !!t&&[].indexOf.call(t,'Files')>-1}
+  function dropZone(el,onFiles,mark){
+    if(!el)return;var n=0,m=mark||el;
+    el.addEventListener('dragenter',function(e){if(!hasFiles(e))return;e.preventDefault();n++;m.classList.add('dropzone')});
+    el.addEventListener('dragover',function(e){if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy'});
+    el.addEventListener('dragleave',function(){if(--n<=0){n=0;m.classList.remove('dropzone')}});
+    el.addEventListener('drop',function(e){if(!hasFiles(e))return;e.preventDefault();e.stopPropagation();n=0;m.classList.remove('dropzone');var fs=[].slice.call(e.dataTransfer.files||[]).filter(isImg);if(fs.length)onFiles(fs);else toast('Arraste um arquivo de foto')});
+  }
+  async function photoToProduct(pid,file){
+    var p=byId(D.products,pid);if(!p||!X.assets)return;
+    toast('Enviando foto de '+p.name+'...');
+    try{
+      var blob=await resizeImage(file,900);
+      var r=await withRetry(function(){return X.assets.upload(blob,{type:'image/jpeg'})});
+      var old=p.img;
+      await withRetry(function(){return X.db.doc('products/'+pid).update({img:r.id})});
+      toast('Foto de '+p.name+' atualizada');
+      if(old&&old!==r.id&&!D.products.some(function(q){return q.id!==pid&&q.img===old})&&!D.rewards.some(function(w){return w.img===old})){X.assets.delete(old).catch(function(){})}
+    }catch(e){toast(e&&e.code==='quota_or_state'?'Espaço de fotos esgotado':e&&e.code==='too_large'?'Foto muito grande':'Não foi possível enviar a foto')}
+  }
+  (function(){
+    var hint=null,n=0;
+    function show(t){if(!hint){hint=document.createElement('div');hint.className='drophint';document.body.appendChild(hint)}hint.textContent=t}
+    function hide(){if(hint){hint.remove();hint=null}$$('.arow.dropzone').forEach(function(r){r.classList.remove('dropzone')})}
+    function onProducts(){return !admEl.hidden&&state.adm.tab==='produtos'&&!$('#overlay .sheet')}
+    document.addEventListener('dragover',function(e){
+      if(!hasFiles(e))return;
+      if($('#overlay .sheet')||!admEl.hidden)e.preventDefault();
+      if(!onProducts())return;
+      var row=e.target.closest&&e.target.closest('.arow[data-pid]');
+      $$('.arow.dropzone').forEach(function(r){if(r!==row)r.classList.remove('dropzone')});
+      if(row){row.classList.add('dropzone');var p=byId(D.products,row.getAttribute('data-pid'));show('Solte para usar como foto de '+(p?p.name:'este produto'))}
+      else show('Solte em cima de um produto, ou aqui para enviar fotos em lote');
+    });
+    document.addEventListener('dragleave',function(e){if(!e.relatedTarget||e.relatedTarget===document.documentElement)hide()});
+    document.addEventListener('drop',function(e){
+      if(!hasFiles(e))return;
+      if($('#overlay .sheet')||!admEl.hidden)e.preventDefault();
+      var go=onProducts();hide();if(!go)return;
+      if(!X.assets){toast('O envio de fotos não está disponível neste acesso');return}
+      var fs=[].slice.call(e.dataTransfer.files||[]).filter(isImg);if(!fs.length){toast('Arraste um arquivo de foto');return}
+      var row=e.target.closest&&e.target.closest('.arow[data-pid]');
+      if(row&&fs.length===1){photoToProduct(row.getAttribute('data-pid'),fs[0]);return}
+      openPhotoBulk();photoItems(fs);renderPhotos();
+    });
+    window.addEventListener('dragend',hide);
+  })();
   function resizeImage(file,max){
     return new Promise(function(res,rej){
       var img=new Image(),url=URL.createObjectURL(file);
@@ -2154,6 +2212,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     var h='<div class="toolbar"><input class="in" id="aq" type="search" placeholder="Buscar nome, código ou categoria" value="'+esc(state.adm.q)+'" aria-label="Buscar produto"><button class="btn" data-act="prodNew">+ Novo produto</button></div>';
     h+='<div class="toolbar"><button class="btn alt" data-act="impOpen">Importar planilha</button><button class="btn alt" data-act="photoBulk">Fotos em lote'+(sem?' ('+sem+' sem foto)':'')+'</button>'+(X.dl?'<button class="btn line" data-act="expCsv">Exportar</button>':'')+'</div>';
     h+='<div class="seg" style="flex-wrap:wrap">'+PFILT.map(function(x){var n=D.products.filter(function(p){return pfMatch(p,x[0])}).length;return '<button data-act="pfilter" data-id="'+x[0]+'" aria-pressed="'+(state.adm.pf===x[0])+'" style="flex:none;padding:8px 12px">'+x[1]+' ('+n+')</button>'}).join('')+'</div>';
+    if(X.assets)h+='<p class="hint" style="margin:0 0 10px">Dica: arraste uma foto do computador para cima de um produto e ela vira a foto dele. Várias fotos de uma vez vão para o envio em lote.</p>';
     h+='<div id="plist">'+prodList()+'</div>';
     m.innerHTML=h;
     $('#aq').oninput=function(e){state.adm.q=e.target.value;$('#plist').innerHTML=prodList()};
@@ -2349,7 +2408,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
       $('#overlay').innerHTML=sheetHtml(h,'Fotos em lote');return;
     }
     h+='<p class="hint">Escolha várias fotos de uma vez. O app liga cada foto ao produto pelo <b>nome do arquivo</b>: o código do produto (por exemplo <b>7891000100103.jpg</b>) ou o nome dele (<b>racao-premium-gatos.jpg</b>). Fotos extras podem terminar em _1, _2 etc.: vale a primeira. As fotos são reduzidas automaticamente para carregar rápido.</p>';
-    h+='<label class="fld">Fotos<input type="file" id="phFiles" accept="image/*" multiple></label>';
+    h+='<p class="hint" style="margin:0"><b>Você também pode arrastar as fotos para esta janela.</b></p><label class="fld">Fotos<input type="file" id="phFiles" accept="image/*" multiple></label>';
     h+='<label class="fld">Ou uma pasta inteira<input type="file" id="phDir" webkitdirectory multiple></label>';
     if(P.usage)h+='<p class="hint">Espaço usado: '+P.usage.files+' de '+P.usage.maxFiles+' arquivos, '+(P.usage.bytes/1048576).toFixed(1).replace('.',',')+' MB de '+Math.round(P.usage.maxBytes/1048576)+' MB.</p>';
     if(P.items.length){
@@ -2376,7 +2435,8 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     }
     $('#overlay').innerHTML=sheetHtml(h,'Fotos em lote');bindClose();
     function pick(el){return function(){var fs=el.files;if(!fs||!fs.length)return;photoItems(fs);renderPhotos()}}
-    $('#phFiles').onchange=pick($('#phFiles'));$('#phDir').onchange=pick($('#phDir'));
+    $('#phFiles').onchange=pick($('#phFiles'));
+    dropZone($('#overlay .sheet'),function(fs){photoItems(fs);renderPhotos()});$('#phDir').onchange=pick($('#phDir'));
     var rp=$('#phRep');if(rp)rp.onchange=function(){P.replace=rp.checked;renderPhotos()};
     $$('[data-pmanual]').forEach(function(s){s.onchange=function(){var it=P.items[+s.getAttribute('data-pmanual')];it.pid=s.value;renderPhotos()}});
     var g=$('#phGo');if(g)g.onclick=runPhotos;
