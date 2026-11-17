@@ -470,7 +470,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
   var D={products:[],promos:[],tables:[],services:[],settings:{},slots:{},status:{},orders:[],appts:[],ready:{},nodb:false,slow:false,customers:[],wallets:{},crm:{},rewards:[],redeems:[],me:null,myRedeems:[]};
   var X={db:null,user:null,assets:null,uid:null,isAdmin:false,checked:false};
   var state={tab:'loja',cat:'Todos',q:'',cart:load('gc_cart',{}),myOrders:load('gc_orders',[]),myAppts:load('gc_appts',[]),
-    ag:Object.assign({svc:'',extras:[],day:'',slot:'',pet:'',kind:'Cachorro',size:'',weight:'',coat:'',breed:'',tutor:'',obs:''},load('gc_ag',{})),co:{mode:'Retirada na loja',pay:'Pix',name:''},
+    ag:Object.assign({svc:'',extras:[],lt:'loja',ltAddr:'',ltBairro:'',ltComp:'',ltPhone:'',day:'',slot:'',pet:'',kind:'Cachorro',size:'',weight:'',coat:'',breed:'',tutor:'',obs:''},load('gc_ag',{})),co:{mode:'Retirada na loja',pay:'Pix',name:''},
     adm:{tab:'resumo',q:'',ord:'pedidos',cq:'',cseg:'todos'},prof:null};
   var view=$('#view'),admEl=$('#admin');
   function S(k,d){var v=D.settings[k];return (v==null||v==='')?d:v}
@@ -766,7 +766,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
   function extraFrom(x){return addPrice(x,null)}
   function priceTag(v){return brl(v.price)+(v.price<v.full?' <span class="old">'+brl(v.full)+'</span>':'')}
   function agExtras(){var ag=state.ag;ag.extras=(ag.extras||[]).filter(function(id){var x=byId(D.services,id);return x&&x.active!==false&&id!==ag.svc});return ag.extras.map(function(id){return byId(D.services,id)})}
-  function agTotal(pet){var svc=byId(D.services,state.ag.svc);if(!svc)return 0;var t=mainPrice(svc,pet).price;agExtras().forEach(function(x){t+=pet?extraPrice(x,pet).price:extraFrom(x).price});return r2(t)}
+  function agTotal(pet){var svc=byId(D.services,state.ag.svc);if(!svc)return 0;var t=mainPrice(svc,pet).price;agExtras().forEach(function(x){t+=pet?extraPrice(x,pet).price:extraFrom(x).price});if(ltActive())t+=ltFee(state.ag.lt);return r2(t)}
   function petReady(){var ag=state.ag;return !!(ag.pet.trim()&&num(ag.weight)>0&&ag.coat&&ag.breed.trim())}
   function svcPriceFor(svc,pet){
     var size=sizeOf(pet.weight),k=size+'|'+pet.coat,base=num(svc.pt&&svc.pt[k])>0?num(svc.pt[k]):num(svc.price);
@@ -786,9 +786,17 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     if(!ag.breed.trim())return 'Raça';
     if(!ag.tutor.trim())return 'Seu nome';
     if(!ag.slot)return 'Horário';
+    if(ltActive()){if(!ag.ltAddr.trim())return 'Endereço';if(!ag.ltBairro.trim())return 'Bairro';if(String(ag.ltPhone||'').replace(/\D/g,'').length<10)return 'Telefone';}
     return '';
   }
-  function saveAg(){var ag=state.ag;save('gc_ag',{pet:ag.pet,kind:ag.kind,weight:ag.weight,coat:ag.coat,breed:ag.breed,tutor:ag.tutor})}
+  function saveAg(){var ag=state.ag;save('gc_ag',{pet:ag.pet,kind:ag.kind,weight:ag.weight,coat:ag.coat,breed:ag.breed,tutor:ag.tutor,ltAddr:ag.ltAddr,ltBairro:ag.ltBairro,ltComp:ag.ltComp,ltPhone:ag.ltPhone})}
+  var LT_MODES=[['loja','Eu levo e busco na loja'],['ida_volta','Buscar e devolver'],['ida','Só buscar em casa'],['volta','Só devolver em casa']];
+  function ltOn(){return S('ltOn',true)!==false}
+  function ltFeeSet(){var v=D.settings.ltFee;return v!=null&&v!==''}
+  function ltTrips(m){return m==='ida_volta'?2:(m==='ida'||m==='volta')?1:0}
+  function ltFee(m){return ltFeeSet()?r2(num(D.settings.ltFee)*ltTrips(m)):0}
+  function ltActive(){return ltOn()&&state.ag.lt&&state.ag.lt!=='loja'}
+  function ltLabel(m){var x=LT_MODES.filter(function(z){return z[0]===m})[0];return x?x[1]:''}
 
   function renderBanho(){
     if(D.nodb){view.innerHTML=noDbBox();return}
@@ -843,6 +851,18 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     });
     h+='</div><div id="bSlots"></div></section>';
 
+    if(ltOn()){
+      if(!ag.ltPhone&&D.me&&D.me.phone)ag.ltPhone=fmtPhone(D.me.phone);
+      var unit=ltFeeSet()?num(D.settings.ltFee):null;
+      h+='<section class="step" id="st4"><div class="sh"><span class="sn">4</span><h3>Leva e traz</h3></div><p class="muted" style="margin:0">Quer que a gente busque o pet em casa? '+(unit==null?'A taxa é combinada com a loja.':unit>0?'Taxa de '+brl(unit)+' por trajeto.':'O leva e traz é grátis.')+(S('ltNote','')?' '+esc(S('ltNote','')):'')+'</p><div class="opts" role="radiogroup" aria-label="Leva e traz">';
+      LT_MODES.forEach(function(m){var f=ltFee(m[0]);h+='<button class="opt" data-lt="'+m[0]+'" role="radio" aria-pressed="'+(ag.lt===m[0])+'"><b>'+m[1]+'</b><span class="muted">'+(m[0]==='loja'?'Sem custo':unit==null?'A combinar':f>0?'+ '+brl(f):'Grátis')+'</span></button>'});
+      h+='</div><div id="ltForm" class="step" style="margin:0;box-shadow:none;background:var(--soft);border-color:var(--soft)"'+(ag.lt&&ag.lt!=='loja'?'':' hidden')+'>'+
+        '<label class="f">Endereço (rua e número)<input class="in" id="ltAddr" value="'+esc(ag.ltAddr)+'" placeholder="Ex.: Rua das Flores, 120" autocomplete="street-address"></label>'+
+        '<div class="two"><label class="f">Bairro<input class="in" id="ltBairro" value="'+esc(ag.ltBairro)+'" autocomplete="address-level3"></label><label class="f">Complemento<input class="in" id="ltComp" value="'+esc(ag.ltComp)+'" placeholder="Apto, referência"></label></div>'+
+        '<label class="f">Telefone para contato<input class="in" id="ltPhone" inputmode="tel" value="'+esc(ag.ltPhone)+'" placeholder="(11) 90000-0000" autocomplete="tel"></label>'+
+        '<p class="hint" style="margin:0">Avisamos pelo telefone quando estivermos a caminho.</p></div></section>';
+    }
+
     var hig=D.products.filter(function(p){return p.active!==false&&stockOf(p)>0&&(p.t||[]).indexOf('Higiene')>-1}).slice(0,8);
     if(hig.length){
       h+='<div class="sec"><h2>Cheirinho que dura</h2><span>Toque para ver o guia</span></div><div class="hscroll">'+hig.map(miniCard).join('')+'</div>';
@@ -864,13 +884,15 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     }});
     function sync(){ag.pet=$('#pet').value;ag.tutor=$('#tutor').value;ag.obs=$('#obs').value;ag.breed=$('#breed').value;var w=num($('#weight').value);ag.weight=w>0?String(w):'';saveAg();bUpd()}
     ['#pet','#tutor','#obs','#breed','#weight'].forEach(function(s){$(s).oninput=sync});
+    $$('[data-lt]',view).forEach(function(b){b.onclick=function(){ag.lt=b.getAttribute('data-lt');var f=$('#ltForm');if(f)f.hidden=ag.lt==='loja';bUpd()}});
+    ['#ltAddr','#ltBairro','#ltComp','#ltPhone'].forEach(function(id){var el=$(id);if(el)el.oninput=function(){ag[id.slice(1)]=el.value;saveAg();bUpd()}});
     $('#breed').onchange=sync;
     var bs=$('#bSlots');bs.onclick=function(e){var b=e.target.closest('[data-slot]');if(!b||b.disabled)return;ag.slot=b.getAttribute('data-slot');bUpd()};
     $('#bSum').onclick=function(e){
       var b=e.target.closest('#confirmAg');if(!b)return;
       var miss=agMissing();
       if(miss){
-        var t={'Nome do pet':'#pet','Peso':'#weight','Pelagem':'#bCoat','Raça':'#breed','Seu nome':'#tutor','Horário':'#st3'}[miss];t=t&&$(t);
+        var t={'Nome do pet':'#pet','Peso':'#weight','Pelagem':'#bCoat','Raça':'#breed','Seu nome':'#tutor','Horário':'#st3','Endereço':'#ltAddr','Bairro':'#ltBairro','Telefone':'#ltPhone'}[miss];t=t&&$(t);
         if(t){t.scrollIntoView({behavior:reduced()?'auto':'smooth',block:'center'});if(t.tagName==='INPUT')setTimeout(function(){t.focus({preventScroll:true})},300)}
         toast('Falta: '+miss.toLowerCase());return;
       }
@@ -901,10 +923,11 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     $$('[data-extra]',view).forEach(function(b){var id=b.getAttribute('data-extra');b.hidden=id===ag.svc;b.setAttribute('aria-pressed',(ag.extras||[]).indexOf(id)>-1)});
     $$('[data-xz]',view).forEach(function(el){var x=byId(D.services,el.getAttribute('data-xz'));if(!x)return;var v=ready?extraPrice(x,pet):extraFrom(x);el.innerHTML=(ready?'+ ':'+ a partir de ')+priceTag(v)+(v.promo?' <span class="hotb">'+esc(v.promo.name||('-'+v.off+'%'))+'</span>':'')});
     var pn=$('#bPriceNote');if(pn)pn.textContent=ready?'Valor calculado para '+ag.pet.trim()+': '+ag.size+', pelagem '+ag.coat.toLowerCase()+', '+ag.breed.trim()+'.':'Os valores variam com peso, pelagem e raça. Complete o cadastro do pet para ver o valor exato.';
-    var done=[ready&&!!ag.tutor.trim(),!!ag.svc,!!ag.slot];
+    $$('[data-lt]',view).forEach(function(b){b.setAttribute('aria-pressed',b.getAttribute('data-lt')===ag.lt)});
+    var done=[ready&&!!ag.tutor.trim(),!!ag.svc,!!ag.slot,!ltActive()||!!(ag.ltAddr.trim()&&ag.ltBairro.trim()&&String(ag.ltPhone||'').replace(/\D/g,'').length>=10)];
     done.forEach(function(d,i){var st=$('#st'+(i+1));if(!st)return;st.classList.toggle('done',d);$('.sn',st).innerHTML=d?CHECK:String(i+1)});
     var svc=byId(D.services,ag.svc),miss=agMissing(),xs=agExtras();
-    var line=[svc?svc.name+(xs.length?' + '+xs.map(function(x){return x.name}).join(' + '):''):'',ag.pet.trim(),ag.slot?fmtDay(ag.day)+' às '+ag.slot:''].filter(Boolean).join(' · ');
+    var line=[svc?svc.name+(xs.length?' + '+xs.map(function(x){return x.name}).join(' + '):'')+(ltActive()?' + leva e traz':''):'',ag.pet.trim(),ag.slot?fmtDay(ag.day)+' às '+ag.slot:''].filter(Boolean).join(' · ');
     var priceHtml=!svc?brl(0):ready?brl(agTotal(pet)):'<small style="font-size:12px;font-family:var(--font-body);font-weight:700;opacity:.85">a partir de</small> '+brl(agTotal(null));
     $('#bSum').innerHTML='<div class="txt"><b>'+priceHtml+'</b><span>'+esc(line||'Escolha o serviço')+'</span></div><button class="primary" id="confirmAg" '+(miss?'aria-disabled="true" style="opacity:.6"':'')+'>'+(miss?'Falta: '+esc(miss.toLowerCase()):'Agendar')+'</button>';
   }
@@ -914,7 +937,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     if(!svc){toast('Escolha um serviço');render();return}
     if(!slotFree(ag.day,ag.slot)){toast('Esse horário não está mais disponível. Escolha outro.');ag.slot='';render();return}
     var pet0={weight:ag.weight,coat:ag.coat,breed:ag.breed},xs0=agExtras();
-    var rec={id:id,ts:Date.now(),day:ag.day,slot:ag.slot,svc:svc.name+(xs0.length?' + '+xs0.map(function(x){return x.name}).join(' + '):''),base:mainPrice(svc,pet0).price,extras:xs0.map(function(x){var v=extraPrice(x,pet0);return{n:x.name,p:v.price,full:v.full}}),price:agTotal(pet0),pet:ag.pet.trim(),kind:ag.kind,size:sizeOf(ag.weight),weight:num(ag.weight),coat:ag.coat,breed:ag.breed.trim().slice(0,60),obs:(ag.obs||'').trim().slice(0,300),tutor:ag.tutor.trim()};
+    var rec={id:id,ts:Date.now(),day:ag.day,slot:ag.slot,svc:svc.name+(xs0.length?' + '+xs0.map(function(x){return x.name}).join(' + '):''),base:mainPrice(svc,pet0).price,extras:xs0.map(function(x){var v=extraPrice(x,pet0);return{n:x.name,p:v.price,full:v.full}}),price:agTotal(pet0),lt:ltActive()?{mode:ag.lt,label:ltLabel(ag.lt),addr:ag.ltAddr.trim().slice(0,160),bairro:ag.ltBairro.trim().slice(0,80),comp:ag.ltComp.trim().slice(0,120),phone:String(ag.ltPhone).replace(/\D/g,'').slice(0,11),fee:ltFee(ag.lt),feeSet:ltFeeSet()}:null,pet:ag.pet.trim(),kind:ag.kind,size:sizeOf(ag.weight),weight:num(ag.weight),coat:ag.coat,breed:ag.breed.trim().slice(0,60),obs:(ag.obs||'').trim().slice(0,300),tutor:ag.tutor.trim()};
     var synced=false;
     if(X.db&&X.uid){
       try{
@@ -926,11 +949,11 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
       }catch(e){}
     }
     state.myAppts.unshift(rec);save('gc_appts',state.myAppts);
-    ag.slot='';ag.obs='';ag.extras=[];saveAg();
+    ag.slot='';ag.obs='';ag.extras=[];ag.lt='loja';saveAg();
     render();
     var h='<div class="okmark">'+CHECK+'</div><h2 style="text-align:center">'+(synced?'Banho agendado!':'Agendamento salvo')+'</h2>'+
       '<p class="muted" style="text-align:center;margin:0">'+(synced?'A loja já recebeu seu horário. Você recebe um aviso pelo app quando o pet estiver pronto.':'Sem conexão com a loja: o agendamento ficou salvo só neste aparelho.')+'</p>'+
-      '<div class="oksum"><div class="row"><b>'+esc(rec.pet)+'</b><span class="pill">'+esc(rec.kind)+(rec.size?' · '+esc(rec.size):'')+'</span></div><div class="muted">'+esc(rec.breed)+' · '+String(rec.weight).replace('.',',')+' kg · pelagem '+esc(String(rec.coat).toLowerCase())+'</div><div>'+esc(svc.name)+' · '+brl(rec.base)+'</div>'+rec.extras.map(function(e){return '<div class="muted">+ '+esc(e.n)+' · '+brl(e.p)+'</div>'}).join('')+'<div class="muted">'+esc(fmtDayLong(rec.day))+' às '+esc(rec.slot)+'</div><div class="row"><span class="muted">Pagamento na loja</span><span class="total" style="font-size:20px">'+brl(rec.price)+'</span></div></div>'+
+      '<div class="oksum"><div class="row"><b>'+esc(rec.pet)+'</b><span class="pill">'+esc(rec.kind)+(rec.size?' · '+esc(rec.size):'')+'</span></div><div class="muted">'+esc(rec.breed)+' · '+String(rec.weight).replace('.',',')+' kg · pelagem '+esc(String(rec.coat).toLowerCase())+'</div><div>'+esc(svc.name)+' · '+brl(rec.base)+'</div>'+rec.extras.map(function(e){return '<div class="muted">+ '+esc(e.n)+' · '+brl(e.p)+'</div>'}).join('')+(rec.lt?'<div class="muted">+ Leva e traz ('+esc(rec.lt.label.toLowerCase())+') · '+(rec.lt.feeSet?(rec.lt.fee>0?brl(rec.lt.fee):'grátis'):'a combinar')+'<br>'+esc(rec.lt.addr)+', '+esc(rec.lt.bairro)+(rec.lt.comp?' · '+esc(rec.lt.comp):'')+'</div>':'')+'<div class="muted">'+esc(fmtDayLong(rec.day))+' às '+esc(rec.slot)+'</div><div class="row"><span class="muted">Pagamento na loja</span><span class="total" style="font-size:20px">'+brl(rec.price)+'</span></div></div>'+
       '<button class="primary" id="okAppts">Ver meus agendamentos</button><button class="ghost" id="okShop" type="button" style="padding:12px">Voltar para a loja</button>';
     $('#overlay').innerHTML=sheetHtml(h,'Agendamento confirmado');bindClose();
     $('#okAppts').onclick=function(){closeSheet();go('pedidos')};
@@ -1059,7 +1082,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     if(!state.myAppts.length)h+='<p class="muted" style="margin:0 0 14px">Nenhum agendamento ainda. Use a aba Banho e tosa para marcar.</p>';
     state.myAppts.forEach(function(a){
       var st=(D.status[a.id]&&D.status[a.id].status)||'Agendado';
-      h+='<div class="hist"><div class="row"><b>'+esc(a.pet)+' ('+esc(a.kind)+(a.size?', '+esc(a.size):'')+')</b><span class="pill">'+esc(st)+'</span></div><div>'+esc(a.svc)+'</div>'+((a.breed||a.weight)?'<div class="muted">'+esc([a.breed,a.weight?String(a.weight).replace('.',',')+' kg':'',a.coat?'pelagem '+String(a.coat).toLowerCase():''].filter(Boolean).join(' · '))+'</div>':'')+'<div class="muted">'+fmtDayLong(a.day)+' às '+esc(a.slot)+' · '+brl(a.price)+'</div>'+(a.obs?'<div class="muted">Obs.: '+esc(a.obs)+'</div>':'')+'</div>';
+      h+='<div class="hist"><div class="row"><b>'+esc(a.pet)+' ('+esc(a.kind)+(a.size?', '+esc(a.size):'')+')</b><span class="pill">'+esc(st)+'</span></div><div>'+esc(a.svc)+'</div>'+((a.breed||a.weight)?'<div class="muted">'+esc([a.breed,a.weight?String(a.weight).replace('.',',')+' kg':'',a.coat?'pelagem '+String(a.coat).toLowerCase():''].filter(Boolean).join(' · '))+'</div>':'')+(a.lt?'<div class="muted">Leva e traz: '+esc(a.lt.label)+' · '+esc(a.lt.addr)+', '+esc(a.lt.bairro)+(a.lt.comp?' ('+esc(a.lt.comp)+')':'')+(a.lt.phone?' · '+esc(fmtPhone(a.lt.phone)):'')+'</div>':'')+'<div class="muted">'+fmtDayLong(a.day)+' às '+esc(a.slot)+' · '+brl(a.price)+'</div>'+(a.obs?'<div class="muted">Obs.: '+esc(a.obs)+'</div>':'')+'</div>';
     });
     h+='<div class="sec" style="margin-top:18px"><h2>Pedidos da loja</h2><span>'+state.myOrders.length+'</span></div>';
     if(!state.myOrders.length)h+='<p class="muted">Nenhum pedido ainda. Adicione produtos ao carrinho para começar.</p>';
@@ -1381,7 +1404,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
       if(!aps.length)h+='<div class="empty-card"><h2>Nenhum agendamento ainda</h2><p class="muted">Os horários marcados no app aparecem aqui.</p></div>';
       aps.forEach(function(a){
         var st=(D.status[a.id]&&D.status[a.id].status)||'Agendado';
-        h+='<div class="acard"><div class="rowtight"><b>'+esc(a.pet)+' ('+esc(a.kind)+(a.size?', '+esc(a.size):'')+') · '+esc(a.tutor)+'</b><span class="st '+stClass(st)+'">'+esc(st)+'</span></div>'+((a.breed||a.weight)?'<div class="muted">'+esc([a.breed,a.weight?String(a.weight).replace('.',',')+' kg':'',a.coat?'pelagem '+String(a.coat).toLowerCase():''].filter(Boolean).join(' · '))+'</span>':'')+'<span>'+esc(a.svc)+' · '+brl(a.price)+'</span><span class="muted">'+fmtDayLong(a.day)+' às '+esc(a.slot)+'</span>'+(a.obs?'<span class="hint">Obs.: '+esc(a.obs)+'</span>':'')+
+        h+='<div class="acard"><div class="rowtight"><b>'+esc(a.pet)+' ('+esc(a.kind)+(a.size?', '+esc(a.size):'')+') · '+esc(a.tutor)+'</b><span class="st '+stClass(st)+'">'+esc(st)+'</span></div>'+((a.breed||a.weight)?'<div class="muted">'+esc([a.breed,a.weight?String(a.weight).replace('.',',')+' kg':'',a.coat?'pelagem '+String(a.coat).toLowerCase():''].filter(Boolean).join(' · '))+'</span>':'')+(a.lt?'<span class="muted">Leva e traz: '+esc(a.lt.label)+' · '+esc(a.lt.addr)+', '+esc(a.lt.bairro)+(a.lt.comp?' ('+esc(a.lt.comp)+')':'')+(a.lt.phone?' · '+esc(fmtPhone(a.lt.phone)):'')+'</span>':'')+'<span>'+esc(a.svc)+' · '+brl(a.price)+'</span><span class="muted">'+fmtDayLong(a.day)+' às '+esc(a.slot)+'</span>'+(a.obs?'<span class="hint">Obs.: '+esc(a.obs)+'</span>':'')+
           '<label class="fld">Situação<select class="in" data-chg="apSt" data-id="'+esc(a.id)+'|'+esc(a.day)+'|'+esc(a.slot)+'|'+esc(a.uid)+'">'+opts(APPT_ST,st)+'</select></label></div>';
       });
     }
@@ -1447,10 +1470,15 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
       '<label class="fld">Taxa de entrega (R$)<input class="in" id="lee" inputmode="decimal" value="'+esc(String(S('fee',9.9)).replace('.',','))+'"></label></div>'+
       '<label class="fld">Desconto no Pix (%)<input class="in" id="lp" inputmode="decimal" value="'+esc(String(S('pixOff',5)).replace('.',','))+'"></label></div>';
     h+='<div class="acard"><b>Banho e tosa</b><label class="fld">Pets por horário<input class="in" id="lcap" inputmode="numeric" value="'+esc(slotCap())+'"></label><div class="two"><label class="fld">Pequeno até (kg)<input class="in" id="lwp" inputmode="decimal" value="'+esc(String(wLimits().p).replace('.',','))+'"></label><label class="fld">Médio até (kg)<input class="in" id="lwm" inputmode="decimal" value="'+esc(String(wLimits().m).replace('.',','))+'"></label></div><p class="hint">Quando um horário chega nesse número de pets, ele deixa de aparecer como livre no app.</p></div>';
+    h+='<div class="acard"><div class="rowtight"><b>Leva e traz</b>'+'<button class="sw" id="lton" role="switch" aria-checked="'+ltOn()+'" aria-label="Oferecer leva e traz"></button></div>'+
+      '<label class="fld">Taxa por trajeto (R$)<input class="in" id="ltfee" inputmode="decimal" value="'+esc(ltFeeSet()?String(D.settings.ltFee).replace('.',','):'')+'" placeholder="Em branco: a combinar"></label>'+
+      '<p class="hint">Buscar e devolver conta 2 trajetos. Use 0 para grátis ou deixe em branco para combinar com o cliente.</p>'+
+      '<label class="fld">Aviso para o cliente (opcional)<input class="in" id="ltnote" maxlength="140" value="'+esc(S('ltNote',''))+'" placeholder="Ex.: Atendemos até 5 km da loja."></label></div>';
     h+='<button class="primary" id="lsave">Salvar alterações</button>';
     m.innerHTML=h;
+    var lton=$('#lton');if(lton)lton.onclick=function(){this.setAttribute('aria-checked',this.getAttribute('aria-checked')!=='true')};
     $('#lsave').onclick=async function(){
-      var data={heroTag:$('#lt').value.trim(),heroTitle:$('#lh').value.trim(),heroText:$('#lx').value.trim(),freeMin:num($('#lf').value),fee:num($('#lee').value),pixOff:Math.min(50,Math.max(0,num($('#lp').value))),slotCap:Math.min(20,Math.max(1,Math.floor(num($('#lcap').value))||3)),wP:num($('#lwp').value)||10,wM:num($('#lwm').value)||25};
+      var data={heroTag:$('#lt').value.trim(),heroTitle:$('#lh').value.trim(),heroText:$('#lx').value.trim(),freeMin:num($('#lf').value),fee:num($('#lee').value),pixOff:Math.min(50,Math.max(0,num($('#lp').value))),slotCap:Math.min(20,Math.max(1,Math.floor(num($('#lcap').value))||3)),wP:num($('#lwp').value)||10,wM:num($('#lwm').value)||25,ltOn:$('#lton').getAttribute('aria-checked')==='true',ltFee:$('#ltfee').value.trim()===''?'':Math.max(0,num($('#ltfee').value)),ltNote:$('#ltnote').value.trim()};
       this.disabled=true;
       try{await X.db.doc('settings/store').set(data);toast('Loja atualizada')}catch(e){wfail(e)}
       this.disabled=false;
