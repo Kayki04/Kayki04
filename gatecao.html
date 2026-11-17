@@ -430,6 +430,8 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
 .recnote{font-size:12px;font-weight:800;color:#12663A}
 .pvmode{display:grid;gap:8px;margin-top:14px}
 .recsel{margin-top:6px;padding:7px 10px;font-size:13px}
+.atop .abell{border:2px solid;border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:#fff;width:38px;height:38px}
+.atop .brandact{gap:8px}
 .oksum{background:var(--soft);border-radius:16px;padding:14px;display:grid;gap:6px}
 </style>
 <div id="cust">
@@ -567,7 +569,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   /* ---------- renderização ---------- */
   var dirty=false;
   function typing(){var a=document.activeElement;return a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&(view.contains(a)||admEl.contains(a))}
-  function schedule(){if(typing()){dirty=true;return}render()}
+  function schedule(){if(X.isAdmin){try{admCheck()}catch(e){}}if(typing()){dirty=true;return}render()}
   document.addEventListener('focusout',function(){
     if(!dirty)return;
     setTimeout(function(){if(dirty&&!typing()){dirty=false;render()}},180);
@@ -1277,6 +1279,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     }
     $$('nav.bar button').forEach(function(b){if(b.getAttribute('data-go')===state.tab)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
     $('#searchWrap').hidden=state.tab!=='loja';
+    remToast();
     if(PV.pending&&D.ready.products){var pp=PV.pending;PV.pending=null;showProduct(pp,true)}
     else if(PV.id)renderPview();
     if(state.tab==='loja'){renderCats();renderShop()}else if(state.tab==='banho')renderBanho();else if(state.tab==='vantagens')renderVantagens();else renderPedidos();
@@ -1379,10 +1382,11 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
 
   function renderAdmin(){
     var tab=state.adm.tab;
-    var h='<header class="atop"><div class="ab">'+$('.logoimg').outerHTML+'<b>Gestão</b></div><button id="aBack">Ver o app</button></header>';
+    var h='<header class="atop"><div class="ab">'+$('.logoimg').outerHTML+'<b>Gestão</b></div><div class="brandact"><button class="bellbtn abell" id="aBell" aria-label="Avisos da loja">'+BELL_SVG+(admUnread()?'<span class="n">'+(admUnread()>9?'9+':admUnread())+'</span>':'')+'</button><button id="aBack">Ver o app</button></div></header>';
     h+='<nav class="atabs" aria-label="Seções da gestão">'+ATABS.map(function(t){return '<button class="atab" data-atab="'+t[0]+'" aria-pressed="'+(tab===t[0])+'">'+t[1]+'</button>'}).join('')+'</nav><section id="aMain"></section>';
     admEl.innerHTML=h;
     $('#aBack').onclick=function(){go('loja')};
+    $('#aBell').onclick=openAdmAlerts;
     $$('[data-atab]',admEl).forEach(function(b){b.onclick=function(){state.adm.tab=b.getAttribute('data-atab');window.scrollTo(0,0);renderAdmin()}});
     var m=$('#aMain');
     if(D.nodb){m.innerHTML=noDbBox();return}
@@ -2219,20 +2223,28 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   /* ---------- cliente: sino ---------- */
   function seenKey(){return 'gc_seen_'+(X.uid||'x')}
   function getSeen(){return num(load(seenKey(),0))}
-  function unreadCount(){var s=getSeen();return D.inbox.filter(function(n){return n.ts>s}).length}
+  function unreadCount(){var s=getSeen();return D.inbox.filter(function(n){return n.ts>s}).length+custReminders().length}
   function updBell(){
     var b=$('#bellBtn');if(!b)return;
     b.hidden=!(X.uid&&!D.nodb);
     var n=unreadCount(),el=$('#bellN');el.hidden=n<=0;el.textContent=n>9?'9+':String(n);
   }
   function openInbox(){
-    var list=D.inbox.slice().sort(function(a,b){return b.ts-a.ts}),seen=getSeen();
+    var list=D.inbox.slice().sort(function(a,b){return b.ts-a.ts}),seen=getSeen(),R=custReminders();
     var h='<div class="row"><h2>Notificações</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
+    h+=sysNotifyCard();
+    if(R.length){
+      h+='<div class="sec" style="margin:0"><h2 style="font-size:18px">Lembretes</h2></div>';
+      R.forEach(function(r){h+='<div class="hist unread"><div class="row"><b>'+esc(r.title)+'</b></div><span>'+esc(r.body)+'</span><div class="apact">'+(r.go?'<button class="ghost" data-rgo="'+esc(r.go)+'">'+esc(r.cta||'Ver')+'</button>':'')+'<button class="ghost" data-rdis="'+esc(r.id)+'">Dispensar</button></div></div>'});
+      if(list.length)h+='<div class="sec" style="margin:0"><h2 style="font-size:18px">Mensagens</h2></div>';
+    }
     if(!list.length)h+='<p class="muted">Nenhuma mensagem por enquanto. Avisos de pedidos, pontos e ofertas da Gatecão aparecem aqui.</p>';
     list.forEach(function(n){
       h+='<div class="hist'+(n.ts>seen?' unread':'')+'"><div class="row"><b>'+esc(n.title)+'</b><span class="muted">'+fmtTs(n.ts)+'</span></div><span>'+esc(n.body)+'</span></div>';
     });
-    $('#overlay').innerHTML=sheetHtml(h,'Notificações');bindClose();
+    $('#overlay').innerHTML=sheetHtml(h,'Notificações');bindClose();bindSysNotify(openInbox);
+    $$('[data-rdis]').forEach(function(b){b.onclick=function(){var d=load('gc_dismiss',{});d[b.getAttribute('data-rdis')]=Date.now();save('gc_dismiss',d);updBell();openInbox()}});
+    $$('[data-rgo]').forEach(function(b){b.onclick=function(){closeSheet();go(b.getAttribute('data-rgo'))}});
     var mx=list.reduce(function(a,n){return Math.max(a,n.ts)},0);
     if(mx>seen){save(seenKey(),mx);updBell()}
   }
@@ -2878,6 +2890,133 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
     bnAuto:async function(key){var o=Object.assign({},bnOff());if(o[key])delete o[key];else o[key]=true;try{await X.db.doc('settings/store').set(Object.assign({},D.settings,{bnOff:o}))}catch(e){wfail(e)}}
   });
 
+
+  /* ================= AVISOS ================= */
+  var BELL_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 17h12l-1.500-2.200V10a4.500 4.500 0 00-9 0v4.800zM10 20a2 2 0 004 0"/></svg>';
+  function storeNotify(){/* a loja vê os avisos pela Gestão: pedidos, agendamentos e cancelamentos são lidos direto dos dados */}
+  /* -- notificação do aparelho (quando o navegador permite) -- */
+  function sysOk(){try{return 'Notification' in window}catch(e){return false}}
+  function sysState(){try{return sysOk()?Notification.permission:'unavailable'}catch(e){return 'unavailable'}}
+  function sysNotify(title,body){
+    if(load('gc_sysoff',false)||sysState()!=='granted')return;
+    try{var n=new Notification(title,{body:body,tag:'gatecao-'+title,silent:false});n.onclick=function(){try{window.focus()}catch(e){}n.close()}}catch(e){}
+  }
+  function sysNotifyCard(){
+    var st=sysState();
+    if(st==='granted'&&!load('gc_sysoff',false))return '<div class="loynote" style="display:flex;justify-content:space-between;gap:10px;align-items:center"><span>Avisos no aparelho ligados.</span><button class="mini" id="sysOff">Desligar</button></div>';
+    if(st==='unavailable')return '<p class="hint" style="margin:0">Os avisos aparecem aqui e no sino. Este navegador não mostra avisos fora do app.</p>';
+    if(st==='denied')return '<p class="hint" style="margin:0">Os avisos fora do app estão bloqueados neste navegador. Para ligar, libere as notificações nas configurações do navegador.</p>';
+    return '<div class="loynote" style="display:flex;justify-content:space-between;gap:10px;align-items:center"><span>Quer receber avisos mesmo com o app em segundo plano?</span><button class="mini" id="sysOn">Ativar</button></div>';
+  }
+  function bindSysNotify(reopen){
+    var on=$('#sysOn'),off=$('#sysOff');
+    if(on)on.onclick=async function(){
+      save('gc_sysoff',false);
+      try{var r=await Notification.requestPermission();if(r==='granted'){toast('Avisos ligados');sysNotify('Gatecão','Pronto! Você vai receber os avisos por aqui.')}else toast('O navegador não liberou os avisos')}catch(e){toast('Este navegador não permite avisos aqui')}
+      reopen();
+    };
+    if(off)off.onclick=function(){save('gc_sysoff',true);toast('Avisos no aparelho desligados');reopen()};
+  }
+  function beep(){
+    try{var C=window.AudioContext||window.webkitAudioContext;if(!C)return;var c=beep.c||(beep.c=new C()),o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=880;g.gain.setValueAtTime(.0001,c.currentTime);g.gain.exponentialRampToValueAtTime(.2,c.currentTime+.02);g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.35);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.4)}catch(e){}
+  }
+
+  /* -- lembretes do cliente (calculados no aparelho) -- */
+  function custReminders(){
+    if(!X.uid||X.isAdmin&&state.tab==='gestao')return [];
+    var dis=load('gc_dismiss',{}),out=[],t0=todayStr(),t1=addDays(t0,1);
+    state.myAppts.forEach(function(a){
+      if(apStatus(a)!=='Agendado')return;
+      if(a.day===t0||a.day===t1)out.push({id:'ap_'+a.id+'_'+a.day,title:(a.day===t0?'Hoje':'Amanhã')+' às '+a.slot+': '+(String(a.svc).split(' + ')[0]),body:a.pet+' tem horário na Gatecão'+(a.lt?' (vamos buscar em casa)':'')+'. Precisa mudar? Remarque em Pedidos.',go:'pedidos',cta:'Ver agendamento'});
+    });
+    D.myRec.forEach(function(r){
+      if(!r.active||r.next>addDays(t0,3))return;
+      out.push({id:'rc_'+r.id+'_'+r.next,title:'Recompra '+(r.next<=t0?'chegando':'em '+fmtDay(r.next)),body:r.q+' x '+r.n+'. Quer mudar a data ou pausar? Veja em Pedidos.',go:'pedidos',cta:'Ver recompra'});
+    });
+    var days=Math.round(num(S('banhoRemind',30)));
+    if(days>0){
+      var done=state.myAppts.filter(function(a){return apStatus(a)!=='Cancelado'});
+      var fut=done.some(function(a){return a.day>=t0});
+      if(done.length&&!fut){
+        var last=done.reduce(function(m,a){return a.day>m.day?a:m},done[0]),diff=Math.floor((new Date(t0+'T12:00:00')-new Date(last.day+'T12:00:00'))/864e5);
+        if(diff>=days)out.push({id:'bh_'+last.id,title:'Hora do banho do '+last.pet+'?',body:'Faz '+diff+' dias do último banho. Garanta um horário antes que a agenda lote.',go:'banho',cta:'Agendar'});
+      }
+    }
+    return out.filter(function(r){return !dis[r.id]});
+  }
+  var remShown=false;
+  function remToast(){
+    if(remShown||!X.uid||!D.ready.services)return;
+    var R=custReminders();if(!R.length)return;
+    remShown=true;setTimeout(function(){toast(R[0].title)},1200);
+    var key='gc_remsys_'+R[0].id;if(!load(key,false)){save(key,true);sysNotify(R[0].title,R[0].body)}
+  }
+
+  /* -- avisos da loja (Gestão) -- */
+  var ADM={known:null,booted:0};
+  function admEvents(){
+    var ev=[];
+    allOrders().forEach(function(o){ev.push({id:'o_'+o.id,ts:o.ts,title:(o.fromRec?'Pedido de recompra':'Novo pedido')+' · '+o.name,body:o.items.map(function(i){return i.q+' x '+i.n}).join(', ')+' · '+brl(o.total)+' · '+o.mode,tab:'pedidos',seg:'pedidos'})});
+    allAppts().forEach(function(a){
+      ev.push({id:'a_'+a.id,ts:a.ts,title:'Novo agendamento · '+a.pet,body:a.svc+' · '+fmtDay(a.day)+' às '+a.slot+(a.lt?' · leva e traz':''),tab:'pedidos',seg:'agenda'});
+      if(a.canceled)ev.push({id:'c_'+a.id,ts:a.cancelTs||a.ts,title:'Agendamento cancelado · '+a.pet,body:a.svc+' · '+fmtDay(a.day)+' às '+a.slot+' (cancelado pelo cliente)',tab:'pedidos',seg:'agenda'});
+    });
+    allRecs().forEach(function(r){
+      ev.push({id:'r_'+r.id,ts:r.ts,title:'Nova recompra · '+(r.name||custName(r.uid)),body:r.q+' x '+r.n+' a cada '+r.every+' dias',tab:'pedidos',seg:'rec'});
+      if(r.deleted||(!r.active&&r.ts))return;
+    });
+    var t0=todayStr();
+    allRecs().filter(function(r){return r.active&&r.next<=t0}).forEach(function(r){ev.push({id:'rd_'+r.id+'_'+r.next,ts:new Date(r.next+'T08:00:00').getTime(),title:'Recompra para separar · '+(r.name||custName(r.uid)),body:r.q+' x '+r.n+' · era para '+fmtDay(r.next),tab:'pedidos',seg:'rec'})});
+    return ev.filter(function(e){return e.ts}).sort(function(a,b){return b.ts-a.ts}).slice(0,60);
+  }
+  function admSeen(){return num(load('gc_admseen',0))}
+  function admUnread(){if(!X.isAdmin)return 0;var s=admSeen();return admEvents().filter(function(e){return e.ts>s}).length}
+  function admCheck(){
+    if(!D.ready.orders||!D.ready.appts)return;
+    var ev=admEvents(),ids={};ev.forEach(function(e){ids[e.id]=1});
+    if(!ADM.known){ADM.known=ids;ADM.booted=Date.now();admAuto();return}
+    var fresh=ev.filter(function(e){return !ADM.known[e.id]});
+    ADM.known=ids;
+    if(fresh.length&&Date.now()-ADM.booted>3000){
+      var e=fresh[0];toast(e.title);beep();sysNotify(e.title,e.body);
+      var bb=$('#aBell');if(bb){anim(bb,'bump')}
+    }
+    admAuto();
+  }
+  function openAdmAlerts(){
+    var ev=admEvents(),seen=admSeen();
+    var h='<div class="row"><h2>Avisos da loja</h2><button class="ghost" id="closeSheet">Fechar</button></div>'+sysNotifyCard();
+    h+='<div class="rowtight"><span class="fld" style="font-weight:700">Lembretes automáticos para clientes</span><button class="sw" id="autoRem" role="switch" aria-checked="'+(S('autoRemind',true)!==false)+'" aria-label="Lembretes automáticos"></button></div><p class="hint" style="margin:0">Quando a Gestão está aberta, o app avisa cada cliente um dia antes do banho e da recompra.</p>';
+    if(!ev.length)h+='<p class="muted">Nenhum aviso ainda. Pedidos, agendamentos, cancelamentos e recompras aparecem aqui na hora.</p>';
+    ev.forEach(function(e){h+='<div class="hist'+(e.ts>seen?' unread':'')+'"><div class="row"><b>'+esc(e.title)+'</b><span class="muted">'+fmtTs(e.ts)+'</span></div><span>'+esc(e.body)+'</span><div class="apact"><button class="ghost" data-ago="'+esc(e.seg)+'">Abrir</button></div></div>'});
+    $('#overlay').innerHTML=sheetHtml(h,'Avisos da loja');bindClose();bindSysNotify(openAdmAlerts);
+    $('#autoRem').onclick=async function(){var on=this.getAttribute('aria-checked')!=='true';this.setAttribute('aria-checked',on);try{await X.db.doc('settings/store').set(Object.assign({},D.settings,{autoRemind:on}));toast(on?'Lembretes ligados':'Lembretes desligados')}catch(e){wfail(e)}};
+    $$('[data-ago]').forEach(function(b){b.onclick=function(){closeSheet();state.adm.tab='pedidos';state.adm.ord=b.getAttribute('data-ago');renderAdmin()}});
+    var mx=ev.reduce(function(a,e){return Math.max(a,e.ts)},0);if(mx>seen){save('gc_admseen',mx);var bn=$('#aBell .n');if(bn)bn.remove()}
+  }
+  /* lembretes automáticos enviados quando a Gestão está aberta */
+  var AUTO={busy:false,done:{}};
+  async function admAuto(){
+    if(AUTO.busy||S('autoRemind',true)===false||!X.db||!D.ready.status)return;
+    AUTO.busy=true;
+    try{
+      var t1=addDays(todayStr(),1);
+      var aps=allAppts().filter(function(a){return a.day===t1&&apStatus(a)==='Agendado'&&a.uid&&!(D.status[a.id]&&D.status[a.id].reminded)&&!AUTO.done['a'+a.id]});
+      for(var i=0;i<aps.length&&i<20;i++){
+        var a=aps[i];AUTO.done['a'+a.id]=1;
+        await notifyUser(a.uid,'Lembrete: banho amanhã','Amanhã às '+a.slot+' tem '+String(a.svc).split(' + ')[0].toLowerCase()+' do '+a.pet+' na Gatecão.'+(a.lt?' Vamos buscar no endereço informado.':'')+' Precisa mudar? Remarque pelo app.','agenda');
+        await X.db.doc('status/'+a.id).set(Object.assign({},D.status[a.id]||{status:'Agendado'},{reminded:true}));
+      }
+      var rs=allRecs().filter(function(r){return r.active&&r.next===t1&&r.notified!==r.next&&!AUTO.done['r'+r.id+r.next]});
+      for(var k=0;k<rs.length&&k<20;k++){
+        var r=rs[k];AUTO.done['r'+r.id+r.next]=1;
+        await notifyUser(r.uid,'Sua recompra é amanhã','Vamos separar '+r.q+' x '+r.n+' para amanhã. Quer mudar a data ou pausar? É só abrir Pedidos no app.','pedido');
+        await recPatch(r.uid,r.id,{notified:r.next});
+      }
+    }catch(e){}
+    AUTO.busy=false;
+  }
+
   /* ================= INÍCIO ================= */
   function subscribe(){
     function col(name,key,fn){
@@ -2897,7 +3036,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
       X.db.doc('inbox/'+X.uid).onSnapshot(function(s){
         var m=s.exists&&s.data().m?s.data().m:{},arr=Object.keys(m).map(function(k){return m[k]}),prevMax=D.inbox.reduce(function(a,n){return Math.max(a,n.ts)},0);
         var fresh=D.inboxReady&&arr.some(function(n){return n.ts>prevMax&&n.ts>getSeen()});
-        D.inbox=arr;D.inboxReady=true;updBell();if(fresh)toast('Nova mensagem da Gatecão');schedule();
+        D.inbox=arr;D.inboxReady=true;updBell();if(fresh){var nw=arr.filter(function(n){return n.ts>prevMax}).sort(function(a,b){return b.ts-a.ts})[0];toast(nw?nw.title:'Nova mensagem da Gatecão');beep();if(nw)sysNotify(nw.title,nw.body)}schedule();
       },function(){});
       X.db.doc('orders/'+X.uid).onSnapshot(function(s){var r=s.exists&&s.data().r?s.data().r:{};D.myRec=Object.keys(r).map(function(k){return r[k]}).filter(function(x){return !x.deleted}).sort(function(a,b){return String(a.next).localeCompare(String(b.next))});schedule()},function(){});
       X.db.doc('wallet/'+X.uid).onSnapshot(function(s){D.wallets[X.uid]=s.exists?s.data():{};D.ready.wallet=true;schedule()},function(){D.ready.wallet=true});
