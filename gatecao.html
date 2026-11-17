@@ -384,6 +384,9 @@ button,[data-open]{touch-action:manipulation}
 .okmark{width:76px;height:76px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;justify-self:center;margin-top:6px}
 .okmark svg{width:40px;height:40px}
 table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px 4px}.pt.ptab th:first-child,.pt.ptab td:first-child{width:80px;padding-left:10px}.pt.ptab input{width:100%;min-width:0;padding:6px}
+.chk.sq{border-radius:7px}
+[aria-pressed="true"]>.chk.sq{box-shadow:none;background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.500' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.500l4.500 4.500L19 7.500'/%3E%3C/svg%3E") center/16px no-repeat}
+.xopt .pz .old{font-family:var(--font-body);font-size:12px;font-weight:600}
 .oksum{background:var(--soft);border-radius:16px;padding:14px;display:grid;gap:6px}
 </style>
 <div id="cust">
@@ -467,7 +470,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
   var D={products:[],promos:[],tables:[],services:[],settings:{},slots:{},status:{},orders:[],appts:[],ready:{},nodb:false,slow:false,customers:[],wallets:{},crm:{},rewards:[],redeems:[],me:null,myRedeems:[]};
   var X={db:null,user:null,assets:null,uid:null,isAdmin:false,checked:false};
   var state={tab:'loja',cat:'Todos',q:'',cart:load('gc_cart',{}),myOrders:load('gc_orders',[]),myAppts:load('gc_appts',[]),
-    ag:Object.assign({svc:'',day:'',slot:'',pet:'',kind:'Cachorro',size:'',weight:'',coat:'',breed:'',tutor:'',obs:''},load('gc_ag',{})),co:{mode:'Retirada na loja',pay:'Pix',name:''},
+    ag:Object.assign({svc:'',extras:[],day:'',slot:'',pet:'',kind:'Cachorro',size:'',weight:'',coat:'',breed:'',tutor:'',obs:''},load('gc_ag',{})),co:{mode:'Retirada na loja',pay:'Pix',name:''},
     adm:{tab:'resumo',q:'',ord:'pedidos',cq:'',cseg:'todos'},prof:null};
   var view=$('#view'),admEl=$('#admin');
   function S(k,d){var v=D.settings[k];return (v==null||v==='')?d:v}
@@ -549,7 +552,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
       h+='<section class="hero"><span class="dot" style="width:90px;height:90px;left:-30px;top:-30px"></span><span class="dot" style="width:46px;height:46px;left:46%;bottom:14px"></span>'+
         '<span class="tag">'+esc(S('heroTag','Semana do Gatecão'))+'</span><h2>'+esc(S('heroTitle','Ofertas para o seu pet'))+'</h2><p>'+esc(S('heroText','Confira os preços especiais desta semana.'))+'</p>'+
         '<button class="cta" id="heroCta">Ver ofertas</button>'+HERO_ART+'</section>';
-      var sv=D.services.filter(function(s){return s.active!==false});
+      var sv=D.services.filter(function(s){return s.active!==false&&!isExtra(s)});
       if(sv.length){
         h+='<div class="sec" style="margin-top:4px"><h2>Banho e tosa</h2><span>Agende em 1 minuto</span></div><div class="svcs">';
         sv.forEach(function(s,i){
@@ -741,6 +744,11 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     var v=[num(svc.price)];Object.keys(svc.pt||{}).forEach(function(k){if(num(svc.pt[k])>0)v.push(num(svc.pt[k]))});
     return Math.min.apply(null,v.filter(function(x){return x>0}).concat([num(svc.price)||0]));
   }
+  function isExtra(s){return s&&s.kind==='extra'}
+  function extraPrice(x,pet){var full=svcPriceFor(x,pet),off=Math.min(90,Math.max(0,num(x.off)));return{full:full,price:r2(full*(1-off/100)),off:off}}
+  function extraFrom(x){var f=svcFrom(x),off=Math.min(90,Math.max(0,num(x.off)));return{full:f,price:r2(f*(1-off/100)),off:off}}
+  function agExtras(){var ag=state.ag;ag.extras=(ag.extras||[]).filter(function(id){var x=byId(D.services,id);return x&&x.active!==false&&isExtra(x)});return ag.extras.map(function(id){return byId(D.services,id)})}
+  function agTotal(pet){var svc=byId(D.services,state.ag.svc);if(!svc)return 0;var t=pet?svcPriceFor(svc,pet):svcFrom(svc);agExtras().forEach(function(x){t+=pet?extraPrice(x,pet).price:extraFrom(x).price});return r2(t)}
   function petReady(){var ag=state.ag;return !!(ag.pet.trim()&&num(ag.weight)>0&&ag.coat&&ag.breed.trim())}
   function svcPriceFor(svc,pet){
     var size=sizeOf(pet.weight),k=size+'|'+pet.coat,base=num(svc.pt&&svc.pt[k])>0?num(svc.pt[k]):num(svc.price);
@@ -767,7 +775,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
   function renderBanho(){
     if(D.nodb){view.innerHTML=noDbBox();return}
     if(!D.ready.services){view.innerHTML=loadingBox();return}
-    var sv=D.services.filter(function(s){return s.active!==false});
+    var all=D.services.filter(function(s){return s.active!==false}),sv=all.filter(function(s){return !isExtra(s)}),ex=all.filter(isExtra);
     var ag=state.ag,days=nextDays();
     if(!sv.length){view.innerHTML='<div class="empty-card"><h2>Serviços em breve</h2><p class="muted">Os horários de banho e tosa ainda não foram abertos.</p></div>';return}
     if(!ag.tutor&&D.me&&D.me.name)ag.tutor=D.me.name;
@@ -799,7 +807,15 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     sv.forEach(function(s,i){
       h+='<button class="opt svcopt" data-svc="'+esc(s.id)+'" role="radio" aria-pressed="'+(ag.svc===s.id)+'"><span class="si s'+(i%4)+'">'+svg(s.i||'paw')+'</span><span><b>'+esc(s.name)+'</b>'+(s.hot?'<span class="hotb">Mais pedido</span>':'')+(s.desc?'<br><span class="muted">'+esc(s.desc)+'</span>':'')+'<br><span class="pz" data-pz="'+esc(s.id)+'"></span></span><span class="chk" aria-hidden="true"></span></button>';
     });
-    h+='</div></section>';
+    h+='</div>';
+    if(ex.length){
+      h+='<div class="lbl" style="margin-top:4px">Adicionais <small>(opcional, escolha quantos quiser)</small></div><div class="opts" role="group" aria-label="Adicionais">';
+      ex.forEach(function(x){
+        h+='<button class="opt svcopt xopt" data-extra="'+esc(x.id)+'" aria-pressed="'+((ag.extras||[]).indexOf(x.id)>-1)+'"><span class="si s2">'+svg(x.i||'spark')+'</span><span><b>'+esc(x.name)+'</b>'+(num(x.off)>0?'<span class="hotb">-'+Math.round(num(x.off))+'% junto</span>':'')+(x.desc?'<br><span class="muted">'+esc(x.desc)+'</span>':'')+'<br><span class="pz" data-xz="'+esc(x.id)+'"></span></span><span class="chk sq" aria-hidden="true"></span></button>';
+      });
+      h+='</div>';
+    }
+    h+='</section>';
 
     h+='<section class="step" id="st3"><div class="sh"><span class="sn">3</span><h3>Dia e horário</h3></div><div class="days" role="radiogroup" aria-label="Dia">';
     days.forEach(function(d){
@@ -819,6 +835,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     fillBreeds();bSlots();bUpd();
 
     $$('[data-svc]',view).forEach(function(b){b.onclick=function(){ag.svc=b.getAttribute('data-svc');bUpd()}});
+    $$('[data-extra]',view).forEach(function(b){b.onclick=function(){var id=b.getAttribute('data-extra'),l=ag.extras||(ag.extras=[]),i=l.indexOf(id);if(i>-1)l.splice(i,1);else l.push(id);bUpd()}});
     $$('[data-day]',view).forEach(function(b){b.onclick=function(){if(ag.day!==b.getAttribute('data-day')){ag.day=b.getAttribute('data-day');ag.slot='';bSlots()}bUpd()}});
     $$('[data-kind]',view).forEach(function(b){b.onclick=function(){ag.kind=b.getAttribute('data-kind');fillBreeds();saveAg();bUpd()}});
     $$('[data-coat]',view).forEach(function(b){b.onclick=function(){ag.coat=b.getAttribute('data-coat');saveAg();bUpd()}});
@@ -862,12 +879,14 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     var pets=knownPets();
     $$('[data-pet]',view).forEach(function(b){var p=pets[+b.getAttribute('data-pet')];b.setAttribute('aria-pressed',!!p&&ag.pet.trim().toLowerCase()===String(p.pet).trim().toLowerCase())});
     $$('[data-pz]',view).forEach(function(el){var sv=byId(D.services,el.getAttribute('data-pz'));if(!sv)return;el.textContent=ready?brl(svcPriceFor(sv,pet))+' para '+ag.pet.trim():'a partir de '+brl(svcFrom(sv))});
+    $$('[data-extra]',view).forEach(function(b){b.setAttribute('aria-pressed',(ag.extras||[]).indexOf(b.getAttribute('data-extra'))>-1)});
+    $$('[data-xz]',view).forEach(function(el){var x=byId(D.services,el.getAttribute('data-xz'));if(!x)return;var v=ready?extraPrice(x,pet):extraFrom(x);el.innerHTML=(ready?'+ ':'+ a partir de ')+brl(v.price)+(v.off?' <span class="old">'+brl(v.full)+'</span>':'')});
     var pn=$('#bPriceNote');if(pn)pn.textContent=ready?'Valor calculado para '+ag.pet.trim()+': '+ag.size+', pelagem '+ag.coat.toLowerCase()+', '+ag.breed.trim()+'.':'Os valores variam com peso, pelagem e raça. Complete o cadastro do pet para ver o valor exato.';
     var done=[ready&&!!ag.tutor.trim(),!!ag.svc,!!ag.slot];
     done.forEach(function(d,i){var st=$('#st'+(i+1));if(!st)return;st.classList.toggle('done',d);$('.sn',st).innerHTML=d?CHECK:String(i+1)});
-    var svc=byId(D.services,ag.svc),miss=agMissing();
-    var line=[svc?svc.name:'',ag.pet.trim(),ag.slot?fmtDay(ag.day)+' às '+ag.slot:''].filter(Boolean).join(' · ');
-    var priceHtml=!svc?brl(0):ready?brl(svcPriceFor(svc,pet)):'<small style="font-size:12px;font-family:var(--font-body);font-weight:700;opacity:.85">a partir de</small> '+brl(svcFrom(svc));
+    var svc=byId(D.services,ag.svc),miss=agMissing(),xs=agExtras();
+    var line=[svc?svc.name+(xs.length?' + '+xs.map(function(x){return x.name}).join(' + '):''):'',ag.pet.trim(),ag.slot?fmtDay(ag.day)+' às '+ag.slot:''].filter(Boolean).join(' · ');
+    var priceHtml=!svc?brl(0):ready?brl(agTotal(pet)):'<small style="font-size:12px;font-family:var(--font-body);font-weight:700;opacity:.85">a partir de</small> '+brl(agTotal(null));
     $('#bSum').innerHTML='<div class="txt"><b>'+priceHtml+'</b><span>'+esc(line||'Escolha o serviço')+'</span></div><button class="primary" id="confirmAg" '+(miss?'aria-disabled="true" style="opacity:.6"':'')+'>'+(miss?'Falta: '+esc(miss.toLowerCase()):'Agendar')+'</button>';
   }
 
@@ -875,7 +894,8 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     var ag=state.ag,id='a'+Date.now();
     if(!svc){toast('Escolha um serviço');render();return}
     if(!slotFree(ag.day,ag.slot)){toast('Esse horário não está mais disponível. Escolha outro.');ag.slot='';render();return}
-    var rec={id:id,ts:Date.now(),day:ag.day,slot:ag.slot,svc:svc.name,price:svcPriceFor(svc,{weight:ag.weight,coat:ag.coat,breed:ag.breed}),pet:ag.pet.trim(),kind:ag.kind,size:sizeOf(ag.weight),weight:num(ag.weight),coat:ag.coat,breed:ag.breed.trim().slice(0,60),obs:(ag.obs||'').trim().slice(0,300),tutor:ag.tutor.trim()};
+    var pet0={weight:ag.weight,coat:ag.coat,breed:ag.breed},xs0=agExtras();
+    var rec={id:id,ts:Date.now(),day:ag.day,slot:ag.slot,svc:svc.name+(xs0.length?' + '+xs0.map(function(x){return x.name}).join(' + '):''),base:svcPriceFor(svc,pet0),extras:xs0.map(function(x){var v=extraPrice(x,pet0);return{n:x.name,p:v.price,full:v.full}}),price:agTotal(pet0),pet:ag.pet.trim(),kind:ag.kind,size:sizeOf(ag.weight),weight:num(ag.weight),coat:ag.coat,breed:ag.breed.trim().slice(0,60),obs:(ag.obs||'').trim().slice(0,300),tutor:ag.tutor.trim()};
     var synced=false;
     if(X.db&&X.uid){
       try{
@@ -887,11 +907,11 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
       }catch(e){}
     }
     state.myAppts.unshift(rec);save('gc_appts',state.myAppts);
-    ag.slot='';ag.obs='';saveAg();
+    ag.slot='';ag.obs='';ag.extras=[];saveAg();
     render();
     var h='<div class="okmark">'+CHECK+'</div><h2 style="text-align:center">'+(synced?'Banho agendado!':'Agendamento salvo')+'</h2>'+
       '<p class="muted" style="text-align:center;margin:0">'+(synced?'A loja já recebeu seu horário. Você recebe um aviso pelo app quando o pet estiver pronto.':'Sem conexão com a loja: o agendamento ficou salvo só neste aparelho.')+'</p>'+
-      '<div class="oksum"><div class="row"><b>'+esc(rec.pet)+'</b><span class="pill">'+esc(rec.kind)+(rec.size?' · '+esc(rec.size):'')+'</span></div><div class="muted">'+esc(rec.breed)+' · '+String(rec.weight).replace('.',',')+' kg · pelagem '+esc(String(rec.coat).toLowerCase())+'</div><div>'+esc(rec.svc)+'</div><div class="muted">'+esc(fmtDayLong(rec.day))+' às '+esc(rec.slot)+'</div><div class="row"><span class="muted">Pagamento na loja</span><span class="total" style="font-size:20px">'+brl(rec.price)+'</span></div></div>'+
+      '<div class="oksum"><div class="row"><b>'+esc(rec.pet)+'</b><span class="pill">'+esc(rec.kind)+(rec.size?' · '+esc(rec.size):'')+'</span></div><div class="muted">'+esc(rec.breed)+' · '+String(rec.weight).replace('.',',')+' kg · pelagem '+esc(String(rec.coat).toLowerCase())+'</div><div>'+esc(svc.name)+' · '+brl(rec.base)+'</div>'+rec.extras.map(function(e){return '<div class="muted">+ '+esc(e.n)+' · '+brl(e.p)+'</div>'}).join('')+'<div class="muted">'+esc(fmtDayLong(rec.day))+' às '+esc(rec.slot)+'</div><div class="row"><span class="muted">Pagamento na loja</span><span class="total" style="font-size:20px">'+brl(rec.price)+'</span></div></div>'+
       '<button class="primary" id="okAppts">Ver meus agendamentos</button><button class="ghost" id="okShop" type="button" style="padding:12px">Voltar para a loja</button>';
     $('#overlay').innerHTML=sheetHtml(h,'Agendamento confirmado');bindClose();
     $('#okAppts').onclick=function(){closeSheet();go('pedidos')};
@@ -1352,7 +1372,7 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     var h='<div class="toolbar"><p class="hint" style="flex:1">Serviços e preços do banho e tosa mostrados no app.</p><button class="btn" data-act="svcNew">+ Novo serviço</button></div>';
     if(!D.services.length)h+='<div class="empty-card"><h2>Nenhum serviço</h2><p class="muted">Cadastre banho, tosa e outros serviços.</p></div>';
     D.services.forEach(function(s){
-      h+='<div class="arow"><div class="athumb">'+svg(s.i||'paw')+'</div><div class="main"><b>'+esc(s.name)+'</b><span class="muted">'+esc(s.desc||'')+'</span><div><b>a partir de '+brl(svcFrom(s))+'</b>'+(Object.keys(s.pt||{}).length||s.br?' <span class="st info">Tabela por pet</span>':'')+(s.hot?' <span class="st warn">Mais pedido</span>':'')+(s.active===false?' <span class="st off">Oculto no app</span>':'')+'</div></div>'+
+      h+='<div class="arow"><div class="athumb">'+svg(s.i||'paw')+'</div><div class="main"><b>'+esc(s.name)+'</b><span class="muted">'+esc(s.desc||'')+'</span><div><b>a partir de '+brl(svcFrom(s))+'</b>'+(isExtra(s)?' <span class="st ok">Adicional'+(num(s.off)>0?' · -'+Math.round(num(s.off))+'% junto':'')+'</span>':'')+(Object.keys(s.pt||{}).length||s.br?' <span class="st info">Tabela por pet</span>':'')+(s.hot?' <span class="st warn">Mais pedido</span>':'')+(s.active===false?' <span class="st off">Oculto no app</span>':'')+'</div></div>'+
         '<div class="ctl"><div class="stk"><span class="muted">No app</span>'+swHtml(s.active!==false,'svcOn',s.id,'Mostrar no app')+'</div><button class="mini" data-act="svcEdit" data-id="'+esc(s.id)+'">Editar</button></div></div>';
     });
     m.innerHTML=h;
@@ -1363,6 +1383,8 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     var h='<div class="row"><h2>'+(cur?'Editar serviço':'Novo serviço')+'</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
     h+='<label class="fld">Nome<input class="in" id="sn" value="'+esc(s.name)+'" placeholder="Ex.: Banho"></label><label class="fld">Descrição<input class="in" id="sd" value="'+esc(s.desc||'')+'"></label>';
     h+='<div class="two"><label class="fld">Preço a partir de (R$)<input class="in" id="sp" inputmode="decimal" value="'+esc(s.price===''?'':String(s.price).replace('.',','))+'"></label><label class="fld">Ícone<select class="in" id="si">'+opts([['drop','Gota'],['paw','Patinha'],['scissor','Tesoura'],['spark','Brilho']],s.i||'drop')+'</select></label></div>';
+    h+='<div class="fld"><span>Tipo</span><div class="seg" style="margin:0"><button type="button" data-skind="main" aria-pressed="'+(s.kind!=='extra')+'">Serviço principal</button><button type="button" data-skind="extra" aria-pressed="'+(s.kind==='extra')+'">Adicional</button></div><span class="hint">Adicionais (ex.: hidratação, corte de unhas) são escolhidos junto com um serviço principal.</span></div>';
+    h+='<label class="fld" id="soffW"'+(s.kind==='extra'?'':' hidden')+'>Desconto ao contratar junto (%)<input class="in" id="soff" inputmode="decimal" value="'+esc(s.off?String(s.off).replace('.',','):'')+'" placeholder="Ex.: 20"></label>';
     var L=wLimits(),pt=s.pt||{};
     h+='<div class="acard" style="margin:0"><b>Tabela por porte e pelagem</b><p class="hint">Porte pelo peso: Pequeno até '+String(L.p).replace('.',',')+' kg, Médio até '+String(L.m).replace('.',',')+' kg, Grande acima disso (ajuste em Loja). Deixe em branco para usar o preço a partir de.</p><div class="gridwrap"><table class="pt ptab"><tr><th>Porte</th>'+COATS.map(function(c){return '<th>'+c+'</th>'}).join('')+'</tr>'+
       SIZES.map(function(z){return '<tr><td><b>'+z+'</b></td>'+COATS.map(function(c){var k=z+'|'+c,v=pt[k];return '<td><input data-pt="'+esc(k)+'" inputmode="decimal" value="'+esc(v?String(v).replace('.',','):'')+'" placeholder="'+esc(s.price===''?'':String(s.price).replace('.',','))+'" aria-label="'+z+', pelagem '+c+'"></td>'}).join('')+'</tr>'}).join('')+'</table></div>'+
@@ -1373,13 +1395,14 @@ table.pt.ptab{min-width:0;table-layout:fixed}.pt.ptab th,.pt.ptab td{padding:6px
     if(cur)h+='<button class="btn danger" id="sdel" type="button">Excluir serviço</button>';
     $('#overlay').innerHTML=sheetHtml(h,'Serviço');bindClose();
     $('#sh').onclick=function(){var on=this.getAttribute('aria-checked')!=='true';this.setAttribute('aria-checked',on);s.hot=on};
+    $$('[data-skind]',$('#overlay')).forEach(function(b){b.onclick=function(){s.kind=b.getAttribute('data-skind');$$('[data-skind]',$('#overlay')).forEach(function(x){x.setAttribute('aria-pressed',x===b)});$('#soffW').hidden=s.kind!=='extra'}});
     $('#sa').onclick=function(){var on=this.getAttribute('aria-checked')!=='true';this.setAttribute('aria-checked',on);s.active=on};
     $('#ssave').onclick=async function(){
       var name=$('#sn').value.trim(),price=num($('#sp').value);
       if(!name){toast('Informe o nome do serviço');return}
       if(!(price>0)){toast('Informe o preço do serviço');return}
       var ptab={};$$('[data-pt]',$('#overlay')).forEach(function(i){var v=num(i.value);if(v>0)ptab[i.getAttribute('data-pt')]=r2(v)});
-      var data={name:name,desc:$('#sd').value.trim(),price:price,pt:ptab,br:$('#sbr').value.trim().slice(0,1500),i:$('#si').value,hot:!!s.hot,active:s.active!==false};
+      var data={name:name,desc:$('#sd').value.trim(),price:price,pt:ptab,br:$('#sbr').value.trim().slice(0,1500),kind:s.kind==='extra'?'extra':'main',off:s.kind==='extra'?Math.min(90,Math.max(0,num($('#soff').value))):0,i:$('#si').value,hot:!!s.hot,active:s.active!==false};
       this.disabled=true;
       try{
         if(cur)await X.db.doc('services/'+cur.id).set(data);else await X.db.collection('services').doc().set(data);
