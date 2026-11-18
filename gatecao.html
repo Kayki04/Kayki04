@@ -140,6 +140,12 @@ body.adm::before{background:#F1F5FB}
 .atop b{font-family:var(--font-display);font-size:18px}
 .atop button{border:0;background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:8px 14px;font-weight:800;white-space:nowrap}
 .atabs{display:flex;gap:6px;overflow-x:auto;padding-block:12px 8px;scrollbar-width:none}
+@media (hover:hover) and (pointer:fine){
+  .atabs,.cats{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  .atabs::-webkit-scrollbar,.cats::-webkit-scrollbar{height:8px}
+  .atabs::-webkit-scrollbar-thumb,.cats::-webkit-scrollbar-thumb{background:var(--line);border-radius:999px}
+  .atabs::-webkit-scrollbar-thumb:hover,.cats::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+}
 .atab{flex:none;border:0;border-radius:999px;padding:9px 15px;font-weight:800;background:#fff;color:var(--brand);box-shadow:0 1px 0 var(--line)}
 .atab[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 .acard{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;display:grid;gap:10px;margin-bottom:10px;min-width:0}
@@ -3519,6 +3525,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     $('#aCaixa').onclick=function(){location.hash='caixa'};
     $('#aBell').onclick=openAdmAlerts;
     $$('[data-atab]',admEl).forEach(function(b){b.onclick=function(){state.adm.tab=b.getAttribute('data-atab');window.scrollTo(0,0);renderAdmin()}});
+    (function(){var bar=$('.atabs',admEl);if(bar&&!bar._wx){bar._wx=1;bar.addEventListener('wheel',function(e){if(e.ctrlKey)return;var dy=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;if(!dy||bar.scrollWidth<=bar.clientWidth+1)return;bar.scrollLeft+=(e.deltaMode===1?dy*16:dy);e.preventDefault()},{passive:false})}})();
     var m=$('#aMain');
     if(D.nodb){m.innerHTML=noDbBox();return}
     var fn={relatorios:aRelatorios,resumo:aResumo,produtos:aProdutos,promos:aPromos,tabelas:aTabelas,pedidos:aPedidos,clientes:aClientes,vantagens:aVantagens,mensagens:aMensagens,servicos:aServicos,banners:aBanners,loja:aLoja}[tab];
