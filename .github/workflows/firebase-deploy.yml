@@ -29,5 +29,8 @@ jobs:
           if [ -z "$SA" ]; then echo "::error::Falta o segredo FIREBASE_SERVICE_ACCOUNT no GitHub"; exit 1; fi
           printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
-      - name: Publicar site e regras
-        run: npx --yes firebase-tools@13 deploy --only hosting,firestore:rules,storage --project gatecao-5acbc --non-interactive
+      - name: Publicar site e regras do banco
+        run: npx --yes firebase-tools@13 deploy --only hosting,firestore:rules --project gatecao-5acbc --non-interactive
+      - name: Publicar regras das fotos
+        continue-on-error: true
+        run: npx --yes firebase-tools@13 deploy --only storage --project gatecao-5acbc --non-interactive
