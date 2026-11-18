@@ -2189,7 +2189,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     try{X.db.doc('settings/store').set(Object.assign({},D.settings,{best:best,also:also,bestTs:Date.now()})).catch(function(){})}catch(e){}
   }
   var BUSY_IMPORT=false;
-  document.addEventListener('change',function(e){var t=e.target;if(t&&t.id==='bkImp'&&t.files&&t.files[0]){var f=t.files[0];t.value='';backupImport(f)}},true);
+  document.addEventListener('change',function(e){var t=e.target;if(t&&t.id==='bkImp'&&t.files&&t.files[0]){var f=t.files[0];t.value='';backupImport(f)}if(t&&t.id==='catImp'&&t.files&&t.files[0]){var cf=t.files[0];t.value='';catalogImport(cf)}},true);
   function schedule(){if(BUSY_IMPORT)return;if(X.isAdmin){try{admCheck();bestSync()}catch(e){}}if(typing()){dirty=true;return}render()}
   document.addEventListener('focusout',function(){
     if(!dirty)return;
@@ -4337,6 +4337,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='<div class="acard"><b>Atendimento no WhatsApp</b><label class="fld">Número da loja com DDD<input class="in" id="lwa" inputmode="tel" value="'+esc(S('wa','')?fmtPhone(String(S('wa','')).replace(/\D/g,'').replace(/^55(?=\d{10,11}$)/,'')):'')+'" placeholder="(11) 90000-0000"></label><p class="hint">Mostra o botão verde do WhatsApp para os clientes no app, no guia do produto e nos pedidos. Deixe em branco para esconder.</p></div>';
     h+='<div class="acard" id="brandBox"><b>Marcas parceiras</b><p class="hint">Envie a logo de cada marca (as que o fornecedor te passa). Com a logo, a marca aparece bonita no carrossel da tela inicial. Sem logo, aparece o nome.</p><div id="brandList"></div></div>';
     h+='<button class="primary" id="lsave">Salvar alterações</button>';
+    h+='<div class="acard" style="margin-top:16px"><b>Importar catálogo</b><p class="hint">Importe o arquivo de catálogo (.json) que o Claude preparou da sua planilha. <b>Substitui todos os produtos</b> por essa lista, com preço de venda, custo, código de barras e categorias. Faça a cópia de segurança antes.</p><div class="toolbar" style="margin:0">'+(window.GCFB||X.assets?'<label class="btn alt" style="cursor:pointer">Escolher catálogo<input type="file" id="catImp" accept=".json,application/json" hidden></label>':'<span class="hint">Abra pela Gestão no navegador para importar.</span>')+'</div><span class="hint" id="catMsg"></span></div>';
     h+='<div class="acard" style="margin-top:16px"><b>Cópia de segurança e mudança de endereço</b><p class="hint">Baixe todos os dados da loja (produtos, clientes, pedidos, agenda, clube e caixa) em um arquivo. Use o mesmo arquivo para levar tudo para o novo endereço do app.</p>'+
       '<div class="toolbar" style="margin:0"><button class="btn line" id="bkExp" type="button">Baixar cópia de tudo</button>'+(window.GCFB?'<label class="btn alt" style="cursor:pointer">Importar cópia<input type="file" id="bkImp" accept=".json,application/json" hidden></label>':'')+'</div><span class="hint" id="bkMsg"></span></div>';
     m.innerHTML=h;
@@ -4391,6 +4392,42 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(msg)msg.textContent=n+' registros. Salvando arquivo...';
     await saveFile('gatecao-copia-'+todayStr()+'.json',JSON.stringify(out));
     if(msg)msg.textContent=n+' registros na cópia.';
+  }
+  async function catalogImport(file){
+    var txt=await file.text(),j;
+    try{j=JSON.parse(String(txt).replace(/^\uFEFF/,''))}catch(e){toast('Arquivo inválido');return}
+    var ps=j&&j.data&&j.data.products;
+    if(!ps||!Object.keys(ps).length){toast('Esse arquivo não tem produtos');return}
+    var ids=Object.keys(ps),oldIds=D.products.map(function(p){return p.id});
+    var box=document.createElement('div');box.className='scrim';box.style.cssText='display:grid;place-items:center;z-index:50';
+    box.innerHTML='<div style="background:#fff;border-radius:20px;padding:22px;max-width:360px;width:calc(100% - 32px);display:grid;gap:12px;text-align:center"><b style="font-family:var(--font-display);font-size:20px">Importar catálogo</b><span>Isto vai <b>substituir os '+oldIds.length+' produtos atuais</b> por <b>'+ids.length+' produtos</b> da planilha.</span><span class="hint">Preços, custo, código de barras e categorias vêm do arquivo. Fotos atuais serão perdidas.</span><div class="apact"><button class="ghost" id="catNo">Cancelar</button><button class="primary" id="catYes">Substituir tudo</button></div><div class="fprog" id="catBarW" hidden><i id="catBar" style="width:0%"></i></div><span id="catTx"></span></div>';
+    document.body.appendChild(box);
+    box.querySelector('#catNo').onclick=function(){box.remove()};
+    box.querySelector('#catYes').onclick=async function(){
+      this.disabled=true;box.querySelector('#catNo').disabled=true;BUSY_IMPORT=true;
+      var barW=box.querySelector('#catBarW'),bar=box.querySelector('#catBar'),tx=box.querySelector('#catTx');barW.hidden=false;
+      function end(m){tx.textContent=m;var b=document.createElement('button');b.className='primary';b.textContent='Fechar';b.onclick=function(){box.remove();BUSY_IMPORT=false;render()};box.querySelector('div>div').appendChild(b);BUSY_IMPORT=false}
+      try{
+        var tot=oldIds.length+ids.length,done=0,ok=0,fail=0;
+        var hasBatch=typeof X.db.batch==='function';
+        // apagar atuais
+        tx.textContent='Removendo produtos antigos...';
+        for(var i=0;i<oldIds.length;i+=400){var part=oldIds.slice(i,i+400);
+          if(hasBatch){var bt=X.db.batch();part.forEach(function(id){bt.delete(X.db.doc('products/'+id))});try{await bt.commit()}catch(e){for(var q=0;q<part.length;q++){try{await X.db.doc('products/'+part[q]).delete()}catch(e2){}}}}
+          else{for(var q2=0;q2<part.length;q2++){try{await X.db.doc('products/'+part[q2]).delete()}catch(e3){}}}
+          done+=part.length;bar.style.width=Math.round(done/tot*100)+'%';
+        }
+        // gravar novos
+        tx.textContent='Gravando os '+ids.length+' produtos...';
+        for(var k=0;k<ids.length;k+=400){var pk=ids.slice(k,k+400);
+          if(hasBatch){var bt2=X.db.batch();pk.forEach(function(id){var d=Object.assign({},ps[id]);delete d.id;bt2.set(X.db.doc('products/'+id),d)});try{await bt2.commit();ok+=pk.length}catch(e){for(var r=0;r<pk.length;r++){try{var dd=Object.assign({},ps[pk[r]]);delete dd.id;await X.db.doc('products/'+pk[r]).set(dd);ok++}catch(e4){fail++}}}}
+          else{for(var r2=0;r2<pk.length;r2++){try{var dd2=Object.assign({},ps[pk[r2]]);delete dd2.id;await X.db.doc('products/'+pk[r2]).set(dd2);ok++}catch(e5){fail++}}}
+          done+=pk.length;bar.style.width=Math.round(done/tot*100)+'%';tx.textContent='Gravando... '+ok+' de '+ids.length;
+        }
+        bar.style.width='100%';
+        end('Pronto! '+ok+' produtos no catálogo'+(fail?' ('+fail+' com erro)':'')+'. Confira a loja.');
+      }catch(e){end('Falha na importação. Tente de novo.')}
+    };
   }
   async function backupImport(file){
     var box=document.createElement('div');box.className='scrim';box.style.cssText='display:grid;place-items:center;z-index:50';
