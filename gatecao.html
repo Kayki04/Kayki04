@@ -3661,7 +3661,45 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
 
   /* ----- Balcão (retaguarda): venda e agendamento manual ----- */
-  var MB={items:{},price:{},pay:'Dinheiro',mode:'Balcão',name:'',tab:'venda'};
+  var MB={items:{},price:{},pay:'Dinheiro',mode:'Balcão',cust:null,tab:'venda'};
+  function custResults(q){
+    q=normTxt(q);var qd=q.replace(/\D/g,'');
+    return D.customers.filter(function(c){if(!c.name&&!c.phone)return false;var byn=q&&normTxt(c.name||'').indexOf(q)>-1,byp=qd.length>=3&&String(c.phone||'').indexOf(qd)>-1;return byn||byp}).slice(0,8);
+  }
+  function openNewCustomer(phone,cb){
+    var ex=phone&&D.customers.filter(function(c){return String(c.phone||'').replace(/\D/g,'')===String(phone).replace(/\D/g,'')&&phone.length>=10})[0];
+    var h='<div class="row"><h2>Novo cliente</h2><button class="ghost" id="closeSheet">Fechar</button></div>'+
+      (ex?'<p class="loynote">Já existe um cliente com esse telefone: <b>'+esc(ex.name)+'</b>. Você pode usá-lo.</p><button class="btn" id="ncUse">Usar '+esc(ex.name)+'</button>':'')+
+      '<label class="fld">Nome<input class="in" id="ncN" placeholder="Nome do cliente"></label>'+
+      '<label class="fld">Telefone com DDD<input class="in" id="ncT" inputmode="tel" value="'+esc(phone?fmtPhone(phone):'')+'" placeholder="(11) 90000-0000"></label>'+
+      '<div class="two"><label class="fld">Pet (opcional)<input class="in" id="ncP" placeholder="Nome do pet"></label><label class="fld">Tipo<select class="in" id="ncK">'+opts(['Cachorro','Gato','Outro'],'Cachorro')+'</select></label></div>'+
+      '<button class="primary" id="ncSave">Cadastrar cliente</button>';
+    $('#overlay').innerHTML=sheetHtml(h,'Novo cliente');bindClose();
+    if(ex){$('#ncUse').onclick=function(){closeSheet();cb({id:ex.id,name:ex.name,phone:ex.phone,pets:ex.pets||[]})}}
+    $('#ncSave').onclick=async function(){
+      var name=$('#ncN').value.trim(),ph=$('#ncT').value.replace(/\D/g,'');
+      if(!name){toast('Informe o nome');$('#ncN').focus();return}
+      if(ph&&(ph.length<10||ph.length>11)){toast('Confira o telefone com DDD');$('#ncT').focus();return}
+      var pets=$('#ncP').value.trim()?[{n:$('#ncP').value.trim().slice(0,40),k:$('#ncK').value}]:[];
+      var id='loja'+Date.now()+Math.random().toString(36).slice(2,5);
+      var data={name:name,phone:ph,email:'',optin:true,pets:pets,ts:Date.now(),upd:Date.now(),by:'loja'};
+      this.disabled=true;
+      try{await X.db.doc('customers/'+id).set(data);closeSheet();toast('Cliente cadastrado');cb(Object.assign({id:id},data))}catch(e){this.disabled=false;wfail(e)}
+    };
+  }
+  function custPickerBind(prefix,get,set,onpick){
+    var box=$('#'+prefix+'Box');if(!box)return;
+    var cur=get();
+    if(cur){box.innerHTML='<div class="rowtight"><span><b>'+esc(cur.name)+'</b>'+(cur.phone?'<br><span class="muted">'+esc(fmtPhone(cur.phone))+'</span>':'')+'</span><button class="mini" data-clr="1">Trocar</button></div>';
+      box.querySelector('[data-clr]').onclick=function(){set(null);custPickerBind(prefix,get,set,onpick);if(onpick)onpick(null)};return}
+    box.innerHTML='<label class="fld">Buscar cliente (nome ou telefone)<input class="in" id="'+prefix+'Q" placeholder="Deixe em branco para venda avulsa" autocomplete="off"></label><div class="mbres" id="'+prefix+'Res" hidden></div><button class="mini" type="button" id="'+prefix+'New" style="margin-top:6px">+ Cadastrar novo cliente</button>';
+    var res=$('#'+prefix+'Res');
+    $('#'+prefix+'Q').oninput=function(){var q=this.value;if(!q.trim()){res.hidden=true;return}var list=custResults(q);res.hidden=false;
+      res.innerHTML=list.length?list.map(function(c){return '<button data-pc="'+esc(c.id)+'"><span>'+esc(c.name||'Sem nome')+'<br><span class="muted" style="font-size:12px">'+esc(fmtPhone(c.phone))+((c.pets||[]).length?' · '+(c.pets||[]).map(function(x){return esc(x.n)}).join(', '):'')+'</span></span></button>'}).join(''):'<button disabled style="color:var(--muted)">Nenhum cliente. Toque em Cadastrar novo.</button>'};
+    res.onclick=function(e){var b=e.target.closest('[data-pc]');if(!b)return;var c=D.customers.filter(function(x){return x.id===b.getAttribute('data-pc')})[0];if(c){var o={id:c.id,name:c.name,phone:c.phone,pets:c.pets||[]};set(o);custPickerBind(prefix,get,set,onpick);if(onpick)onpick(o)}};
+    $('#'+prefix+'New').onclick=function(){var q=$('#'+prefix+'Q');openNewCustomer(q?q.value.replace(/\D/g,''):'',function(c){set(c);custPickerBind(prefix,get,set,onpick);if(onpick)onpick(c)})};
+  }
+
   function mbVenda(id){var p=byId(D.products,id);return MB.price[id]!=null?num(MB.price[id]):priced(p).price}
   function aBalcao(m){
     var h='<div class="seg"><button data-act="mbTab" data-id="venda" aria-pressed="'+(MB.tab==='venda')+'">Venda manual</button><button data-act="mbTab" data-id="banho" aria-pressed="'+(MB.tab==='banho')+'">Agendar banho e tosa</button></div>';
@@ -3669,9 +3707,9 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='<div class="acard"><b>Nova venda no balcão</b><p class="hint">Retaguarda: você vê o custo, o preço de venda e o lucro de cada item. Ao registrar, o estoque é baixado e a venda entra nos relatórios.</p>'+
       '<label class="fld">Buscar produto<input class="in" id="mbQ" placeholder="Nome ou código do produto" autocomplete="off"></label><div class="mbres" id="mbRes" hidden></div></div>';
     h+='<div class="acard"><b>Itens da venda</b><div class="gridwrap" id="mbCart" style="border:0"></div><div id="mbTot"></div></div>';
-    h+='<div class="acard"><div class="two"><label class="fld">Cliente (opcional)<input class="in" id="mbName" value="'+esc(MB.name)+'" placeholder="Nome de quem comprou"></label>'+
-      '<label class="fld">Pagamento<select class="in" id="mbPay">'+opts(['Dinheiro','Pix','Cartão de débito','Cartão de crédito'],MB.pay)+'</select></label></div>'+
-      '<div class="two"><label class="fld">Entrega<select class="in" id="mbMode">'+opts(['Balcão','Entrega'],MB.mode)+'</select></label><span></span></div>'+
+    h+='<div class="acard"><b>Cliente</b><p class="hint" style="margin:0">Busque um cliente cadastrado ou cadastre na hora. Sem cliente, a venda é avulsa.</p><div id="mbCustBox"></div></div>';
+    h+='<div class="acard"><div class="two"><label class="fld">Pagamento<select class="in" id="mbPay">'+opts(['Dinheiro','Pix','Cartão de débito','Cartão de crédito'],MB.pay)+'</select></label>'+
+      '<label class="fld">Entrega<select class="in" id="mbMode">'+opts(['Balcão','Entrega'],MB.mode)+'</select></label></div>'+
       '<button class="primary" id="mbSave">Registrar venda</button></div>';
     m.innerHTML=h;
     var res=$('#mbRes');
@@ -3688,7 +3726,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       else{delete MB.items[id];delete MB.price[id]}
       if(MB.items[id]===0){delete MB.items[id]}mbRender()};
     cart.onchange=function(e){var i=e.target.closest('[data-mbprice]');if(!i)return;var id=i.getAttribute('data-mbprice'),v=num(i.value);MB.price[id]=v>0?v:priced(byId(D.products,id)).price;mbRender()};
-    $('#mbName').oninput=function(){MB.name=this.value};
+    custPickerBind('mbCust',function(){return MB.cust},function(v){MB.cust=v});
     $('#mbPay').onchange=function(){MB.pay=this.value};
     $('#mbMode').onchange=function(){MB.mode=this.value};
     $('#mbSave').onclick=mbRegister;
@@ -3713,23 +3751,27 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(!ids.length){toast('Adicione ao menos um produto');return}
     var items=ids.map(function(id){var p=byId(D.products,id);return{id:id,n:pName(p),p:r2(mbVenda(id)),q:MB.items[id],cost:num(p.cost)}});
     var sub=r2(items.reduce(function(a,i){return a+i.p*i.q},0));
-    var o={id:'o'+Date.now(),ts:Date.now(),name:MB.name.trim()||'Venda balcão',mode:MB.mode,pay:MB.pay,sub:sub,pixOff:0,fee:0,cashUse:0,total:sub,items:items,manual:true};
+    var uid=MB.cust?MB.cust.id:'balcao';
+    var o={id:'o'+Date.now(),ts:Date.now(),name:MB.cust?MB.cust.name:'Venda balcão',mode:MB.mode,pay:MB.pay,sub:sub,pixOff:0,fee:0,cashUse:0,total:sub,items:items,manual:true};
     $('#mbSave').disabled=true;
     try{
-      var ref=X.db.doc('orders/balcao'),cs=await ref.get(),whole=cs.exists?cs.data():{},nx=Object.assign({},whole.o||{});nx[o.id]=o;
+      var ref=X.db.doc('orders/'+uid),cs=await ref.get(),whole=cs.exists?cs.data():{},nx=Object.assign({},whole.o||{});nx[o.id]=o;
       await ref.set(Object.assign({},whole,{o:nx}));
-      await X.db.doc('status/'+o.id).set({status:'Entregue',stockApplied:true,cashApplied:0,earnedPts:0,earnedCash:0,earnedBase:0,ts:Date.now()});
+      var stt={status:'Entregue',stockApplied:true,cashApplied:0,earnedPts:0,earnedCash:0,earnedBase:0,ts:Date.now()};
+      if(MB.cust&&typeof earnFor==='function'){var e=earnFor(sub,wal(uid).life);if(e.pts>0||e.cash>0){try{await walletAdd(uid,{t:'compra',pago:sub,pts:e.pts,cash:e.cash,text:'Compra na loja (balcão)'});stt.earnedPts=e.pts;stt.earnedCash=e.cash;stt.earnedBase=sub}catch(w){}}}
+      await X.db.doc('status/'+o.id).set(stt);
       for(var i=0;i<items.length;i++){var p=byId(D.products,items[i].id);if(p)await X.db.doc('products/'+p.id).update({stock:Math.max(0,stockOf(p)-items[i].q)})}
-      toast('Venda registrada e estoque baixado');
-      var oid=o.id;MB.items={};MB.price={};MB.name='';
-      renderAdmin();printOrder('balcao',oid);
+      toast(MB.cust?'Venda registrada para '+MB.cust.name:'Venda avulsa registrada');
+      var oid=o.id;MB.items={};MB.price={};MB.cust=null;
+      renderAdmin();printOrder(uid,oid);
     }catch(e){$('#mbSave').disabled=false;wfail(e)}
   }
   function mbBanhoHtml(){
     var A=MB.ag||(MB.ag={pet:'',tutor:'',kind:'Cachorro',svc:'',day:todayStr(),slot:'',price:'',obs:''});
     var sv=D.services.filter(function(s){return s.active!==false&&!isExtra(s)});
-    var h='<div class="acard"><b>Agendar banho e tosa (manual)</b><p class="hint">Para marcar no balcão ou por telefone. O horário é reservado na agenda.</p>'+
-      '<div class="two"><label class="fld">Nome do pet<input class="in" id="mbPet" value="'+esc(A.pet)+'"></label><label class="fld">Tutor<input class="in" id="mbTutor" value="'+esc(A.tutor)+'"></label></div>'+
+    var h='<div class="acard"><b>Cliente e pet</b><p class="hint" style="margin:0">Busque um cliente cadastrado ou cadastre na hora. O pet do cliente aparece na lista.</p><div id="mbAgCustBox"></div></div>';
+    h+='<div class="acard"><b>Agendar banho e tosa (manual)</b><p class="hint">O horário é reservado na agenda.</p>'+
+      '<div class="two"><label class="fld">Nome do pet<input class="in" id="mbPet" list="mbPetList" value="'+esc(A.pet)+'"><datalist id="mbPetList"></datalist></label><label class="fld">Tutor<input class="in" id="mbTutor" value="'+esc(A.tutor)+'"></label></div>'+
       '<div class="two"><label class="fld">Tipo<select class="in" id="mbKind">'+opts(['Cachorro','Gato','Outro'],A.kind)+'</select></label><label class="fld">Serviço<select class="in" id="mbSvc">'+opts([['','Escolha']].concat(sv.map(function(x){return [x.id,x.name]})),A.svc)+'</select></label></div>'+
       '<div class="two"><label class="fld">Dia<input class="in" type="date" id="mbDay" min="'+todayStr()+'" value="'+esc(A.day)+'"></label><label class="fld">Horário<select class="in" id="mbSlot">'+mbSlotOpts(A.day,A.slot)+'</select></label></div>'+
       '<div class="two"><label class="fld">Valor (R$)<input class="in" id="mbPrice" inputmode="decimal" value="'+esc(A.price!==''?String(A.price).replace('.',','):'')+'" placeholder="Preço combinado"></label><span></span></div>'+
@@ -3741,8 +3783,11 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var ds=daySlots(day);if(!ds.length)return '<option value="">Dia sem horários</option>';
     return '<option value="">Escolha</option>'+ds.map(function(sl){var free=slotFree(day,sl);return '<option value="'+sl+'"'+(sl===sel?' selected':'')+(free?'':' disabled')+'>'+sl+(free?'':' (cheio)')+'</option>'}).join('');
   }
+  function mbAgPets(){var A=MB.ag,dl=document.getElementById('mbPetList');if(!dl)return;dl.innerHTML=(A.cust&&A.cust.pets||[]).map(function(x){return '<option value="'+esc(x.n)+'">'}).join('')}
   function mbBanhoBind(){
-    var A=MB.ag;
+    var A=MB.ag;if(!('cust' in A))A.cust=null;
+    custPickerBind('mbAgCust',function(){return A.cust},function(v){A.cust=v},function(c){if(c){var t=$('#mbTutor');if(t)t.value=c.name;A.tutor=c.name}mbAgPets()});
+    mbAgPets();
     function grab(){A.pet=$('#mbPet').value;A.tutor=$('#mbTutor').value;A.kind=$('#mbKind').value;A.svc=$('#mbSvc').value;A.obs=$('#mbObs').value;A.price=$('#mbPrice').value}
     $('#mbSvc').onchange=function(){A.svc=this.value;var sv=byId(D.services,this.value);if(sv&&!$('#mbPrice').value)$('#mbPrice').value=String(mainPrice(sv,null).price).replace('.',',')};
     $('#mbDay').onchange=function(){grab();A.day=this.value;A.slot='';$('#mbSlot').innerHTML=mbSlotOpts(A.day,'')};
@@ -3753,13 +3798,16 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       if(!A.svc){toast('Escolha o serviço');return}
       if(!A.day||!A.slot){toast('Escolha dia e horário');return}
       var svc=byId(D.services,A.svc),price=num(A.price)||mainPrice(svc,null).price;
-      var id='a'+Date.now(),rec={id:id,ts:Date.now(),day:A.day,slot:A.slot,svc:svc.name,price:r2(price),pet:A.pet.trim(),kind:A.kind,tutor:A.tutor.trim(),size:'',weight:'',coat:'',breed:'',obs:A.obs.trim(),manual:true};
+      var uid=A.cust?A.cust.id:'balcao';
+      var petN=$('#mbPet').value.trim();
+      var id='a'+Date.now(),rec={id:id,ts:Date.now(),day:A.day,slot:A.slot,svc:svc.name,price:r2(price),pet:petN,kind:A.kind,tutor:$('#mbTutor').value.trim(),size:'',weight:'',coat:'',breed:'',obs:A.obs.trim(),manual:true};
       this.disabled=true;
       try{
         var okR=await slotReserve(A.day,A.slot,id,rec.ts);
         if(!okR){this.disabled=false;toast('Esse horário lotou. Escolha outro.');$('#mbSlot').innerHTML=mbSlotOpts(A.day,'');return}
-        var ref=X.db.doc('appts/balcao'),cs=await ref.get(),nx=Object.assign({},(cs.exists&&cs.data().a)||{});nx[id]=rec;await ref.set({a:nx});
-        toast('Agendamento criado');MB.ag={pet:'',tutor:'',kind:'Cachorro',svc:'',day:todayStr(),slot:'',price:'',obs:''};renderAdmin();
+        var ref=X.db.doc('appts/'+uid),cs=await ref.get(),nx=Object.assign({},(cs.exists&&cs.data().a)||{});nx[id]=rec;await ref.set({a:nx});
+        if(A.cust&&petN&&!(A.cust.pets||[]).some(function(x){return normTxt(x.n)===normTxt(petN)})){try{var cref=X.db.doc('customers/'+uid),cc=await cref.get();if(cc.exists){var cd=cc.data(),pets=(cd.pets||[]).concat([{n:petN,k:A.kind}]);await cref.set(Object.assign({},cd,{pets:pets}))}}catch(w){}}
+        toast('Agendamento criado'+(A.cust?' para '+A.cust.name:''));MB.ag={pet:'',tutor:'',kind:'Cachorro',svc:'',day:todayStr(),slot:'',price:'',obs:'',cust:null};renderAdmin();
       }catch(e){this.disabled=false;wfail(e)}
     };
   }
