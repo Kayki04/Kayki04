@@ -590,8 +590,16 @@ nav.bar button{font-size:10.5px;padding:7px 0;line-height:1.15;text-align:center
 .qtile:nth-child(3n){background:var(--sun);color:#7A4A00}
 .qtile .qi{width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.75);display:grid;place-items:center}
 .qtile .qi svg{width:24px;height:24px}
-.brandchips{flex-wrap:wrap;overflow:visible}
-.brandchips .chip{font-size:13px}
+.brands{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding:2px 16px 8px;scroll-snap-type:x proximity}
+.brands::-webkit-scrollbar{display:none}
+.brandcard{flex:none;width:118px;height:76px;border:1px solid var(--line);border-radius:16px;background:#fff;display:grid;place-items:center;padding:10px;scroll-snap-align:start;box-shadow:0 4px 14px rgba(11,42,91,.05);overflow:hidden}
+.brandcard img{max-width:100%;max-height:100%;object-fit:contain}
+.brandcard b{font-family:var(--font-display);font-weight:700;color:var(--brand);font-size:16px;text-align:center;line-height:1.1;overflow-wrap:anywhere}
+.bradm{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.bradm:first-of-type{border-top:0}
+.bradm .lg{width:64px;height:44px;border:1px solid var(--line);border-radius:10px;display:grid;place-items:center;background:#fff;overflow:hidden;flex:none}
+.bradm .lg img{max-width:100%;max-height:100%;object-fit:contain}
+.bradm .lg span{font-size:11px;color:var(--muted)}
 </style>
 <div id="cust">
   <header class="top">
@@ -2426,11 +2434,17 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     ].filter(Boolean).slice(0,6);
     return '<div class="quickgrid">'+opt.map(function(o){return '<button class="qtile" data-quick="'+esc(o[0])+'"><span class="qi">'+svg(o[2])+'</span>'+esc(o[1])+'</button>'}).join('')+'</div>';
   }
+  function topBrands(all,min){
+    var hide=D.settings.brandHide||{},bc={};
+    all.forEach(function(p){if(stockOf(p)<=0)return;var b=pMeta(p).b;if(b&&!hide[b])bc[b]=(bc[b]||0)+1});
+    return Object.keys(bc).filter(function(b){return bc[b]>=(min||3)}).sort(function(a,b){return bc[b]-bc[a]||a.localeCompare(b,'pt-BR')});
+  }
   function brandRow(all){
-    var bc={};all.forEach(function(p){if(stockOf(p)<=0)return;var b=pMeta(p).b;if(b)bc[b]=(bc[b]||0)+1});
-    var top=Object.keys(bc).filter(function(b){return bc[b]>=3}).sort(function(a,b){return bc[b]-bc[a]||a.localeCompare(b,'pt-BR')}).slice(0,12);
+    var logos=D.settings.brandLogos||{},top=topBrands(all,3);
+    top.sort(function(a,b){return (logos[b]?1:0)-(logos[a]?1:0)});
+    top=top.slice(0,16);
     if(top.length<3)return '';
-    return '<div class="sec" style="margin-top:16px"><h2>Marcas</h2><span>'+top.length+'</span></div><div class="chips brandchips">'+top.map(function(b){return '<button class="chip" data-brand="'+esc(b)+'">'+esc(b)+'</button>'}).join('')+'</div>';
+    return '<div class="sec" style="margin-top:16px"><h2>Marcas parceiras</h2></div><div class="brands" role="group" aria-label="Marcas parceiras">'+top.map(function(b){return '<button class="brandcard" data-brand="'+esc(b)+'" aria-label="'+esc(b)+'">'+(logos[b]?'<img src="/_blob/'+esc(logos[b])+'" alt="'+esc(b)+'" loading="lazy">':'<b>'+esc(b)+'</b>')+'</button>'}).join('')+'</div>';
   }
   function renderShop(){
     if(D.nodb){view.innerHTML=noDbBox();return}
@@ -4101,10 +4115,12 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='<div class="acard"><b>Entrega</b><label class="fld">Pedidos até que horas chegam no mesmo dia<input class="in" id="ldc" inputmode="numeric" value="'+esc(S('delCut',16))+'" placeholder="Ex.: 16"></label><p class="hint">Use 0 para não mostrar prazo. Aos domingos o app mostra o próximo dia útil.</p>'+
       '<label class="fld">Taxa por bairro (opcional)<textarea class="in" id="lzn" rows="5" placeholder="Um bairro por linha. Ex.:&#10;Centro; 0&#10;Jardim América; 6,90&#10;Vila Nova; 9,90">'+esc(zones().map(function(z){return z.b+'; '+String(z.fee).replace('.',',')}).join('\n'))+'</textarea></label><p class="hint">Com a lista, o cliente escolhe o bairro e a taxa entra sozinha. Sem a lista, vale a taxa única acima.</p></div>';
     h+='<div class="acard"><b>Atendimento no WhatsApp</b><label class="fld">Número da loja com DDD<input class="in" id="lwa" inputmode="tel" value="'+esc(S('wa','')?fmtPhone(String(S('wa','')).replace(/\D/g,'').replace(/^55(?=\d{10,11}$)/,'')):'')+'" placeholder="(11) 90000-0000"></label><p class="hint">Mostra o botão verde do WhatsApp para os clientes no app, no guia do produto e nos pedidos. Deixe em branco para esconder.</p></div>';
+    h+='<div class="acard" id="brandBox"><b>Marcas parceiras</b><p class="hint">Envie a logo de cada marca (as que o fornecedor te passa). Com a logo, a marca aparece bonita no carrossel da tela inicial. Sem logo, aparece o nome.</p><div id="brandList"></div></div>';
     h+='<button class="primary" id="lsave">Salvar alterações</button>';
     h+='<div class="acard" style="margin-top:16px"><b>Cópia de segurança e mudança de endereço</b><p class="hint">Baixe todos os dados da loja (produtos, clientes, pedidos, agenda, clube e caixa) em um arquivo. Use o mesmo arquivo para levar tudo para o novo endereço do app.</p>'+
       '<div class="toolbar" style="margin:0"><button class="btn line" id="bkExp" type="button">Baixar cópia de tudo</button>'+(window.GCFB?'<label class="btn alt" style="cursor:pointer">Importar cópia<input type="file" id="bkImp" accept=".json,application/json" hidden></label>':'')+'</div><span class="hint" id="bkMsg"></span></div>';
     m.innerHTML=h;
+    brandAdmin();
     $('#bkExp').onclick=backupExport;
 
     var lton=$('#lton');if(lton)lton.onclick=function(){this.setAttribute('aria-checked',this.getAttribute('aria-checked')!=='true')};
@@ -4121,6 +4137,28 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       try{await X.db.doc('settings/store').set(Object.assign({},D.settings,data));toast('Loja atualizada')}catch(e){wfail(e)}
       this.disabled=false;
     };
+  }
+
+  function brandAdmin(){
+    var box=$('#brandList');if(!box)return;
+    var all=D.products.filter(function(p){return p.active!==false});
+    var brands=topBrands(all,2),logos=D.settings.brandLogos||{},hide=D.settings.brandHide||{};
+    Object.keys(logos).forEach(function(b){if(brands.indexOf(b)<0)brands.push(b)});
+    if(!brands.length){box.innerHTML='<p class="hint">Nenhuma marca reconhecida ainda. As marcas vêm do nome dos produtos.</p>';return}
+    box.innerHTML=brands.sort(function(a,b){return a.localeCompare(b,'pt-BR')}).map(function(b){
+      return '<div class="bradm"><span class="lg">'+(logos[b]?'<img src="/_blob/'+esc(logos[b])+'" alt="">':'<span>sem logo</span>')+'</span><span><b>'+esc(b)+'</b>'+(hide[b]?' <span class="st off">Oculta</span>':'')+'</span><span style="display:flex;gap:6px">'+(X.assets?'<label class="mini" style="cursor:pointer">Logo<input type="file" accept="image/*" data-brlogo="'+esc(b)+'" hidden></label>':'')+(logos[b]?'<button class="mini" data-brrm="'+esc(b)+'">Tirar</button>':'')+'</span></div>';
+    }).join('');
+    async function saveSet(patch){var d=Object.assign({},D.settings,patch);try{await X.db.doc('settings/store').set(d);D.settings=d}catch(e){wfail(e)}}
+    $$('[data-brlogo]',box).forEach(function(inp){inp.onchange=async function(){
+      var f=inp.files&&inp.files[0];if(!f||!X.assets)return;if(!isImg(f)){toast('Esse arquivo não é uma imagem');return}
+      toast('Enviando logo...');
+      try{var bl=await resizeImage(f,400),r=await X.assets.upload(bl,{type:/png/i.test(f.type)?'image/png':'image/jpeg'});
+        var lg=Object.assign({},D.settings.brandLogos||{});lg[inp.getAttribute('data-brlogo')]=r.id;await saveSet({brandLogos:lg});toast('Logo enviada');brandAdmin();
+      }catch(e){toast('Não foi possível enviar a logo')}
+    }});
+    $$('[data-brrm]',box).forEach(function(bt){bt.onclick=async function(){
+      var lg=Object.assign({},D.settings.brandLogos||{});delete lg[bt.getAttribute('data-brrm')];await saveSet({brandLogos:lg});toast('Logo removida');brandAdmin();
+    }});
   }
 
   /* ----- cópia de segurança ----- */
