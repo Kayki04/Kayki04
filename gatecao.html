@@ -4054,7 +4054,11 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       '<label class="fld">Taxa por bairro (opcional)<textarea class="in" id="lzn" rows="5" placeholder="Um bairro por linha. Ex.:&#10;Centro; 0&#10;Jardim América; 6,90&#10;Vila Nova; 9,90">'+esc(zones().map(function(z){return z.b+'; '+String(z.fee).replace('.',',')}).join('\n'))+'</textarea></label><p class="hint">Com a lista, o cliente escolhe o bairro e a taxa entra sozinha. Sem a lista, vale a taxa única acima.</p></div>';
     h+='<div class="acard"><b>Atendimento no WhatsApp</b><label class="fld">Número da loja com DDD<input class="in" id="lwa" inputmode="tel" value="'+esc(S('wa','')?fmtPhone(String(S('wa','')).replace(/\D/g,'').replace(/^55(?=\d{10,11}$)/,'')):'')+'" placeholder="(11) 90000-0000"></label><p class="hint">Mostra o botão verde do WhatsApp para os clientes no app, no guia do produto e nos pedidos. Deixe em branco para esconder.</p></div>';
     h+='<button class="primary" id="lsave">Salvar alterações</button>';
+    h+='<div class="acard" style="margin-top:16px"><b>Cópia de segurança e mudança de endereço</b><p class="hint">Baixe todos os dados da loja (produtos, clientes, pedidos, agenda, clube e caixa) em um arquivo. Use o mesmo arquivo para levar tudo para o novo endereço do app.</p>'+
+      '<div class="toolbar" style="margin:0"><button class="btn line" id="bkExp" type="button">Baixar cópia de tudo</button>'+(window.GCFB?'<label class="btn alt" style="cursor:pointer">Importar cópia<input type="file" id="bkImp" accept=".json,application/json" hidden></label>':'')+'</div><span class="hint" id="bkMsg"></span></div>';
     m.innerHTML=h;
+    $('#bkExp').onclick=backupExport;
+    var bi=$('#bkImp');if(bi)bi.onchange=function(){if(bi.files&&bi.files[0])backupImport(bi.files[0])};
     var lton=$('#lton');if(lton)lton.onclick=function(){this.setAttribute('aria-checked',this.getAttribute('aria-checked')!=='true')};
     $('#lsave').onclick=async function(){
       var data={heroTag:$('#lt').value.trim(),heroTitle:$('#lh').value.trim(),heroText:$('#lx').value.trim(),freeMin:num($('#lf').value),fee:num($('#lee').value),pixOff:Math.min(50,Math.max(0,num($('#lp').value))),slotCap:Math.min(20,Math.max(1,Math.floor(num($('#lcap').value))||3)),wP:num($('#lwp').value)||10,wM:num($('#lwm').value)||25,ltOn:$('#lton').getAttribute('aria-checked')==='true',ltFee:$('#ltfee').value.trim()===''?'':Math.max(0,num($('#ltfee').value)),ltNote:$('#ltnote').value.trim()};
@@ -4069,6 +4073,34 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       try{await X.db.doc('settings/store').set(Object.assign({},D.settings,data));toast('Loja atualizada')}catch(e){wfail(e)}
       this.disabled=false;
     };
+  }
+
+  /* ----- cópia de segurança ----- */
+  var BK_COLS=['products','promos','tables','services','settings','slots','status','rewards','bonus','banners','coupons','reviews','orders','appts','customers','wallet','redeems','crm','inbox','campaigns','pdv_ficha','pdv_msgs','pdv_avulsas','pdv_fech','pdv_cfg'];
+  function colOnce(name){return new Promise(function(res){var done=false,un=null,t=setTimeout(function(){if(!done){done=true;res([])}},12000);
+    try{un=X.db.collection(name).onSnapshot(function(sn){if(done)return;done=true;clearTimeout(t);res(sn.docs.map(function(d){return [d.id,d.data()]}));setTimeout(function(){try{typeof un==='function'&&un()}catch(e){}},0)},function(){if(!done){done=true;clearTimeout(t);res([])}})}catch(e){done=true;res([])}})}
+  async function backupExport(){
+    var msg=$('#bkMsg'),out={app:'gatecao',v:1,ts:Date.now(),data:{}},n=0;
+    for(var i=0;i<BK_COLS.length;i++){if(msg)msg.textContent='Lendo '+BK_COLS[i]+'...';var L=await colOnce(BK_COLS[i]);if(L.length){out.data[BK_COLS[i]]={};L.forEach(function(x){out.data[BK_COLS[i]][x[0]]=x[1];n++})}}
+    if(msg)msg.textContent=n+' registros. Salvando arquivo...';
+    await saveFile('gatecao-copia-'+todayStr()+'.json',JSON.stringify(out));
+    if(msg)msg.textContent=n+' registros na cópia.';
+  }
+  async function backupImport(file){
+    var msg=$('#bkMsg'),txt=await file.text(),j;
+    try{j=JSON.parse(txt.replace(/^﻿/,''))}catch(e){toast('Arquivo inválido');return}
+    if(!j||j.app!=='gatecao'||!j.data){toast('Esse arquivo não é uma cópia da Gatecão');return}
+    var cols=Object.keys(j.data).filter(function(c){return BK_COLS.indexOf(c)>-1}),tot=0,ok=0,fail=0;
+    cols.forEach(function(c){tot+=Object.keys(j.data[c]).length});
+    var noImg=function(v){return v&&!/alt=media/.test(v)?'':v};
+    for(var i=0;i<cols.length;i++){var c=cols[i],ks=Object.keys(j.data[c]);
+      for(var k=0;k<ks.length;k++){var d=j.data[c][ks[k]];
+        if(c==='products'||c==='banners'||c==='rewards'){d=Object.assign({},d);if('img' in d)d.img=noImg(d.img);if(Array.isArray(d.imgs))d.imgs=d.imgs.filter(function(x){return /alt=media/.test(x)})}
+        try{await X.db.doc(c+'/'+ks[k]).set(d);ok++}catch(e){fail++}
+        if(msg&&(ok+fail)%20===0)msg.textContent='Importando... '+(ok+fail)+' de '+tot;
+      }}
+    if(msg)msg.textContent='Importação concluída: '+ok+' registros'+(fail?', '+fail+' com erro':'')+'. Fotos antigas precisam ser enviadas de novo.';
+    toast('Importação concluída');
   }
 
   /* ----- ações da gestão ----- */
@@ -4638,9 +4670,11 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+=recHtml();
     if(!D.myRec.length)h+='<div class="sec"><h2>Recompras</h2></div><p class="muted" style="margin-top:0">Escolha "Recompra" no produto para receber de novo automaticamente, com desconto. Você pausa ou cancela quando quiser.</p>';
     if(D.me)h+='<div class="sec"><h2>Meus dados</h2></div>'+profileHtml();
+    if(window.GCFB)h+='<button class="ghost" id="gcOut" style="margin-top:14px;width:100%">Sair da conta</button>';
     view.innerHTML=h;
     recBind();
     profBind();
+    var go0=$('#gcOut');if(go0)go0.onclick=function(){window.GCFB.logout()};
   }
   function renderVantagens(){
     if(D.nodb){view.innerHTML=noDbBox();return}

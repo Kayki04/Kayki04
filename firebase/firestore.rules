@@ -1,0 +1,49 @@
+rules_version = '2';
+// Regras do banco da Gatecão. Mesma lógica do app no Claude:
+// catálogo público, cada cliente só vê o que é dele, só a loja altera o resto.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signed() { return request.auth != null; }
+    function adminList() { return /databases/$(database)/documents/admins/list; }
+    function isAdmin() { return signed() && exists(adminList()) && request.auth.uid in get(adminList()).data.uids; }
+    function own(uid) { return signed() && request.auth.uid == uid; }
+
+    // Primeira conta que entrar pode se tornar a dona da loja (uma vez só).
+    match /admins/list {
+      allow read: if signed();
+      allow create: if signed() && !exists(adminList()) && request.resource.data.uids == [request.auth.uid];
+      allow update, delete: if isAdmin();
+    }
+
+    // Tudo o que não tem regra própria abaixo: só a loja.
+    match /{col}/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Catálogo e configurações: todos leem, só a loja altera.
+    match /products/{id} { allow read: if true; }
+    match /promos/{id}   { allow read: if true; }
+    match /tables/{id}   { allow read: if true; }
+    match /services/{id} { allow read: if true; }
+    match /settings/{id} { allow read: if true; }
+    match /status/{id}   { allow read: if true; }
+    match /rewards/{id}  { allow read: if true; }
+    match /bonus/{id}    { allow read: if true; }
+    match /banners/{id}  { allow read: if true; }
+    match /coupons/{id}  { allow read: if true; }
+
+    // Vagas de horário: qualquer cliente logado reserva.
+    match /slots/{id} { allow read: if true; allow write: if signed(); }
+
+    // Avaliações: todos leem, cada cliente escreve a sua.
+    match /reviews/{uid} { allow read: if true; allow write: if own(uid); }
+
+    // Dados de cada cliente.
+    match /orders/{uid}    { allow read, write: if own(uid); }
+    match /appts/{uid}     { allow read, write: if own(uid); }
+    match /customers/{uid} { allow read, write: if own(uid); }
+    match /redeems/{uid}   { allow read, write: if own(uid); }
+    match /wallet/{uid}    { allow read: if own(uid); }
+    match /inbox/{uid}     { allow read: if own(uid); }
+  }
+}
