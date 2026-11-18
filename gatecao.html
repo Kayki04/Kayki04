@@ -584,6 +584,14 @@ nav.bar button{font-size:10.5px;padding:7px 0;line-height:1.15;text-align:center
 .rtab th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .rtab td.n,.rtab th.n{text-align:right;white-space:nowrap}
 .phero .art{position:absolute;right:-8px;bottom:-12px;width:128px;height:128px;color:rgba(255,255,255,.9)}
+.quickgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0 6px}
+.qtile{border:0;background:var(--sky);border-radius:16px;padding:12px 6px;display:grid;justify-items:center;gap:6px;color:var(--brand);font-weight:800;font-size:12.5px;text-align:center;line-height:1.15;min-width:0}
+.qtile:nth-child(3n-1){background:var(--soft);color:var(--accent-d)}
+.qtile:nth-child(3n){background:var(--sun);color:#7A4A00}
+.qtile .qi{width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.75);display:grid;place-items:center}
+.qtile .qi svg{width:24px;height:24px}
+.brandchips{flex-wrap:wrap;overflow:visible}
+.brandchips .chip{font-size:13px}
 </style>
 <div id="cust">
   <header class="top">
@@ -2404,6 +2412,26 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
   function shopTop(){var g=$('#shopRes');if(g&&window.scrollY>g.offsetTop)window.scrollTo({top:Math.max(0,g.offsetTop-120),behavior:reduced()?'auto':'smooth'})}
 
+  function quickTiles(all){
+    var has=function(c){return all.some(function(p){return (p.t||[]).indexOf(c)>-1})};
+    var opt=[
+      ['ofertas','Ofertas','tag'],
+      has('Rações')?['cat:Rações','Rações','bag']:null,
+      D.services.some(function(s){return s.active!==false})?['banho','Banho e tosa','drop']:null,
+      has('Antipulgas')?['cat:Antipulgas','Antipulgas','shield']:null,
+      has('Petiscos')?['cat:Petiscos','Petiscos','bone']:null,
+      has('Higiene')?['cat:Higiene','Higiene','drop']:null,
+      has('Farmácia')?['cat:Farmácia','Farmácia','pill']:null,
+      ['vantagens','Clube','star']
+    ].filter(Boolean).slice(0,6);
+    return '<div class="quickgrid">'+opt.map(function(o){return '<button class="qtile" data-quick="'+esc(o[0])+'"><span class="qi">'+svg(o[2])+'</span>'+esc(o[1])+'</button>'}).join('')+'</div>';
+  }
+  function brandRow(all){
+    var bc={};all.forEach(function(p){if(stockOf(p)<=0)return;var b=pMeta(p).b;if(b)bc[b]=(bc[b]||0)+1});
+    var top=Object.keys(bc).filter(function(b){return bc[b]>=3}).sort(function(a,b){return bc[b]-bc[a]||a.localeCompare(b,'pt-BR')}).slice(0,12);
+    if(top.length<3)return '';
+    return '<div class="sec" style="margin-top:16px"><h2>Marcas</h2><span>'+top.length+'</span></div><div class="chips brandchips">'+top.map(function(b){return '<button class="chip" data-brand="'+esc(b)+'">'+esc(b)+'</button>'}).join('')+'</div>';
+  }
   function renderShop(){
     if(D.nodb){view.innerHTML=noDbBox();return}
     if(!D.ready.products){view.innerHTML=loadingBox();return}
@@ -2424,6 +2452,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(home){
       h+=loyStrip();
       h+=bnCarousel();
+      h+=quickTiles(all);
       var sv=D.services.filter(function(s){return s.active!==false&&!isExtra(s)});
       if(sv.length){
         h+='<div class="sec" style="margin-top:4px"><h2>Banho e tosa</h2><span>Agende em 1 minuto</span></div><div class="svcs">';
@@ -2432,6 +2461,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
         });
         h+='</div>';
       }
+      h+=brandRow(all);
       h+=homeRows(list);
       view.innerHTML=h;
       shopBind();
@@ -2464,6 +2494,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     $$('[data-fq]',view).forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-fq'),v=k==='fav'?true:b.getAttribute('data-v');if(String(state.f[k])===String(v))delete state.f[k];else state.f[k]=v;renderShop()}});
     $$('[data-fclr]',view).forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-fclr');if(k==='*')state.f={};else delete state.f[k];renderShop()}});
     $$('[data-sugg]',view).forEach(function(b){b.onclick=function(){state.q=b.getAttribute('data-sugg');$('#q').value=state.q;renderShop()}});
+    $$('[data-quick]',view).forEach(function(b){b.onclick=function(){var d=b.getAttribute('data-quick');if(d==='ofertas'){state.showAll=true;state.sort='off';state.cat='Todos';renderCats();renderShop()}else goDest(d);window.scrollTo({top:0,behavior:reduced()?'auto':'smooth'})}});
+    $$('[data-brand]',view).forEach(function(b){b.onclick=function(){state.cat='Todos';state.showAll=true;state.fCat='Todos';state.f={brand:b.getAttribute('data-brand')};renderCats();renderShop();window.scrollTo({top:0})}});
   }
   /* ---------- variações de embalagem (1 kg, 3 kg, 10 kg...) ---------- */
   var VAR={src:null,len:-1,by:{},groups:{}};
