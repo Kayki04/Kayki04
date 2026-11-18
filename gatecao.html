@@ -899,7 +899,7 @@ function startDb() {
   const pend = new Set(['customers', 'wallet', 'pdv_ficha', 'rewards', 'bonus', 'pdv_msgs', 'pdv_avulsas', 'pdv_fech', 'pdv_cfg', 'settings']);
   const timer = setTimeout(() => { if (pend.size) setSync('warn', 'Sem resposta do banco ainda'); }, 10000);
   const done = (k, snap) => { if (!snap.metadata || !snap.metadata.fromCache) { pend.delete(k); loaded.add(k); if (!pend.size) { clearTimeout(timer); setSync('ok', 'Salvo na nuvem'); } } };
-  const onErr = e => { clearTimeout(timer); setSync('err', e && e.code === 'revoked' ? 'Acesso encerrado' : 'Erro ao ler os dados'); };
+  const onErr = e => { clearTimeout(timer); setSync('err', e && e.code === 'revoked' ? 'Acesso encerrado' : ('Erro ao ler os dados'+(e&&e.code?' ('+e.code+')':''))); };
   const toMap = snap => new Map(snap.docs.map(d => [d.id, {...clone(d.data()), id:d.id}]));
   const raw = {customers:'cust', wallet:'wal', pdv_ficha:'ficha', rewards:'rewards'};
   for (const col of Object.keys(raw)) db.collection(col).onSnapshot(snap => { R[raw[col]] = toMap(snap); done(col, snap); changed(true); }, onErr);

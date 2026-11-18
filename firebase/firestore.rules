@@ -41,15 +41,24 @@ service cloud.firestore {
     // Avaliações: todos leem, cada cliente escreve a sua.
     match /reviews/{uid} { allow read: if true; allow write: if own(uid); }
 
-    // Dados de cada cliente.
-    match /orders/{uid}    { allow read, write: if own(uid); }
-    match /appts/{uid}     { allow read, write: if own(uid); }
-    match /customers/{uid} { allow read, write: if own(uid); }
-    match /redeems/{uid}   { allow read, write: if own(uid); }
-    match /wallet/{uid}    { allow read: if own(uid); }
-    match /inbox/{uid}     { allow read: if own(uid); }
+    // Dados de cada cliente (o cliente vê o que é dele; a loja vê tudo).
+    match /orders/{uid}    { allow read, write: if own(uid) || isAdmin(); }
+    match /appts/{uid}     { allow read, write: if own(uid) || isAdmin(); }
+    match /customers/{uid} { allow read, write: if own(uid) || isAdmin(); }
+    match /redeems/{uid}   { allow read, write: if own(uid) || isAdmin(); }
+    match /wallet/{uid}    { allow read: if own(uid) || isAdmin(); allow write: if isAdmin(); }
+    match /inbox/{uid}     { allow read: if own(uid) || isAdmin(); allow write: if isAdmin(); }
+
+    // Coleções do caixa (PDV): só a loja.
+    match /pdv_ficha/{id}   { allow read, write: if isAdmin(); }
+    match /pdv_msgs/{id}    { allow read, write: if isAdmin(); }
+    match /pdv_avulsas/{id} { allow read, write: if isAdmin(); }
+    match /pdv_fech/{id}    { allow read, write: if isAdmin(); }
+    match /pdv_cfg/{id}     { allow read, write: if isAdmin(); }
+    match /crm/{id}         { allow read, write: if isAdmin(); }
+    match /campaigns/{id}   { allow read, write: if isAdmin(); }
 
     // Endereços de aviso (push) de cada aparelho.
-    match /pushTokens/{uid} { allow read, write: if own(uid); }
+    match /pushTokens/{uid} { allow read, write: if own(uid) || isAdmin(); }
   }
 }
