@@ -9,7 +9,7 @@
   var auth = firebase.auth();
   var fs = firebase.firestore();
   try { fs.settings({ ignoreUndefinedProperties: true, merge: true }); } catch (e) {}
-  try { fs.enablePersistence({ synchronizeTabs: true }).catch(function(){}); } catch (e) {}
+  // Sem cache offline: evita snapshots marcados como "do cache" que deixam o caixa preso em "Sem resposta do banco ainda".
   auth.languageCode = 'pt';
   window.GCFB = { auth: auth, db: fs, logout: function(){ auth.signOut().then(function(){ location.reload(); }); } };
 
