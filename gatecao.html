@@ -606,19 +606,20 @@ nav.bar button{font-size:10.5px;padding:7px 0;line-height:1.15;text-align:center
 @media print{
   body{visibility:hidden}
   #printSlip,#printSlip *{visibility:visible}
-  #printSlip{display:block;position:absolute;left:0;top:0;width:72mm;color:#000;background:#fff;font-family:'Courier New',ui-monospace,monospace;font-size:12.5px;line-height:1.35;padding:0}
+  #printSlip{display:block;position:absolute;left:0;top:0;width:72mm;color:#000;background:#fff;font-family:'Arial Black','Arial',ui-monospace,monospace;font-size:15px;font-weight:700;line-height:1.45;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   @page{size:80mm auto;margin:3mm}
 }
+#printSlip{font-weight:700}
 #printSlip .ph{text-align:center}
-#printSlip .ph b{font-size:18px;letter-spacing:1px}
-#printSlip .big{font-size:16px;font-weight:700}
-#printSlip hr{border:0;border-top:1px dashed #000;margin:5px 0}
-#printSlip .it{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
-#printSlip .it .bx{width:16px;height:16px;border:1.5px solid #000;flex:none;margin-top:1px}
-#printSlip .it .q{font-size:17px;font-weight:700;min-width:26px}
-#printSlip .it .nm{flex:1}
+#printSlip .ph b{font-size:24px;letter-spacing:1px;font-weight:800}
+#printSlip .big{font-size:19px;font-weight:800}
+#printSlip hr{border:0;border-top:2px solid #000;margin:7px 0}
+#printSlip .it{display:flex;gap:9px;align-items:flex-start;margin:7px 0}
+#printSlip .it .bx{width:20px;height:20px;border:2.5px solid #000;flex:none;margin-top:2px}
+#printSlip .it .q{font-size:22px;font-weight:800;min-width:30px}
+#printSlip .it .nm{flex:1;font-size:16px}
 #printSlip .row{display:flex;justify-content:space-between;gap:10px}
-#printSlip .mut{font-size:11px}
+#printSlip .mut{font-size:13px;font-weight:700}
 </style>
 <div id="cust">
   <header class="top">
