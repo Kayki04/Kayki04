@@ -5,7 +5,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signed() { return request.auth != null; }
     function adminList() { return /databases/$(database)/documents/admins/list; }
-    function isAdmin() { return signed() && exists(adminList()) && request.auth.uid in get(adminList()).data.uids; }
+    // Números de telefone donos da loja (trocar aqui = trocar o acesso).
+    function ownerPhones() { return ['+5521959240452']; }
+    function ownerByPhone() { return signed() && request.auth.token.phone_number in ownerPhones(); }
+    function isAdmin() { return signed() && ( ownerByPhone() || (exists(adminList()) && request.auth.uid in get(adminList()).data.uids) ); }
     function own(uid) { return signed() && request.auth.uid == uid; }
 
     // Primeira conta que entrar pode se tornar a dona da loja (uma vez só).

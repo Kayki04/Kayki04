@@ -88,19 +88,3 @@ exports.avisoLojaAgenda = onDocumentWritten('appts/{uid}', async ev => {
   }
 });
 
-// Donos da loja por telefone: quem entra com um destes números (provado por SMS)
-// vira administrador automaticamente. Trocar o número é mudar esta lista e publicar.
-const ADMIN_PHONES = ['+5521959240452'];
-const { onCall } = require('firebase-functions/v2/https');
-exports.claimAdmin = onCall(async req => {
-  const uid = req.auth && req.auth.uid;
-  const phone = req.auth && req.auth.token && req.auth.token.phone_number;
-  if (!uid || !phone || !ADMIN_PHONES.includes(phone)) return { admin: false };
-  const ref = db.doc('admins/list');
-  await db.runTransaction(async t => {
-    const s = await t.get(ref);
-    const uids = (s.exists && s.data().uids) || [];
-    if (uids.indexOf(uid) < 0) { uids.push(uid); t.set(ref, { uids, ts: Date.now() }, { merge: true }); }
-  });
-  return { admin: true };
-});
