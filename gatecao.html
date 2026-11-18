@@ -2068,14 +2068,28 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   var VAR={src:null,len:-1,by:{},groups:{}};
   if(!state.varSel)state.varSel={};
   function fmtKg(kg){return kg<1?Math.round(kg*1000)+' g':String(+kg.toFixed(2)).replace('.',',')+' kg'}
+  var V_STOP={racao:1,seca:1,para:1,de:1,'do':1,da:1,dos:1,das:1,e:1,com:1,sabor:1,a:1,o:1,em:1,gratis:1,gra:1,gr:1,g:1,kg:1};
+  var V_SYN={cao:'caes',adultos:'adulto',gatos:'gato',castrados:'castrado',cadastrados:'castrado',cast:'castrado',racas:'porte',raca:'porte',portes:'porte',
+    pequenas:'pequeno',pequena:'pequeno',peq:'pequeno',medias:'medio',media:'medio',grandes:'grande',filhotes:'filhote',carnes:'carne',sen:'senior',qutree:'quatree',gigantes:'gigante',especificas:'especifica'};
   function wParse(n){
-    var re=/(\d+(?:[.,]\d+)?)\s*(kg|kgs|g|gr)\b/gi,m,last=null;n=String(n||'');
-    while((m=re.exec(n)))last=m;
-    if(!last)return null;
-    var v=num(last[1]);if(!(v>0))return null;
-    var kg=/^k/i.test(last[2])?v:v/1000;
-    var base=(n.slice(0,last.index)+' '+n.slice(last.index+last[0].length)).replace(/\s{2,}/g,' ').replace(/^[\s\-–,]+|[\s\-–,]+$/g,'').replace(/\s+([,\-–])\s*$/,'').trim();
-    return{kg:kg,base:base};
+    n=String(n||'');var kg,cut,m=/(\d+(?:[.,]\d+)?)\s*kg\s*\+\s*(\d+(?:[.,]\d+)?)\s*g\b/i.exec(n);
+    if(m){kg=num(m[1])+num(m[2])/1000;cut=[m.index,m.index+m[0].length]}
+    else{
+      var re=/(\d+(?:[.,]\d+)?)\s*(kg|kgs|g|gr)\b/gi,x,last=null;while((x=re.exec(n)))last=x;
+      if(!last)return null;var v=num(last[1]);if(!(v>0))return null;
+      kg=/^k/i.test(last[2])?v:v/1000;cut=[last.index,last.index+last[0].length];
+    }
+    var base=(n.slice(0,cut[0])+' '+n.slice(cut[1])).replace(/\b(gr[aá]tis|gra|gr)\b\.?/gi,' ').replace(/\s+g\s*$/i,' ').replace(/\s{2,}/g,' ').replace(/^[\s\-–,+]+|[\s\-–,+]+$/g,'').trim();
+    var toks=normTxt(base).match(/[a-z0-9]+/g)||[];
+    toks=toks.map(function(w){return V_SYN[w]||w}).filter(function(w){return !V_STOP[w]});
+    var has=function(w){return toks.indexOf(w)>-1};
+    var drop={};
+    if(has('golden')){drop.arroz=1;drop.bits=1;drop.formula=1}
+    if(has('premier')){drop.pet=1}
+    if(has('fresh')&&has('meat')){drop.mandioca=1;drop.alecrim=1}
+    toks=toks.filter(function(w){return !drop[w]});
+    var key=toks.filter(function(w,i,a){return a.indexOf(w)===i}).sort().join(' ');
+    return{kg:kg,base:base,key:key};
   }
   function varIndex(){
     if(VAR.src===D.products&&VAR.len===D.products.length)return VAR;
@@ -2083,10 +2097,10 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     D.products.forEach(function(p){
       if(p.active===false)return;
       var t=p.t||[];if(t.indexOf('Antipulgas')>-1||t.indexOf('Farmácia')>-1)return;
-      var w=wParse(p.name);if(!w)return;
-      var key=normTxt(w.base).replace(/[^a-z0-9]+/g,' ').replace(/\b(com|c)\s*$/,'').trim();
-      if(!key)return;
-      (G[key]=G[key]||{key:key,name:w.base,items:[]}).items.push({p:p,kg:w.kg});
+      var w=wParse(p.name);if(!w||!w.key)return;
+      var g=(G[w.key]=G[w.key]||{key:w.key,name:'',items:[]});
+      if(w.base.length>g.name.length)g.name=w.base;
+      g.items.push({p:p,kg:w.kg});
     });
     var by={},groups={};
     Object.keys(G).forEach(function(k){
@@ -2094,6 +2108,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       g.items.sort(function(a,b){return a.kg-b.kg||num(a.p.price)-num(b.p.price)});
       g.items=g.items.filter(function(it){var kk=it.kg.toFixed(3);if(seen[kk])return false;seen[kk]=1;return true});
       if(g.items.length<2)return;
+      if(g.name===g.name.toUpperCase())g.name=g.name.split(' ').map(function(w){var l=w.toLowerCase();return (w.length>=4||/^(cat|dog|mix|gold)$/.test(l))&&!/\//.test(w)?l.charAt(0).toUpperCase()+l.slice(1):(/^(de|e|da|do|com|para)$/.test(l)?l:w)}).join(' ');
       groups[k]=g;g.items.forEach(function(it){by[it.p.id]=g});
     });
     VAR={src:D.products,len:D.products.length,by:by,groups:groups};
