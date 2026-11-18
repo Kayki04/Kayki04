@@ -3316,8 +3316,9 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var idx=0;steps.forEach(function(x,i){if(x[0]===st)idx=i});
     return '<div class="tl" aria-label="Andamento: '+esc(st)+'">'+steps.map(function(x,i){return '<span class="'+(i<=idx?'on':'')+(i===idx?' now':'')+'">'+x[1]+'</span>'}).join('')+'</div>';
   }
+  function pushPrompt(){if(!window.GCFB||!X.uid||load('gc_pushask',0)>2)return '';var st=sysState();if(st==='granted'&&!load('gc_sysoff',false))return '';if(st==='denied')return '';return '<div style="margin-top:14px">'+sysNotifyCard()+'</div>'}
   function renderPedidos(){
-    var h='<div class="sec" style="margin-top:14px"><h2>Agendamentos</h2><span>'+state.myAppts.length+'</span></div>';
+    var h=pushPrompt()+'<div class="sec" style="margin-top:14px"><h2>Agendamentos</h2><span>'+state.myAppts.length+'</span></div>';
     if(!state.myAppts.length)h+='<p class="muted" style="margin:0 0 14px">Nenhum agendamento ainda. Use a aba Banho e tosa para marcar.</p>';
     state.myAppts.forEach(function(a){
       var st=apStatus(a),fut=apWhen(a)>Date.now()+Math.max(0,num(S('agCancelH',2)))*3600000,canMod=st==='Agendado'&&fut&&X.db&&X.uid;
@@ -3343,6 +3344,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       h+='<div class="sec" style="margin-top:22px"><h2>Minha conta</h2></div><div class="hist"><div class="row"><b>Acesso da loja</b><span class="pill">Conta da loja</span></div><span class="muted">Você entrou com a conta da Gatecão. A área de gestão está liberada para você.</span><button class="primary" id="openAdm" style="margin-top:6px">Abrir gestão</button></div>';
     }
     view.innerHTML=h;
+    bindSysNotify(function(){save('gc_pushask',load('gc_pushask',0)+1);render()});
     $$('[data-cancelap]',view).forEach(function(b){b.onclick=function(){
       if(b.getAttribute('data-sure')!=='1'){b.setAttribute('data-sure','1');b.textContent='Toque de novo para cancelar';return}
       b.disabled=true;cancelAppt(b.getAttribute('data-cancelap'),false).then(function(ok){if(ok){toast('Agendamento cancelado');render()}else{b.disabled=false;b.textContent='Cancelar'}});
@@ -5607,12 +5609,12 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function sysState(){try{return sysOk()?Notification.permission:'unavailable'}catch(e){return 'unavailable'}}
   function sysNotify(title,body){
     if(load('gc_sysoff',false)||sysState()!=='granted')return;
-    try{var n=new Notification(title,{body:body,tag:'gatecao-'+title,silent:false});n.onclick=function(){try{window.focus()}catch(e){}n.close()}}catch(e){}
+    try{var n=new Notification(title,{body:body,tag:'gc-'+title,silent:false});n.onclick=function(){try{window.focus()}catch(e){}n.close()}}catch(e){}
   }
   function sysNotifyCard(){
     var st=sysState();
     if(st==='granted'&&!load('gc_sysoff',false))return '<div class="loynote" style="display:flex;justify-content:space-between;gap:10px;align-items:center"><span>Avisos no aparelho ligados.</span><button class="mini" id="sysOff">Desligar</button></div>';
-    if(st==='unavailable')return '<p class="hint" style="margin:0">Os avisos aparecem aqui e no sino. Este navegador não mostra avisos fora do app.</p>';
+    if(st==='unavailable'||(window.GCFB&&GCFB.isIOSBrowser&&GCFB.isIOSBrowser()))return '<p class="hint" style="margin:0">'+(window.GCFB&&GCFB.isIOSBrowser&&GCFB.isIOSBrowser()?'No iPhone, para receber avisos com o app fechado: toque em Compartilhar › <b>Adicionar à Tela de Início</b> e abra o app pelo ícone da Gatecão.':'Os avisos aparecem aqui e no sino. Este navegador não mostra avisos fora do app.')+'</p>';
     if(st==='denied')return '<p class="hint" style="margin:0">Os avisos fora do app estão bloqueados neste navegador. Para ligar, libere as notificações nas configurações do navegador.</p>';
     return '<div class="loynote" style="display:flex;justify-content:space-between;gap:10px;align-items:center"><span>Quer receber avisos mesmo com o app em segundo plano?</span><button class="mini" id="sysOn">Ativar</button></div>';
   }
@@ -5620,10 +5622,10 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var on=$('#sysOn'),off=$('#sysOff');
     if(on)on.onclick=async function(){
       save('gc_sysoff',false);
-      try{var r=await Notification.requestPermission();if(r==='granted'){toast('Avisos ligados');sysNotify('Gatecão','Pronto! Você vai receber os avisos por aqui.')}else toast('O navegador não liberou os avisos')}catch(e){toast('Este navegador não permite avisos aqui')}
+      try{var r=await Notification.requestPermission();if(r==='granted'){if(window.GCFB&&GCFB.enablePush)GCFB.enablePush();toast('Avisos ligados');sysNotify('Gatecão','Pronto! Você vai receber os avisos por aqui.')}else toast('O navegador não liberou os avisos')}catch(e){toast('Este navegador não permite avisos aqui')}
       reopen();
     };
-    if(off)off.onclick=function(){save('gc_sysoff',true);toast('Avisos no aparelho desligados');reopen()};
+    if(off)off.onclick=function(){if(window.GCFB&&GCFB.disablePush)GCFB.disablePush();save('gc_sysoff',true);toast('Avisos no aparelho desligados');reopen()};
   }
   function beep(){
     try{var C=window.AudioContext||window.webkitAudioContext;if(!C)return;var c=beep.c||(beep.c=new C()),o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.value=880;g.gain.setValueAtTime(.0001,c.currentTime);g.gain.exponentialRampToValueAtTime(.2,c.currentTime+.02);g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.35);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.4)}catch(e){}

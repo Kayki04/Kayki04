@@ -27,7 +27,7 @@ head = ('<meta name="theme-color" content="#FF7A00">'
 html = html.replace('</head>', head + '</head>', 1)
 
 sdk = ''.join('<script src="https://www.gstatic.com/firebasejs/%s/firebase-%s-compat.js"></script>' % (SDK, m)
-              for m in ('app', 'auth', 'firestore', 'storage'))
+              for m in ('app', 'auth', 'firestore', 'storage', 'messaging'))
 shim = sdk + '<script src="/config.js"></script><script src="/shim.js"></script>\n'
 i = html.index('<script>')
 html = html[:i] + shim + html[i:]

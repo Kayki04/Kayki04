@@ -45,5 +45,8 @@ service cloud.firestore {
     match /redeems/{uid}   { allow read, write: if own(uid); }
     match /wallet/{uid}    { allow read: if own(uid); }
     match /inbox/{uid}     { allow read: if own(uid); }
+
+    // Endereços de aviso (push) de cada aparelho.
+    match /pushTokens/{uid} { allow read, write: if own(uid); }
   }
 }

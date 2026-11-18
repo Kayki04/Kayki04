@@ -1,5 +1,5 @@
 /* Configuração pública do app no Firebase (não é senha: a segurança fica nas regras). */
-window.GC_FIREBASE_CONFIG = {
+self.GC_FIREBASE_CONFIG = {
   apiKey: "AIzaSyDNJZNLQQDnk9l6FTPHteKdBCbbLoU--1s",
   authDomain: "gatecao-5acbc.firebaseapp.com",
   projectId: "gatecao-5acbc",

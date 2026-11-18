@@ -4,7 +4,7 @@
    então o código do app continua igual nos dois lugares. */
 (function(){
   'use strict';
-  var CFG = window.GC_FIREBASE_CONFIG;
+  var CFG = self.GC_FIREBASE_CONFIG;
   firebase.initializeApp(CFG);
   var auth = firebase.auth();
   var fs = firebase.firestore();
@@ -12,6 +12,28 @@
   try { fs.enablePersistence({ synchronizeTabs: true }).catch(function(){}); } catch (e) {}
   auth.languageCode = 'pt';
   window.GCFB = { auth: auth, db: fs, logout: function(){ auth.signOut().then(function(){ location.reload(); }); } };
+
+  /* ---------- avisos no celular (push) ---------- */
+  function pushOk(){ try { return !!(firebase.messaging && firebase.messaging.isSupported && firebase.messaging.isSupported()) && 'serviceWorker' in navigator && 'Notification' in window; } catch (e) { return false; } }
+  window.GCFB.pushSupported = pushOk;
+  window.GCFB.isIOSBrowser = function(){ return /iPhone|iPad|iPod/.test(navigator.userAgent) && !(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)); };
+  window.GCFB.enablePush = function(){
+    var u = auth.currentUser; if (!u || !pushOk() || Notification.permission !== 'granted') return Promise.resolve(false);
+    return navigator.serviceWorker.register('/sw.js').then(function(){ return navigator.serviceWorker.ready; }).then(function(reg){
+      return firebase.messaging().getToken({ serviceWorkerRegistration: reg });
+    }).then(function(tok){
+      if (!tok) return false;
+      var o = {}; o['t.' + tok] = { ts: Date.now(), origin: location.origin, ua: navigator.userAgent.slice(0, 120) };
+      var ref = fs.doc('pushTokens/' + u.uid);
+      return ref.update(o).catch(function(){ var t = {}; t[tok] = o['t.' + tok]; return ref.set({ t: t }); }).then(function(){ try { localStorage.setItem('gc_ptok', tok); } catch (e) {} return true; });
+    }).catch(function(){ return false; });
+  };
+  window.GCFB.disablePush = function(){
+    var u = auth.currentUser, tok = null; try { tok = localStorage.getItem('gc_ptok'); } catch (e) {}
+    if (!u || !tok) return Promise.resolve();
+    var o = {}; o['t.' + tok] = firebase.firestore.FieldValue.delete();
+    return fs.doc('pushTokens/' + u.uid).update(o).catch(function(){}).then(function(){ try { return firebase.messaging().deleteToken(); } catch (e) {} });
+  };
 
   /* ---------- tela de login ---------- */
   var css = '.gcl{position:fixed;inset:0;z-index:100;background:#fff;display:grid;place-items:center;padding:24px;font-family:"Nunito Sans",system-ui,sans-serif;color:#0B2A5B}' +
@@ -93,6 +115,7 @@
       if (!u) { showLogin(''); return; }
       hideLogin();
       resolve(u);
+      try { if (pushOk() && Notification.permission === 'granted' && localStorage.getItem('gc_sysoff') !== 'true') setTimeout(window.GCFB.enablePush, 3000); } catch (e) {}
     });
   });
   var adminP = ready.then(function(u){

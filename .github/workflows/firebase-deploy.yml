@@ -3,7 +3,7 @@ name: Publicar no Firebase
 on:
   push:
     branches: [main, claude/app-banho-melhorias-bmd5ie]
-    paths: ['gatecao.html', 'firebase/**', 'firebase.json', 'tools/build_firebase.py', '.github/workflows/firebase-deploy.yml']
+    paths: ['gatecao.html', 'firebase/**', 'functions/**', 'firebase.json', 'tools/build_firebase.py', '.github/workflows/firebase-deploy.yml']
   workflow_dispatch:
 
 concurrency:
@@ -30,7 +30,11 @@ jobs:
           printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
       - name: Publicar site e regras do banco
-        run: npx --yes firebase-tools@13 deploy --only hosting,firestore:rules --project gatecao-5acbc --non-interactive
+        run: npx --yes firebase-tools@14 deploy --only hosting,firestore:rules --project gatecao-5acbc --non-interactive
       - name: Publicar regras das fotos
         continue-on-error: true
-        run: npx --yes firebase-tools@13 deploy --only storage --project gatecao-5acbc --non-interactive
+        run: npx --yes firebase-tools@14 deploy --only storage --project gatecao-5acbc --non-interactive
+      - name: Instalar o servidor de avisos
+        run: cd functions && npm ci --omit=dev --no-audit --no-fund
+      - name: Publicar o servidor de avisos
+        run: npx --yes firebase-tools@14 deploy --only functions --project gatecao-5acbc --non-interactive --force
