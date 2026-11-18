@@ -2143,6 +2143,13 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     return{price:r2(rp),normal:nm,off:Math.round((1-rp/nm)*100)};
   }
   function addDays(day,n){var d=new Date(day+'T12:00:00');d.setDate(d.getDate()+n);return iso(d)}
+  function balcaoTable(){return D.tables.find(function(t){return t.balcao&&!t.rec})||null}
+  function balcaoPrice(p){
+    var t=balcaoTable();if(!t)return basePrice(p);
+    var o=p.tp&&p.tp[t.id];
+    if(o!=null&&o!=='')return num(o);
+    return r2(num(p.price)*(1+num(t.adj)/100));
+  }
   function basePrice(p){
     var t=appTable();
     if(!t)return num(p.price);
@@ -3700,7 +3707,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     $('#'+prefix+'New').onclick=function(){var q=$('#'+prefix+'Q');openNewCustomer(q?q.value.replace(/\D/g,''):'',function(c){set(c);custPickerBind(prefix,get,set,onpick);if(onpick)onpick(c)})};
   }
 
-  function mbVenda(id){var p=byId(D.products,id);return MB.price[id]!=null?num(MB.price[id]):priced(p).price}
+  function mbVenda(id){var p=byId(D.products,id);return MB.price[id]!=null?num(MB.price[id]):balcaoPrice(p)}
   function aBalcao(m){
     var h='<div class="seg"><button data-act="mbTab" data-id="venda" aria-pressed="'+(MB.tab==='venda')+'">Venda manual</button><button data-act="mbTab" data-id="banho" aria-pressed="'+(MB.tab==='banho')+'">Agendar banho e tosa</button></div>';
     if(MB.tab==='banho'){m.innerHTML=h+mbBanhoHtml();mbBanhoBind();return}
@@ -4163,7 +4170,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var h='<div class="toolbar"><p class="hint" style="flex:1">Cada tabela ajusta o preço base em porcentagem (negativo dá desconto). Na grade abaixo você pode fixar um preço específico por produto. A tabela marcada como "No app" é a que os clientes veem. A tabela do tipo <b>Recorrência</b> define o preço de quem escolhe recompra.</p><button class="btn" data-act="tblNew">+ Nova tabela</button>'+(recTable()?'':'<button class="btn alt" data-act="tblNewRec">+ Tabela de recorrência</button>')+'</div>';
     if(!D.tables.length)h+='<div class="empty-card"><h2>Nenhuma tabela de preço</h2><p class="muted">Sem tabela, o app usa o preço base de cada produto.</p></div>';
     D.tables.slice().sort(function(a,b){return (b.app?1:0)-(a.app?1:0)||String(a.name).localeCompare(String(b.name),'pt-BR')}).forEach(function(t){
-      h+='<div class="acard"><div class="rowtight"><b>'+esc(t.name)+'</b>'+(t.rec?'<span class="st warn">Recorrência</span>':t.app?'<span class="st ok">No app</span>':'<span class="st off">Fora do app</span>')+'</div><span class="muted">Ajuste sobre o preço base: '+(num(t.adj)>0?'+':'')+num(t.adj)+'%'+(t.rec?' · intervalos: '+recDays().join(', ')+' dias':'')+'</span>'+
+      h+='<div class="acard"><div class="rowtight"><b>'+esc(t.name)+'</b>'+(t.rec?'<span class="st warn">Recorrência</span>':t.balcao?'<span class="st info">Balcão</span>':t.app?'<span class="st ok">No app</span>':'<span class="st off">Fora do app</span>')+'</div><span class="muted">Ajuste sobre o preço base: '+(num(t.adj)>0?'+':'')+num(t.adj)+'%'+(t.rec?' · intervalos: '+recDays().join(', ')+' dias':'')+'</span>'+
         (t.rec?'<span class="hint">Preço usado quando o cliente escolhe recompra. Só aparece no app quando fica mais barato que a compra normal.</span>':'')+
         '<div class="rowtight">'+(t.rec?'<span></span>':'<button class="mini" data-act="tblApp" data-id="'+esc(t.id)+'"'+(t.app?' disabled':'')+'>Usar no app</button>')+'<button class="mini" data-act="tblEdit" data-id="'+esc(t.id)+'">Editar</button></div></div>';
     });
@@ -4186,18 +4193,18 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var h='<div class="row"><h2>'+(cur?'Editar tabela':'Nova tabela')+'</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
     h+='<label class="fld">Nome da tabela<input class="in" id="tn" value="'+esc(t.name)+'" placeholder="Ex.: Atacado, Cliente fiel"></label>';
     h+='<label class="fld">Ajuste sobre o preço base (%)<input class="in" id="ta" inputmode="decimal" value="'+esc(String(t.adj).replace('.',','))+'"></label><p class="hint">Use -10 para 10% mais barato e 5 para 5% mais caro.</p>';
-    if(t.rec||!cur)h+='<div class="fld"><span>Tipo de tabela</span><div class="seg" style="margin:0"><button type="button" data-ttype="0" aria-pressed="'+(!t.rec)+'">Normal</button><button type="button" data-ttype="1" aria-pressed="'+(!!t.rec)+'"'+(recTable()&&(!cur||!cur.rec)?' disabled title="Já existe uma tabela de recorrência"':'')+'>Recorrência</button></div></div>';
+    if(t.rec||t.balcao||!cur)h+='<div class="fld"><span>Tipo de tabela</span><div class="seg" style="margin:0"><button type="button" data-ttype="0" aria-pressed="'+(!t.rec)+'">Normal</button><button type="button" data-ttype="1" aria-pressed="'+(!!t.rec)+'"'+(recTable()&&(!cur||!cur.rec)?' disabled title="Já existe uma tabela de recorrência"':'')+'>Recorrência</button><button type="button" data-ttype="2" aria-pressed="'+(!!t.balcao)+'"'+(balcaoTable()&&(!cur||!cur.balcao)?' disabled title="Já existe uma tabela de balcão"':'')+'>Balcão</button></div><p class="hint">Normal: preço do app e site. Recorrência: preço das recompras. Balcão: preço só da loja física.</p></div>';
     h+='<label class="fld" id="tdaysW"'+(t.rec?'':' hidden')+'>Intervalos que o cliente pode escolher (dias)<input class="in" id="tdays" value="'+esc((t.days||[15,30,45,60]).join(', '))+'" placeholder="15, 30, 45, 60"></label>';
     h+='<button class="primary" id="tsave">Salvar tabela</button>';
     if(cur&&(!cur.app||cur.rec))h+='<button class="btn danger" id="tdel" type="button">Excluir tabela</button>';
     $('#overlay').innerHTML=sheetHtml(h,'Tabela de preço');bindClose();
-    $$('[data-ttype]',$('#overlay')).forEach(function(b){b.onclick=function(){t.rec=b.getAttribute('data-ttype')==='1';$$('[data-ttype]',$('#overlay')).forEach(function(x){x.setAttribute('aria-pressed',x===b)});$('#tdaysW').hidden=!t.rec}});
+    $$('[data-ttype]',$('#overlay')).forEach(function(b){b.onclick=function(){var ty=b.getAttribute('data-ttype');t.rec=ty==='1';t.balcao=ty==='2';$$('[data-ttype]',$('#overlay')).forEach(function(x){x.setAttribute('aria-pressed',x===b)});$('#tdaysW').hidden=!t.rec}});
     $('#tsave').onclick=async function(){
       var name=$('#tn').value.trim();if(!name){toast('Dê um nome para a tabela');return}
       var adj=num($('#ta').value);if(adj<-90||adj>300){toast('Ajuste fora do limite');return}
       this.disabled=true;
       try{
-        var data={name:name,adj:adj,app:t.rec?false:!!t.app};
+        var data={name:name,adj:adj,app:(t.rec||t.balcao)?false:!!t.app,balcao:!!t.balcao};
         if(t.rec){data.rec=true;data.days=$('#tdays').value.split(/[,;\s]+/).map(function(x){return Math.round(num(x))}).filter(function(x){return x>=7&&x<=180}).filter(function(v,k,a){return a.indexOf(v)===k}).sort(function(a,b){return a-b});if(!data.days.length)data.days=[30]}
         if(cur)await X.db.doc('tables/'+cur.id).set(data);else await X.db.collection('tables').doc().set(data);
         closeSheet();toast('Tabela salva');
