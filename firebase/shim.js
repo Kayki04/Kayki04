@@ -101,7 +101,14 @@
       auth.signInWithPhoneNumber('+55' + d, recaptcha).then(function(r){ confirmRes = r; showLogin('code'); })
         .catch(function(e){
           try { recaptcha && recaptcha.clear(); } catch (x) {} recaptcha = null;
-          showLogin('phone', e && e.code === 'auth/too-many-requests' ? 'Muitas tentativas. Espere alguns minutos.' : e && e.code === 'auth/operation-not-allowed' ? 'Login por celular ainda não foi ativado pela loja. Use o Google.' : 'Não foi possível enviar o código. Confira o número.');
+          var c = (e && e.code) || '', m = String((e && e.message) || '');
+          var t = c === 'auth/too-many-requests' ? 'Muitas tentativas. Espere alguns minutos.' :
+            c === 'auth/invalid-phone-number' ? 'Número inválido. Confira o DDD e o número.' :
+            /region/i.test(m) ? 'O envio de SMS para o Brasil ainda não foi liberado pela loja. Use o Google por enquanto.' :
+            c === 'auth/operation-not-allowed' ? 'Login por celular ainda não foi ativado pela loja. Use o Google.' :
+            /captcha|domain/i.test(c + m) ? 'Falha na verificação de segurança. Recarregue a página e tente de novo.' :
+            'Não foi possível enviar o código. Confira o número.';
+          showLogin('phone', t + (c ? ' (' + c.replace('auth/', '') + ')' : ''));
         });
     };
     if ($('gcOk')) $('gcOk').onclick = function(){
