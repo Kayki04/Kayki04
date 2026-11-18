@@ -433,6 +433,50 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
 .hist.off,.acard.off{opacity:.6}
 .slothead{display:flex;align-items:center;gap:10px;margin:10px 0 6px;padding-left:4px}
 .slothead b{font-family:var(--font-display);font-size:18px;color:var(--brand)}
+.gboard{display:flex;gap:10px;margin-top:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;padding-bottom:8px}
+.gcol{flex:0 0 244px;scroll-snap-align:start;background:var(--sunk);border:1px solid var(--line);border-radius:16px;padding:8px;display:flex;flex-direction:column;gap:8px;min-width:0}
+@media(max-width:600px){.gcol{flex-basis:84%}}
+.gcol>h3{margin:2px 4px;font-family:var(--font-display);font-size:15px;display:flex;align-items:center;gap:6px;color:var(--gc)}
+.gcol>h3 .cnt{margin-left:auto;background:#fff;border:1px solid var(--line);border-radius:999px;min-width:22px;height:22px;display:grid;place-items:center;font-size:12px;font-weight:800;color:var(--ink)}
+.gcol.mark{--gc:#2F6BD8;--gcs:#E7EFFF}
+.gcol.arr{--gc:#C77700;--gcs:#FFF1D6}
+.gcol.bath{--gc:#7A3FD8;--gcs:#F0E8FF}
+.gcol.done{--gc:#1D7F53;--gcs:#E2F4EA}
+.gcol.out{--gc:#5E6F8E;--gcs:#EEF2F8}
+.gcard{position:relative;background:#fff;border:1px solid var(--line);border-left:5px solid var(--gc);border-radius:14px;padding:9px;display:flex;flex-direction:column;gap:6px;cursor:pointer;box-shadow:0 1px 2px rgba(11,42,91,.06);min-width:0}
+.gcard>*{min-width:0;max-width:100%}
+.gcard .top,.gcard .top>div{min-width:0}
+.gcard .sb,.gcard .svc{overflow-wrap:break-word}
+.gcard .nm{flex:1;min-width:0;overflow-wrap:break-word;line-height:1.12}
+.gcard:active{transform:scale(.99)}
+.gcard .top{display:flex;gap:8px;align-items:flex-start}
+.gcard .info{min-width:0;flex:1}
+.gcard .nmrow{display:flex;align-items:center;gap:6px}
+.gphoto{width:46px;height:46px;border-radius:12px;object-fit:cover;background:var(--gcs);flex:none;display:grid;place-items:center;color:var(--gc)}
+.gphoto svg{width:28px;height:28px}
+.gcard .nm{font-weight:800;font-family:var(--font-display);font-size:16px;line-height:1.1}
+.gcard .sb{font-size:12px;color:var(--muted)}
+.gcard .svc{font-size:12.5px;font-weight:700}
+.gtime{flex:none;background:var(--gcs);color:var(--gc);font-weight:800;border-radius:8px;padding:2px 7px;font-size:12px;white-space:nowrap}
+.galerts{display:flex;flex-wrap:wrap;gap:4px}
+.gal{background:var(--bad-soft);color:var(--bad);border-radius:999px;padding:1px 7px;font-size:11px;font-weight:800}
+.gal.lt{background:var(--accent-soft);color:var(--accent-d)}
+.gnext{appearance:none;border:0;background:var(--gc);color:#fff;font-weight:800;font-size:13px;border-radius:10px;padding:8px;cursor:pointer;font-family:var(--font-body)}
+.gempty{color:var(--muted);font-size:12px;text-align:center;padding:14px 4px}
+.gchips{display:flex;flex-wrap:wrap;gap:6px}
+.gchip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:6px 11px;font-size:13px;font-weight:700;cursor:pointer}
+.gchip[aria-pressed=true]{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
+.gphotos{display:flex;flex-wrap:wrap;gap:8px}
+.gphotos .ph{position:relative;width:76px;height:76px;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.gphotos .ph img{width:100%;height:100%;object-fit:cover}
+.gphotos .ph button{position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:999px;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;line-height:1;cursor:pointer}
+.gadd{width:76px;height:76px;border-radius:12px;border:1.5px dashed var(--line);background:var(--sunk);display:grid;place-items:center;cursor:pointer;color:var(--muted);font-size:26px}
+.gdo{display:flex;align-items:center;gap:9px;padding:8px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.gdo input{width:20px;height:20px;flex:none}
+.gstage{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0}
+.gstage button{flex:1;min-width:84px;border:0;border-radius:10px;padding:9px 6px;font-weight:800;font-size:12.5px;cursor:pointer;background:var(--sunk);color:var(--ink)}
+.gstage button.cur{background:var(--brand);color:#fff}
+.gphoto-big{width:100%;max-height:220px;object-fit:cover;border-radius:14px;background:var(--sunk)}
 .recnote{font-size:12px;font-weight:800;color:#12663A}
 .pvmode{display:grid;gap:8px;margin-top:14px}
 .recsel{margin-top:6px;padding:7px 10px;font-size:13px}
@@ -2119,7 +2163,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   var ICON_OPTS=[['bag','Saco de ração'],['shield','Escudo (antipulgas)'],['pill','Remédio'],['bone','Osso ou petisco'],['drop','Gota ou higiene'],['ball','Bola ou brinquedo'],['tag','Etiqueta ou acessório'],['bowl','Comedouro'],['bed','Cama'],['cat','Gato'],['paw','Patinha']];
   var SLOTS=['09:00','10:00','11:00','13:00','14:00','15:00','16:00','17:00'];
   var ORDER_ST=['Novo','Confirmado','Em separação','Saiu para entrega','Pronto para retirada','Entregue','Cancelado'];
-  var APPT_ST=['Agendado','Em atendimento','Pronto para buscar','A caminho de casa','Concluído','Cancelado','Faltou'];
+  var APPT_ST=['Agendado','Aguardando','Em atendimento','Pronto para buscar','A caminho de casa','Concluído','Cancelado','Faltou'];
 
   /* ---------- estado ---------- */
   var D={reviews:[],coupons:[],myOrd:[],myRec:[],banners:[],products:[],promos:[],tables:[],services:[],settings:{},slots:{},status:{},orders:[],appts:[],ready:{},nodb:false,slow:false,customers:[],wallets:{},crm:{},rewards:[],redeems:[],me:null,myRedeems:[]};
@@ -3524,7 +3568,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
 
   /* ================= GESTÃO ================= */
-  var ATABS=[['resumo','Resumo'],['relatorios','Relatórios'],['balcao','Balcão'],['produtos','Produtos'],['promos','Promoções'],['tabelas','Tabelas de preço'],['pedidos','Pedidos'],['clientes','Clientes'],['vantagens','Vantagens'],['mensagens','Mensagens'],['servicos','Serviços'],['banners','Banners'],['loja','Loja']];
+  var ATABS=[['resumo','Resumo'],['relatorios','Relatórios'],['balcao','Balcão'],['produtos','Produtos'],['promos','Promoções'],['tabelas','Tabelas de preço'],['pedidos','Pedidos'],['painel','Painel banho'],['clientes','Clientes'],['vantagens','Vantagens'],['mensagens','Mensagens'],['servicos','Serviços'],['banners','Banners'],['loja','Loja']];
   function wfail(e){toast(e&&e.code==='invalid_argument'?'Sem permissão para salvar':'Não foi possível salvar. Tente de novo.')}
   function allOrders(){
     var out=[];
@@ -3622,7 +3666,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     (function(){var bar=$('.atabs',admEl);if(bar&&!bar._wx){bar._wx=1;bar.addEventListener('wheel',function(e){if(e.ctrlKey)return;var dy=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;if(!dy||bar.scrollWidth<=bar.clientWidth+1)return;bar.scrollLeft+=(e.deltaMode===1?dy*16:dy);e.preventDefault()},{passive:false})}})();
     var m=$('#aMain');
     if(D.nodb){m.innerHTML=noDbBox();return}
-    var fn={relatorios:aRelatorios,resumo:aResumo,balcao:aBalcao,produtos:aProdutos,promos:aPromos,tabelas:aTabelas,pedidos:aPedidos,clientes:aClientes,vantagens:aVantagens,mensagens:aMensagens,servicos:aServicos,banners:aBanners,loja:aLoja}[tab];
+    var fn={relatorios:aRelatorios,resumo:aResumo,balcao:aBalcao,produtos:aProdutos,promos:aPromos,tabelas:aTabelas,pedidos:aPedidos,painel:aBanhoPainel,clientes:aClientes,vantagens:aVantagens,mensagens:aMensagens,servicos:aServicos,banners:aBanners,loja:aLoja}[tab];
     fn(m);
     m.onclick=function(e){var b=e.target.closest('[data-act]');if(b&&ACT[b.getAttribute('data-act')])ACT[b.getAttribute('data-act')](b.getAttribute('data-id'),b)};
     m.onchange=function(e){var t=e.target;if(t.getAttribute&&t.getAttribute('data-chg')&&CHG[t.getAttribute('data-chg')])CHG[t.getAttribute('data-chg')](t.getAttribute('data-id'),t)};
@@ -4267,13 +4311,143 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
           ((a.breed||a.weight)?'<span class="muted">'+esc([a.breed,a.weight?String(a.weight).replace('.',',')+' kg':'',a.coat?'pelagem '+String(a.coat).toLowerCase():''].filter(Boolean).join(' · '))+'</span>':'')+
           (a.lt?'<span class="muted">Leva e traz: '+esc(a.lt.label)+' · '+esc(a.lt.addr)+', '+esc(a.lt.bairro)+(a.lt.comp?' ('+esc(a.lt.comp)+')':'')+(a.lt.phone?' · '+esc(fmtPhone(a.lt.phone)):'')+'</span>':'')+
           '<span>'+esc(a.svc)+' · '+brl(a.price)+'</span>'+(f==='canc'?'<span class="muted">'+fmtDayLong(a.day)+' às '+esc(a.slot)+'</span>':'')+(a.obs?'<span class="hint">Obs.: '+esc(a.obs)+'</span>':'')+
-          '<button class="mini" data-act="petFicha" data-id="'+esc(a.id)+'" style="justify-self:start">Ficha do pet</button>'+(a.canceled?'':'<label class="fld">Situação<select class="in" data-chg="apSt" data-id="'+esc(a.id)+'|'+esc(a.day)+'|'+esc(a.slot)+'|'+esc(a.uid)+'">'+opts(APPT_ST,st)+'</select></label>')+'</div>';
+          '<button class="mini" data-act="petFicha" data-id="'+esc(a.id)+'" style="justify-self:start">Ficha do pet</button>'+'<button class="mini" data-act="groomOpen" data-id="'+esc(a.id)+'" style="justify-self:start">🛁 Atendimento</button>'+(a.canceled?'':'<label class="fld">Situação<select class="in" data-chg="apSt" data-id="'+esc(a.id)+'|'+esc(a.day)+'|'+esc(a.slot)+'|'+esc(a.uid)+'">'+opts(APPT_ST,st)+'</select></label>')+'</div>';
       });
     }
     m.innerHTML=h;
   }
 
   /* ----- Serviços ----- */
+  /* ----- Painel de banho e tosa ----- */
+  function groomOf(aid){return (D.status[aid]&&D.status[aid].g)||{}}
+  function gStage(st){return st==='Agendado'?'mark':st==='Aguardando'?'arr':st==='Em atendimento'?'bath':(st==='Pronto para buscar'||st==='A caminho de casa')?'done':st==='Concluído'?'out':null}
+  function gNextOf(st){return ({'Agendado':'Aguardando','Aguardando':'Em atendimento','Em atendimento':'Pronto para buscar','Pronto para buscar':'Concluído','A caminho de casa':'Concluído'})[st]||''}
+  function gNextLabel(st){return ({'Agendado':'Chegou','Aguardando':'Iniciar banho','Em atendimento':'Pronto','Pronto para buscar':'Entregue','A caminho de casa':'Entregue'})[st]||''}
+  var GCOLS=[['mark','📋 Marcados'],['arr','🔔 Chegaram'],['bath','🛁 Em banho'],['done','✨ Prontos'],['out','🏠 Entregues']];
+  function gCardHtml(a){
+    var st=apStatus(a),g=groomOf(a.id),nx=gNextOf(st);
+    var photo=g.photo?'<img class="gphoto" src="/_blob/'+esc(g.photo)+'" alt="" loading="lazy">':'<span class="gphoto">'+svg(a.kind==='Gato'?'cat':'paw')+'</span>';
+    var al='';(g.chips||[]).forEach(function(c){al+='<span class="gal">'+esc(c)+'</span>'});
+    if(a.lt)al+='<span class="gal lt">🚐 Leva e traz</span>';
+    return '<div class="gcard" data-act="groomOpen" data-id="'+esc(a.id)+'">'+
+      '<div class="top">'+photo+'<div class="info"><div class="nmrow"><span class="nm">'+esc(a.pet||'Pet')+'</span>'+(a.slot?'<span class="gtime">'+esc(a.slot)+'</span>':'')+'</div><div class="sb">'+esc([a.kind,a.size,a.breed].filter(Boolean).join(' · '))+'</div></div></div>'+
+      (a.svc?'<div class="svc">'+esc(a.svc)+'</div>':'')+
+      (al?'<div class="galerts">'+al+'</div>':'')+
+      '<div class="sb">'+esc(a.tutor||custName(a.uid))+'</div>'+
+      (nx?'<button class="gnext" data-act="groomNext" data-id="'+esc(a.id)+'">'+esc(gNextLabel(st))+' →</button>':(st==='Concluído'&&!g.reportSent?'<button class="gnext" data-act="groomOpen" data-id="'+esc(a.id)+'" style="background:var(--accent);color:#0B2A5B">Enviar relatório</button>':''))+
+    '</div>';
+  }
+  function aBanhoPainel(m){
+    var t0=todayStr();
+    var aps=allAppts().filter(function(a){var st=apStatus(a);if(st==='Cancelado'||st==='Faltou')return false;var stg=gStage(st);if(!stg)return false;if(a.day===t0)return true;return stg==='arr'||stg==='bath'||stg==='done'});
+    var byc={mark:[],arr:[],bath:[],done:[],out:[]};
+    aps.forEach(function(a){var stg=gStage(apStatus(a));if(stg==='out'&&a.day!==t0)return;if(byc[stg])byc[stg].push(a)});
+    Object.keys(byc).forEach(function(k){byc[k].sort(function(a,b){return (String(a.slot||'')+a.pet)<(String(b.slot||'')+b.pet)?-1:1})});
+    var active=byc.arr.length+byc.bath.length+byc.done.length;
+    var h='<div class="toolbar"><div style="flex:1"><b style="font-family:var(--font-display);font-size:19px">Painel de banho e tosa</b><br><span class="hint">'+esc(fmtDayLong(t0))+' · '+aps.length+' pet'+(aps.length===1?'':'s')+' · toque num card para abrir a ficha</span></div><button class="btn line" data-act="seg" data-id="agenda" style="display:none"></button></div>';
+    h+='<div class="gboard">';
+    GCOLS.forEach(function(c){var L=byc[c[0]];h+='<div class="gcol '+c[0]+'"><h3>'+c[1]+'<span class="cnt">'+L.length+'</span></h3>';if(!L.length)h+='<div class="gempty">—</div>';L.forEach(function(a){h+=gCardHtml(a)});h+='</div>'});
+    h+='</div>';
+    if(!aps.length)h+='<div class="empty-card" style="margin-top:12px"><h2>Nenhum pet hoje</h2><p class="muted">Os banhos marcados para hoje aparecem aqui. Marque horários em Pedidos › Banho e tosa, no Balcão, ou pelo app do cliente.</p></div>';
+    m.innerHTML=h;
+  }
+  async function setApptStatus(aid,day,slot,uid,next){
+    var prev=D.status[aid]||{};
+    var ap=allAppts().filter(function(x){return x.id===aid})[0];
+    var st=Object.assign({},prev,{status:next,ts:Date.now()});
+    st.note=prev.note||'';st.earnedPts=num(prev.earnedPts);st.earnedCash=num(prev.earnedCash);st.earnedBase=num(prev.earnedBase);
+    try{
+      if(next==='Concluído'&&ap&&uid&&!st.earnedPts&&!st.earnedCash){
+        var e=earnFor(num(ap.price),wal(uid).life,((D.ficha||{})[uid]||{}).aniversario),fb=firstBuy(uid);
+        if(e.pts>0||e.cash>0){await walletAdd(uid,{t:'compra',pago:num(ap.price),pts:e.pts,cash:e.cash,text:'Serviço: '+ap.svc});st.earnedPts=e.pts;st.earnedCash=e.cash;st.earnedBase=num(ap.price);if(fb)await appIndicacao(uid)}
+      }else if(next!=='Concluído'&&(st.earnedPts>0||st.earnedCash>0)&&uid){
+        await walletAdd(uid,{t:'compra',pago:-(st.earnedBase||0),pts:-st.earnedPts,cash:-st.earnedCash,text:'Serviço desfeito'});st.earnedPts=0;st.earnedCash=0;st.earnedBase=0;
+      }
+      D.status[aid]=st;
+      await X.db.doc('status/'+aid).set(st);
+      if(prev.status!==next&&uid){var am=apptNote(next,st,ap);if(am)notifyUser(uid,next==='Pronto para buscar'?(ap&&ap.pet?ap.pet:'Seu pet')+' está pronto!':next==='A caminho de casa'?'Saiu para entrega':next==='Aguardando'?'Recebemos seu pet':'Banho e tosa',am,'agenda')}
+      if(next==='Cancelado'&&prev.status!=='Cancelado')await slotRelease(day,slot,aid);
+      else if(prev.status==='Cancelado'&&next!=='Cancelado'){var rr=await slotReserve(day,slot,aid,ap&&ap.ts||Date.now());if(!rr)toast('Atenção: esse horário já está lotado')}
+      toast('Agendamento atualizado');
+    }catch(e){wfail(e)}
+  }
+  var GD=null;
+  var GCHIPS=['🦟 Pulga','🐛 Carrapato','🩹 Machucado','🧶 Nó no pelo','😰 Assustado','🦷 Tártaro','👂 Ouvido sujo','🐾 Unha encravada','🧴 Pele sensível'];
+  function openGroom(aid){
+    var ap=allAppts().filter(function(x){return x.id===aid})[0];if(!ap)return;
+    var g=Object.assign({photo:'',cond:'',chips:[],condPhotos:[],arrivedWith:'',leftWith:'',done:[],obs:'',reportSent:0},(D.status[aid]&&D.status[aid].g)||{});
+    GD={aid:aid,uid:ap.uid,ap:ap,g:g};
+    renderGroom();
+  }
+  function gReadInputs(){
+    if(!GD)return;var g=GD.g,ov=$('#overlay');
+    var c=$('#gCond',ov);if(c)g.cond=c.value.trim();
+    var a=$('#gArr',ov);if(a)g.arrivedWith=a.value.trim();
+    var l=$('#gLeft',ov);if(l)g.leftWith=l.value.trim();
+    var o=$('#gObs',ov);if(o)g.obs=o.value.trim();
+    var done=$$('[data-gdo]',ov).filter(function(x){return x.checked}).map(function(x){return x.getAttribute('data-gdo')});
+    if(done.length||$$('[data-gdo]',ov).length)g.done=done;
+  }
+  async function persistGroom(){var aid=GD.aid,cur=D.status[aid]||{status:apStatus(GD.ap)};var nd=Object.assign({},cur,{g:GD.g});D.status[aid]=nd;await X.db.doc('status/'+aid).set(nd)}
+  async function gUpload(file){
+    if(!X.assets){toast('Envio de fotos indisponível neste acesso');return null}
+    try{var blob=await resizeImage(file,1000);var r=await withRetry(function(){return X.assets.upload(blob,{type:'image/jpeg'})});return r.id}
+    catch(e){toast(e&&e.code==='quota_or_state'?'Espaço de fotos esgotado':e&&e.code==='too_large'?'Foto muito grande':'Não foi possível enviar a foto');return null}
+  }
+  function groomReport(ap,g){
+    var pet=ap.pet||'seu pet',L=['🛁 *Relatório de banho e tosa — Gatecão*','',pet+(ap.kind?' ('+ap.kind+')':'')+(ap.day?' · '+fmtDay(ap.day):'')];
+    var done=(g.done&&g.done.length)?g.done:(ap.svc?[ap.svc]:[]);
+    if(done.length)L.push('','*Serviços realizados:*',done.map(function(s){return '• '+s}).join('\n'));
+    if(g.chips&&g.chips.length)L.push('','*Como chegou:* '+g.chips.join(', '));
+    if(g.cond)L.push(g.cond);
+    if(g.arrivedWith||g.leftWith)L.push('',(g.arrivedWith?'*Chegou com:* '+g.arrivedWith:'')+(g.arrivedWith&&g.leftWith?'\n':'')+(g.leftWith?'*Saiu com:* '+g.leftWith:''));
+    if(g.obs)L.push('',g.obs);
+    L.push('','Obrigado por confiar no Gatecão! 🐾');
+    return L.join('\n');
+  }
+  async function sendGroomReport(){
+    var ap=GD.ap,g=GD.g,uid=GD.uid,txt=groomReport(ap,g);
+    if(uid&&X.db)await notifyUser(uid,(ap.pet||'Seu pet')+': relatório do banho',txt.replace(/\*/g,''),'agenda');
+    g.reportSent=Date.now();await persistGroom();
+    var c=D.customers.filter(function(x){return x.id===uid})[0]||{};
+    var ph=String(c.phone||'').replace(/\D/g,'');if(ph.length===10||ph.length===11)ph='55'+ph;
+    renderGroom();
+    toast('Relatório enviado ao cliente'+(ph?'. Abrindo WhatsApp…':' pelo app'));
+    if(ph)window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(txt),'_blank');
+  }
+  function renderGroom(){
+    if(!GD)return;var ap=GD.ap,g=GD.g,aid=GD.aid,st=apStatus(ap);
+    var c=D.customers.filter(function(x){return x.id===GD.uid})[0]||{};
+    var ph=String(c.phone||'').replace(/\D/g,'');if(ph.length===10||ph.length===11)ph='55'+ph;
+    var h='<div class="row"><h2>'+esc(ap.pet||'Pet')+'</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
+    h+='<span class="muted">'+esc([ap.kind,ap.size,ap.breed,ap.slot?('às '+ap.slot):''].filter(Boolean).join(' · '))+' · '+esc(ap.tutor||custName(GD.uid))+(ph?' · <a href="https://wa.me/'+ph+'" target="_blank" rel="noopener">WhatsApp</a>':'')+'</span>';
+    var STG=[['Agendado','Marcado'],['Aguardando','Chegou'],['Em atendimento','Em banho'],['Pronto para buscar','Pronto'],['Concluído','Entregue']];
+    h+='<div class="gstage">'+STG.map(function(x){return '<button data-gset="'+x[0]+'" class="'+(st===x[0]?'cur':'')+'">'+x[1]+'</button>'}).join('')+'</div>';
+    h+='<div class="fld"><span>Foto do pet</span>'+(g.photo?'<img class="gphoto-big" src="/_blob/'+esc(g.photo)+'" alt=""><div class="apact" style="margin-top:6px"><label class="ghost" style="cursor:pointer">Trocar foto<input type="file" id="gPhoto" accept="image/*" hidden></label><button class="ghost" data-grm="1">Remover</button></div>':'<label class="gadd" style="width:100%;height:110px;font-size:15px;gap:4px;flex-direction:column">📷<span style="font-size:12px">Adicionar foto</span><input type="file" id="gPhoto" accept="image/*" hidden></label>')+'</div>';
+    h+='<div class="fld"><span>Como chegou (anamnese)</span><div class="gchips">'+GCHIPS.map(function(ch){return '<button type="button" class="gchip" data-gchip="'+esc(ch)+'" aria-pressed="'+(g.chips.indexOf(ch)>=0)+'">'+esc(ch)+'</button>'}).join('')+'</div></div>';
+    h+='<label class="fld">Observação do estado<textarea class="in" id="gCond" rows="2" maxlength="400" placeholder="Ex.: chegou com um machucado na pata, pelo muito embolado">'+esc(g.cond)+'</textarea></label>';
+    h+='<div class="fld"><span>Fotos (machucado, pulga, antes e depois)</span><div class="gphotos">'+(g.condPhotos||[]).map(function(id){return '<div class="ph"><img src="/_blob/'+esc(id)+'" alt=""><button data-grmphoto="'+esc(id)+'">×</button></div>'}).join('')+'<label class="gadd">+<input type="file" id="gCondPhoto" accept="image/*" multiple hidden></label></div></div>';
+    h+='<div class="two"><label class="fld">Chegou com<input class="in" id="gArr" value="'+esc(g.arrivedWith)+'" placeholder="Ex.: coleira, roupinha"></label><label class="fld">Saiu com<input class="in" id="gLeft" value="'+esc(g.leftWith)+'" placeholder="Ex.: coleira, laço"></label></div>';
+    h+='<div class="fld"><span>Serviços realizados</span>';
+    if(!D.services.length)h+='<p class="hint" style="margin:0">Cadastre serviços em Gestão › Serviços para marcar aqui.</p>';
+    D.services.forEach(function(sv){var on=g.done.length?g.done.indexOf(sv.name)>=0:(ap.svc&&String(ap.svc).toLowerCase().indexOf(String(sv.name).toLowerCase())>=0);h+='<label class="gdo"><input type="checkbox" data-gdo="'+esc(sv.name)+'"'+(on?' checked':'')+'><span>'+esc(sv.name)+'</span></label>'});
+    h+='</div>';
+    h+='<label class="fld">Observações para o cliente<textarea class="in" id="gObs" rows="2" maxlength="400" placeholder="Ex.: pet muito comportado. Recomendamos voltar em 30 dias.">'+esc(g.obs)+'</textarea></label>';
+    h+='<div class="apact"><button class="ghost" id="gSave">Salvar ficha</button><button class="primary" id="gReport">Enviar relatório ao cliente</button></div>';
+    if(g.reportSent)h+='<span class="hint" style="text-align:center;display:block">✓ Relatório enviado em '+fmtTs(g.reportSent)+'.</span>';
+    $('#overlay').innerHTML=sheetHtml(h,'Ficha de banho');bindClose();bindGroom();
+  }
+  function bindGroom(){
+    var ov=$('#overlay');
+    $$('[data-gset]',ov).forEach(function(b){b.onclick=async function(){var nx=b.getAttribute('data-gset');if(nx===apStatus(GD.ap))return;gReadInputs();await persistGroom();await setApptStatus(GD.aid,GD.ap.day,GD.ap.slot,GD.uid,nx);GD.ap=allAppts().filter(function(x){return x.id===GD.aid})[0]||GD.ap;renderGroom()}});
+    $$('[data-gchip]',ov).forEach(function(b){b.onclick=function(){gReadInputs();var ch=b.getAttribute('data-gchip'),i=GD.g.chips.indexOf(ch);if(i>=0)GD.g.chips.splice(i,1);else GD.g.chips.push(ch);renderGroom()}});
+    var pf=$('#gPhoto',ov);if(pf)pf.onchange=async function(){var f=this.files&&this.files[0];if(!f)return;gReadInputs();toast('Enviando foto…');var id=await gUpload(f);if(id){var old=GD.g.photo;GD.g.photo=id;await persistGroom();if(old&&old!==id)X.assets.delete(old).catch(function(){});renderGroom()}};
+    var cf=$('#gCondPhoto',ov);if(cf)cf.onchange=async function(){var fs=[].slice.call(this.files||[]);if(!fs.length)return;gReadInputs();toast('Enviando foto(s)…');for(var i=0;i<fs.length;i++){var id=await gUpload(fs[i]);if(id)GD.g.condPhotos.push(id)}await persistGroom();renderGroom()};
+    $$('[data-grm]',ov).forEach(function(b){b.onclick=async function(){gReadInputs();var old=GD.g.photo;GD.g.photo='';await persistGroom();if(old)X.assets.delete(old).catch(function(){});renderGroom()}});
+    $$('[data-grmphoto]',ov).forEach(function(b){b.onclick=async function(){gReadInputs();var id=b.getAttribute('data-grmphoto'),i=GD.g.condPhotos.indexOf(id);if(i>=0)GD.g.condPhotos.splice(i,1);await persistGroom();if(id)X.assets.delete(id).catch(function(){});renderGroom()}});
+    var sv=$('#gSave',ov);if(sv)sv.onclick=async function(){this.disabled=true;gReadInputs();try{await persistGroom();toast('Ficha salva')}catch(e){wfail(e)}this.disabled=false};
+    var rp=$('#gReport',ov);if(rp)rp.onclick=async function(){this.disabled=true;gReadInputs();try{await sendGroomReport()}catch(e){wfail(e)}this.disabled=false};
+  }
   function aServicos(m){
     var PL=plansAll(),hp='<div class="acard"><div class="rowtight"><b>Planos mensais</b><button class="btn" data-act="planNew">+ Novo plano</button></div><p class="hint">Ex.: 4 banhos por mês com desconto. O cliente pede pelo app, você confirma em Pedidos › Planos e cobra a mensalidade.</p>'+
       PL.map(function(pl){var sv=byId(D.services,pl.svc);return '<div class="rowtight"><span><b>'+esc(pl.name)+'</b>'+(pl.active===false?' <span class="st off">Pausado</span>':'')+'<br><span class="muted">'+num(pl.n)+'x '+esc(sv?sv.name:'?')+' · '+brl(num(pl.price))+'/mês</span></span><button class="mini" data-act="planEdit" data-id="'+esc(pl.id)+'">Editar</button></div>'}).join('')+'</div>';
@@ -4500,6 +4674,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     autoTog:async function(k){var on=S(k,true)===false;try{var o={};o[k]=on;await X.db.doc('settings/store').set(Object.assign({},D.settings,o));toast(on?'Ligado':'Desligado')}catch(e){wfail(e)}},
     autoSave:async function(){var o={niverPct:Math.min(50,Math.max(1,num($('#aNp').value)||10)),winPct:Math.min(50,Math.max(1,num($('#aWp').value)||10)),winDays:Math.min(365,Math.max(15,Math.round(num($('#aWd').value))||45))};try{await X.db.doc('settings/store').set(Object.assign({},D.settings,o));toast('Regras salvas')}catch(e){wfail(e)}},
     petFicha:function(id){openFicha(id)},
+    groomOpen:function(id){openGroom(id)},
+    groomNext:async function(id){var ap=allAppts().filter(function(x){return x.id===id})[0];if(!ap)return;var st=apStatus(ap),nx=gNextOf(st);if(!nx)return;await setApptStatus(ap.id,ap.day,ap.slot,ap.uid,nx);if(nx==='Aguardando')openGroom(ap.id)},
     planNew:function(){openPlan(null)},
     planEdit:function(id){openPlan(id)},
     cpEdit:function(id){openCoupon(id)},
@@ -4566,24 +4742,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
         toast('Situação do pedido atualizada');
       }catch(e){wfail(e)}
     },
-    apSt:async function(id,el){
-      var parts=id.split('|'),aid=parts[0],uid=parts[3],next=el.value,prev=D.status[aid]||{};
-      var ap=allAppts().filter(function(x){return x.id===aid})[0];
-      var st={status:next,note:prev.note||'',earnedPts:num(prev.earnedPts),earnedCash:num(prev.earnedCash),earnedBase:num(prev.earnedBase),ts:Date.now()};
-      try{
-        if(next==='Concluído'&&ap&&uid&&!st.earnedPts&&!st.earnedCash){
-          var e=earnFor(num(ap.price),wal(uid).life,((D.ficha||{})[uid]||{}).aniversario),fb=firstBuy(uid);
-          if(e.pts>0||e.cash>0){await walletAdd(uid,{t:'compra',pago:num(ap.price),pts:e.pts,cash:e.cash,text:'Serviço: '+ap.svc});st.earnedPts=e.pts;st.earnedCash=e.cash;st.earnedBase=num(ap.price);if(fb)await appIndicacao(uid)}
-        }else if(next!=='Concluído'&&(st.earnedPts>0||st.earnedCash>0)&&uid){
-          await walletAdd(uid,{t:'compra',pago:-(st.earnedBase||0),pts:-st.earnedPts,cash:-st.earnedCash,text:'Serviço desfeito'});st.earnedPts=0;st.earnedCash=0;st.earnedBase=0;
-        }
-        await X.db.doc('status/'+aid).set(st);
-        if(prev.status!==next&&uid){var am=apptNote(next,st,ap);if(am)notifyUser(uid,next==='Pronto para buscar'?(ap&&ap.pet?ap.pet:'Seu pet')+' está pronto!':next==='A caminho de casa'?'Saiu para entrega':'Banho e tosa',am,'agenda').catch(function(){})}
-        if(next==='Cancelado'&&prev.status!=='Cancelado')await slotRelease(parts[1],parts[2],aid);
-        else if(prev.status==='Cancelado'&&next!=='Cancelado'){var rr=await slotReserve(parts[1],parts[2],aid,ap&&ap.ts||Date.now());if(!rr)toast('Atenção: esse horário já está lotado')}
-        toast('Agendamento atualizado');
-      }catch(e){wfail(e)}
-    }
+    apSt:function(id,el){var p=String(id).split('|');setApptStatus(p[0],p[1],p[2],p[3],el.value)}
   };
 
   /* ================= VANTAGENS: regras, carteira e resgates ================= */
@@ -5292,6 +5451,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(next==='Concluído')return 'Serviço concluído'+(ap?' ('+ap.svc+')':'')+'.'+(st&&(st.earnedPts||st.earnedCash)?' Você ganhou '+st.earnedPts+' pontos e '+brl(st.earnedCash)+' de cashback.':'');
     if(next==='Cancelado')return 'Seu agendamento foi cancelado. Você pode marcar um novo horário pelo app.';
     var pn=ap&&ap.pet?ap.pet:'Seu pet';
+    if(next==='Aguardando')return pn+' chegou e já está com a gente, na fila do banho. Avisamos quando estiver pronto! 🐾';
     if(next==='Em atendimento')return pn+' já está com a gente no banho. Avisamos assim que estiver pronto!';
     if(next==='Pronto para buscar')return pn+' está pronto e cheiroso!'+(ap&&ap.lt&&/traz|ambos|volta/i.test(String(ap.lt.mode)+ap.lt.label)?' Em breve saímos para levar para casa.':' Já pode vir buscar.');
     if(next==='A caminho de casa')return pn+' está a caminho de casa com o nosso leva e traz.';
