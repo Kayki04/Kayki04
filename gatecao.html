@@ -2128,7 +2128,9 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var also={};Object.keys(pair).forEach(function(a){also[a]=Object.keys(pair[a]).sort(function(x,y){return pair[a][y]-pair[a][x]}).slice(0,8)});
     try{X.db.doc('settings/store').set(Object.assign({},D.settings,{best:best,also:also,bestTs:Date.now()})).catch(function(){})}catch(e){}
   }
-  function schedule(){if(X.isAdmin){try{admCheck();bestSync()}catch(e){}}if(typing()){dirty=true;return}render()}
+  var BUSY_IMPORT=false;
+  document.addEventListener('change',function(e){var t=e.target;if(t&&t.id==='bkImp'&&t.files&&t.files[0]){var f=t.files[0];t.value='';backupImport(f)}},true);
+  function schedule(){if(BUSY_IMPORT)return;if(X.isAdmin){try{admCheck();bestSync()}catch(e){}}if(typing()){dirty=true;return}render()}
   document.addEventListener('focusout',function(){
     if(!dirty)return;
     setTimeout(function(){if(dirty&&!typing()){dirty=false;render()}},180);
@@ -4058,7 +4060,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       '<div class="toolbar" style="margin:0"><button class="btn line" id="bkExp" type="button">Baixar cópia de tudo</button>'+(window.GCFB?'<label class="btn alt" style="cursor:pointer">Importar cópia<input type="file" id="bkImp" accept=".json,application/json" hidden></label>':'')+'</div><span class="hint" id="bkMsg"></span></div>';
     m.innerHTML=h;
     $('#bkExp').onclick=backupExport;
-    var bi=$('#bkImp');if(bi)bi.onchange=function(){if(bi.files&&bi.files[0])backupImport(bi.files[0])};
+
     var lton=$('#lton');if(lton)lton.onclick=function(){this.setAttribute('aria-checked',this.getAttribute('aria-checked')!=='true')};
     $('#lsave').onclick=async function(){
       var data={heroTag:$('#lt').value.trim(),heroTitle:$('#lh').value.trim(),heroText:$('#lx').value.trim(),freeMin:num($('#lf').value),fee:num($('#lee').value),pixOff:Math.min(50,Math.max(0,num($('#lp').value))),slotCap:Math.min(20,Math.max(1,Math.floor(num($('#lcap').value))||3)),wP:num($('#lwp').value)||10,wM:num($('#lwm').value)||25,ltOn:$('#lton').getAttribute('aria-checked')==='true',ltFee:$('#ltfee').value.trim()===''?'':Math.max(0,num($('#ltfee').value)),ltNote:$('#ltnote').value.trim()};
@@ -4087,20 +4089,30 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(msg)msg.textContent=n+' registros na cópia.';
   }
   async function backupImport(file){
-    var msg=$('#bkMsg'),txt=await file.text(),j;
-    try{j=JSON.parse(txt.replace(/^﻿/,''))}catch(e){toast('Arquivo inválido');return}
-    if(!j||j.app!=='gatecao'||!j.data){toast('Esse arquivo não é uma cópia da Gatecão');return}
-    var cols=Object.keys(j.data).filter(function(c){return BK_COLS.indexOf(c)>-1}),tot=0,ok=0,fail=0;
-    cols.forEach(function(c){tot+=Object.keys(j.data[c]).length});
-    var noImg=function(v){return v&&!/alt=media/.test(v)?'':v};
-    for(var i=0;i<cols.length;i++){var c=cols[i],ks=Object.keys(j.data[c]);
-      for(var k=0;k<ks.length;k++){var d=j.data[c][ks[k]];
-        if(c==='products'||c==='banners'||c==='rewards'){d=Object.assign({},d);if('img' in d)d.img=noImg(d.img);if(Array.isArray(d.imgs))d.imgs=d.imgs.filter(function(x){return /alt=media/.test(x)})}
-        try{await X.db.doc(c+'/'+ks[k]).set(d);ok++}catch(e){fail++}
-        if(msg&&(ok+fail)%20===0)msg.textContent='Importando... '+(ok+fail)+' de '+tot;
-      }}
-    if(msg)msg.textContent='Importação concluída: '+ok+' registros'+(fail?', '+fail+' com erro':'')+'. Fotos antigas precisam ser enviadas de novo.';
-    toast('Importação concluída');
+    var box=document.createElement('div');box.className='scrim';box.style.cssText='display:grid;place-items:center;z-index:50';
+    box.innerHTML='<div style="background:#fff;border-radius:20px;padding:22px;max-width:340px;width:calc(100% - 32px);display:grid;gap:12px;text-align:center"><b style="font-family:var(--font-display);font-size:20px">Importando cópia</b><span id="impTx">Lendo o arquivo...</span><div class="fprog"><i id="impBar" style="width:0%"></i></div><button class="primary" id="impOk" hidden>Fechar</button></div>';
+    document.body.appendChild(box);
+    var tx=box.querySelector('#impTx'),bar=box.querySelector('#impBar'),okb=box.querySelector('#impOk');
+    function end(m){tx.textContent=m;okb.hidden=false;okb.onclick=function(){box.remove();BUSY_IMPORT=false;render()};BUSY_IMPORT=false}
+    var j;
+    try{var txt=await file.text();j=JSON.parse(String(txt).replace(/^﻿/,''))}catch(e){end('Não consegui ler esse arquivo. Escolha o arquivo .json baixado em "Baixar cópia de tudo".');return}
+    if(!j||j.app!=='gatecao'||!j.data){end('Esse arquivo não é uma cópia da Gatecão.');return}
+    BUSY_IMPORT=true;
+    var noImg=function(v){return v&&!/alt=media/.test(v)?'':v},items=[];
+    Object.keys(j.data).filter(function(c){return BK_COLS.indexOf(c)>-1}).forEach(function(c){Object.keys(j.data[c]).forEach(function(k){var d=j.data[c][k];
+      if(c==='products'||c==='banners'||c==='rewards'){d=Object.assign({},d);if('img' in d)d.img=noImg(d.img);if(Array.isArray(d.imgs))d.imgs=d.imgs.filter(function(x){return /alt=media/.test(x)})}
+      items.push([c+'/'+k,d])})});
+    var tot=items.length,ok=0,fail=0;
+    tx.textContent='Importando '+tot+' registros...';
+    if(typeof X.db.batch==='function'){
+      for(var i=0;i<tot;i+=400){var bt=X.db.batch(),part=items.slice(i,i+400);part.forEach(function(x){bt.set(X.db.doc(x[0]),x[1])});
+        try{await bt.commit();ok+=part.length}catch(e){for(var q=0;q<part.length;q++){try{await X.db.doc(part[q][0]).set(part[q][1]);ok++}catch(e2){fail++}}}
+        bar.style.width=Math.round((ok+fail)/tot*100)+'%';tx.textContent='Importando... '+(ok+fail)+' de '+tot}
+    }else{
+      for(var k2=0;k2<tot;k2++){try{await X.db.doc(items[k2][0]).set(items[k2][1]);ok++}catch(e){fail++}if((ok+fail)%10===0){bar.style.width=Math.round((ok+fail)/tot*100)+'%';tx.textContent='Importando... '+(ok+fail)+' de '+tot}}
+    }
+    bar.style.width='100%';
+    end('Pronto! '+ok+' registros importados'+(fail?' ('+fail+' com erro)':'')+'. As fotos antigas precisam ser enviadas de novo.');
   }
 
   /* ----- ações da gestão ----- */
