@@ -202,7 +202,7 @@ table.pt{border-collapse:collapse;width:100%;min-width:480px}
 .rowtight{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 
 /* Clube de vantagens */
-nav.bar{grid-template-columns:repeat(4,1fr)}
+nav.bar{grid-template-columns:repeat(5,1fr)}
 nav.bar button{font-size:11px;padding:7px 2px}
 @media (min-width:700px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .vcard{margin-block:14px 6px;border-radius:24px;padding:18px;color:#fff;background:linear-gradient(140deg,#0B2A5B,#143D80);display:grid;gap:12px;position:relative;overflow:hidden}
@@ -518,6 +518,19 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
 .fprog{height:8px;border-radius:999px;background:var(--line);overflow:hidden}
 .fprog i{display:block;height:100%;border-radius:999px;background:var(--accent)}
 .fprog.low i{background:var(--danger)}
+nav.bar button{font-size:10.5px;padding:7px 0;line-height:1.15;text-align:center}
+.tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:8px}
+.tiercard{border:2px solid var(--line);background:#fff;border-radius:var(--r);padding:14px 10px 12px;text-align:center;justify-items:center;display:grid;gap:6px;align-content:start;position:relative}
+.tiercard.cur{border-color:var(--accent);background:var(--soft)}
+.tiercard h3{font-size:17px;display:grid;justify-items:center;gap:4px}.tiercard .min{font-size:12px;font-weight:700;color:var(--muted);line-height:1.25}.tiercard .ext{font-size:12px;font-weight:800;color:var(--accent-d)}
+.tiercard .med{width:28px;height:28px;border-radius:50%;flex:none;box-shadow:inset 0 -3px 0 rgba(0,0,0,.15)}
+.tiercard .med.t0{background:#CD8B52}.tiercard .med.t1{background:#B9C3CF}.tiercard .med.t2{background:#F2C230}.tiercard .med.t3{background:#7FD3E8}
+.tiercard .big{font-family:var(--font-display);font-size:26px;color:var(--brand);line-height:1}
+.tiercard ul{margin:0;padding-left:18px;font-size:13px;display:grid;gap:3px}
+.tiercard .here{position:absolute;top:-10px;left:50%;transform:translateX(-50%);white-space:nowrap;background:var(--accent);color:var(--brand);font-size:11px;font-weight:800;border-radius:999px;padding:3px 9px}
+.phero{position:relative;overflow:hidden;margin-block:14px 4px;border-radius:24px;background:linear-gradient(140deg,#FF7A00,#FFA23A);color:var(--brand);padding:18px 120px 18px 18px;min-height:128px;display:grid;gap:6px;align-content:center}
+.phero h2{font-size:24px;line-height:1.05}.phero p{margin:0;font-weight:700;font-size:14px}
+.phero .art{position:absolute;right:-8px;bottom:-12px;width:128px;height:128px;color:rgba(255,255,255,.9)}
 </style>
 <div id="cust">
   <header class="top">
@@ -542,6 +555,7 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
   <nav class="bar" aria-label="Navegação">
     <button data-go="loja" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9M4 9v11h16V9M9 20v-6h6v6"/></svg>Loja</button>
     <button data-go="banho"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3 4 6 6.5 6 10a6 6 0 01-12 0c0-3.5 3-6 6-10z"/></svg>Banho e tosa</button>
+    <button data-go="pet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="10" r="1.8"/><circle cx="10" cy="5.8" r="1.8"/><circle cx="14" cy="5.8" r="1.8"/><circle cx="18" cy="10" r="1.8"/><path d="M12 11.5c-2.6 0-5.5 3.8-5.5 6.2 0 1.6 1.4 2.3 2.7 2.3 1.2 0 1.8-.6 2.8-.6s1.6.6 2.8.6c1.3 0 2.7-.7 2.7-2.3 0-2.4-2.9-6.2-5.5-6.2z"/></svg>Meu Pet</button>
     <button data-go="vantagens"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.500l6.100-.9z"/></svg>Vantagens</button>
     <button data-go="pedidos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg>Pedidos</button>
   </nav>
@@ -2102,7 +2116,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function waBtn(t,label){var u=waUrl(t);return u?'<a class="walink" href="'+esc(u)+'" target="_blank" rel="noopener">'+IC_WA+esc(label||'Falar no WhatsApp')+'</a>':''}
   function waFab(){
     var f=$('#waFab');if(!f)return;
-    var u=waUrl('Olá, Gatecão! Vim pelo app e tenho uma dúvida.'),show=!!u&&(state.tab==='loja'||state.tab==='pedidos'||state.tab==='vantagens');
+    var u=waUrl('Olá, Gatecão! Vim pelo app e tenho uma dúvida.'),show=!!u&&(state.tab==='loja'||state.tab==='pedidos'||state.tab==='vantagens'||state.tab==='pet');
     f.hidden=!show;if(show){f.href=u;if(!f.innerHTML)f.innerHTML=IC_WA}
   }
 
@@ -3127,17 +3141,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       h+='<div class="hist'+(st==='Cancelado'?' off':'')+'"><div class="row"><b>'+esc(a.pet)+' ('+esc(a.kind)+(a.size?', '+esc(a.size):'')+')</b><span class="pill">'+esc(st)+'</span></div><div>'+esc(a.svc)+'</div>'+((a.breed||a.weight)?'<div class="muted">'+esc([a.breed,a.weight?String(a.weight).replace('.',',')+' kg':'',a.coat?'pelagem '+String(a.coat).toLowerCase():''].filter(Boolean).join(' · '))+'</div>':'')+(a.lt?'<div class="muted">Leva e traz: '+esc(a.lt.label)+' · '+esc(a.lt.addr)+', '+esc(a.lt.bairro)+(a.lt.comp?' ('+esc(a.lt.comp)+')':'')+(a.lt.phone?' · '+esc(fmtPhone(a.lt.phone)):'')+'</div>':'')+'<div class="muted">'+fmtDayLong(a.day)+' às '+esc(a.slot)+' · '+brl(a.price)+'</div>'+(a.obs?'<div class="muted">Obs.: '+esc(a.obs)+'</div>':'')+
         (canMod?'<div class="apact"><button class="ghost" data-resched="'+esc(a.id)+'">Remarcar</button><button class="ghost dangerline" data-cancelap="'+esc(a.id)+'">Cancelar</button></div>':(st==='Agendado'&&!fut?'<p class="hint" style="margin:0">Para mudar este horário, fale com a loja.</p>':''))+'</div>';
     });
-    if(D.myRec.length){
-      h+='<div class="sec" style="margin-top:18px"><h2>Minhas recompras</h2><span>'+D.myRec.filter(function(r){return r.active}).length+' ativas</span></div>';
-      D.myRec.forEach(function(r){
-        var p=byId(D.products,r.pid),ri=recInfo(p),soon=r.active&&r.next<=addDays(todayStr(),3);
-        h+='<div class="hist'+(r.active?'':' off')+(soon?' unread':'')+'"><div class="row"><b>'+r.q+' x '+esc(r.n)+'</b><span class="pill">'+(r.active?'Ativa':'Pausada')+'</span></div>'+
-          '<div class="muted">A cada '+r.every+' dias · '+brl(ri?ri.price:r.price)+' cada</div>'+
-          (r.active?'<div>'+(soon?'<b>':'')+'Próxima: '+esc(fmtDayLong(r.next))+(soon?'</b>':'')+'</div>':'')+
-          '<div class="apact"><select class="in" data-recev="'+esc(r.id)+'" aria-label="Intervalo da recompra">'+recDays().concat(recDays().indexOf(r.every)<0?[r.every]:[]).map(function(d){return '<option value="'+d+'"'+(d===r.every?' selected':'')+'>A cada '+d+' dias</option>'}).join('')+'</select>'+
-          '<button class="ghost" data-recpause="'+esc(r.id)+'">'+(r.active?'Pausar':'Retomar')+'</button><button class="ghost dangerline" data-recdel="'+esc(r.id)+'">Cancelar</button></div></div>';
-      });
-    }
+    var nrec=D.myRec.filter(function(r){return r.active}).length;
+    if(nrec)h+='<button class="loybar" data-go2="pet" style="margin-top:14px"><span class="lt">Recompra</span><span><b>'+nrec+' recompra'+(nrec>1?'s ativas':' ativa')+'</b><br>Veja datas e pause em Meu Pet</span><i>Abrir</i></button>';
     h+='<div class="sec" style="margin-top:18px"><h2>Pedidos da loja</h2><span>'+state.myOrders.length+'</span></div>';
     if(!state.myOrders.length)h+='<p class="muted">Nenhum pedido ainda. Adicione produtos ao carrinho para começar.</p>';
     state.myOrders.forEach(function(o){
@@ -3151,9 +3156,6 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       h+='<div class="sec" style="margin-top:22px"><h2>Minha conta</h2></div><div class="hist"><div class="row"><b>Acesso da loja</b><span class="pill">Conta da loja</span></div><span class="muted">Você entrou com a conta da Gatecão. A área de gestão está liberada para você.</span><button class="primary" id="openAdm" style="margin-top:6px">Abrir gestão</button></div>';
     }
     view.innerHTML=h;
-    $$('[data-recev]',view).forEach(function(sel){sel.onchange=function(){var r=D.myRec.filter(function(x){return x.id===sel.getAttribute('data-recev')})[0];if(!r)return;var ev=+sel.value;recPatch(X.uid,r.id,{every:ev,next:addDays(todayStr(),ev)}).then(function(){toast('Intervalo atualizado')})}});
-    $$('[data-recpause]',view).forEach(function(b){b.onclick=function(){var r=D.myRec.filter(function(x){return x.id===b.getAttribute('data-recpause')})[0];if(!r)return;var on=!r.active;recPatch(X.uid,r.id,on?{active:true,next:r.next<todayStr()?addDays(todayStr(),1):r.next}:{active:false}).then(function(){toast(on?'Recompra retomada':'Recompra pausada')})}});
-    $$('[data-recdel]',view).forEach(function(b){b.onclick=function(){if(b.getAttribute('data-sure')!=='1'){b.setAttribute('data-sure','1');b.textContent='Toque de novo';return}var id=b.getAttribute('data-recdel'),r=D.myRec.filter(function(x){return x.id===id})[0];recPatch(X.uid,id,{active:false,deleted:true}).then(function(){toast('Recompra cancelada');if(r&&typeof storeNotify==='function')storeNotify('pedido','Recompra cancelada',r.q+' x '+r.n)})}});
     $$('[data-cancelap]',view).forEach(function(b){b.onclick=function(){
       if(b.getAttribute('data-sure')!=='1'){b.setAttribute('data-sure','1');b.textContent='Toque de novo para cancelar';return}
       b.disabled=true;cancelAppt(b.getAttribute('data-cancelap'),false).then(function(ok){if(ok){toast('Agendamento cancelado');render()}else{b.disabled=false;b.textContent='Cancelar'}});
@@ -3175,6 +3177,26 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     }});
   }
 
+  function recHtml(){
+    var h='';
+    if(D.myRec.length){
+      h+='<div class="sec"><h2>Minhas recompras</h2><span>'+D.myRec.filter(function(r){return r.active}).length+' ativas</span></div>';
+      D.myRec.forEach(function(r){
+        var p=byId(D.products,r.pid),ri=recInfo(p),soon=r.active&&r.next<=addDays(todayStr(),3);
+        h+='<div class="hist'+(r.active?'':' off')+(soon?' unread':'')+'"><div class="row"><b>'+r.q+' x '+esc(r.n)+'</b><span class="pill">'+(r.active?'Ativa':'Pausada')+'</span></div>'+
+          '<div class="muted">A cada '+r.every+' dias · '+brl(ri?ri.price:r.price)+' cada</div>'+
+          (r.active?'<div>'+(soon?'<b>':'')+'Próxima: '+esc(fmtDayLong(r.next))+(soon?'</b>':'')+'</div>':'')+
+          '<div class="apact"><select class="in" data-recev="'+esc(r.id)+'" aria-label="Intervalo da recompra">'+recDays().concat(recDays().indexOf(r.every)<0?[r.every]:[]).map(function(d){return '<option value="'+d+'"'+(d===r.every?' selected':'')+'>A cada '+d+' dias</option>'}).join('')+'</select>'+
+          '<button class="ghost" data-recpause="'+esc(r.id)+'">'+(r.active?'Pausar':'Retomar')+'</button><button class="ghost dangerline" data-recdel="'+esc(r.id)+'">Cancelar</button></div></div>';
+      });
+    }
+    return h;
+  }
+  function recBind(){
+    $$('[data-recev]',view).forEach(function(sel){sel.onchange=function(){var r=D.myRec.filter(function(x){return x.id===sel.getAttribute('data-recev')})[0];if(!r)return;var ev=+sel.value;recPatch(X.uid,r.id,{every:ev,next:addDays(todayStr(),ev)}).then(function(){toast('Intervalo atualizado')})}});
+    $$('[data-recpause]',view).forEach(function(b){b.onclick=function(){var r=D.myRec.filter(function(x){return x.id===b.getAttribute('data-recpause')})[0];if(!r)return;var on=!r.active;recPatch(X.uid,r.id,on?{active:true,next:r.next<todayStr()?addDays(todayStr(),1):r.next}:{active:false}).then(function(){toast(on?'Recompra retomada':'Recompra pausada')})}});
+    $$('[data-recdel]',view).forEach(function(b){b.onclick=function(){if(b.getAttribute('data-sure')!=='1'){b.setAttribute('data-sure','1');b.textContent='Toque de novo';return}var id=b.getAttribute('data-recdel'),r=D.myRec.filter(function(x){return x.id===id})[0];recPatch(X.uid,id,{active:false,deleted:true}).then(function(){toast('Recompra cancelada');if(r&&typeof storeNotify==='function')storeNotify('pedido','Recompra cancelada',r.q+' x '+r.n)})}});
+  }
   /* ---------- navegação ---------- */
   function render(){
     if(state.tab==='caixa'){var wf0=$('#waFab');if(wf0)wf0.hidden=true;if(window.GCPDV)GCPDV.show();return}
@@ -3195,7 +3217,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     remToast();
     if(PV.pending&&D.ready.products){var pp=PV.pending;PV.pending=null;showProduct(pp,true)}
     else if(PV.id)renderPview();
-    if(state.tab==='loja'){renderCats();renderShop()}else if(state.tab==='banho')renderBanho();else if(state.tab==='vantagens')renderVantagens();else renderPedidos();
+    if(state.tab==='loja'){renderCats();renderShop()}else if(state.tab==='banho')renderBanho();else if(state.tab==='vantagens')renderVantagens();else if(state.tab==='pet')renderPet();else renderPedidos();
   }
   function go(tab){
     if(PV.id)hidePview();
@@ -4218,6 +4240,53 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     try{await X.db.doc('customers/'+X.uid).set(Object.assign({},D.me||{},data));p.open=false;toast('Cadastro salvo');render()}catch(e){toast('Não foi possível salvar o cadastro')}
   }
 
+  function profBind(){
+    var p=state.prof,pe=$('#profEdit');
+    if(pe)pe.onclick=function(){state.prof=null;profInit();state.prof.open=true;render()};
+    var pn=$('#petNew');if(pn)pn.onclick=function(){openPet(-1)};
+    var fn=$('#feedNew');if(fn)fn.onclick=function(){openFeed(null)};
+    $$('[data-feededit]',view).forEach(function(b){b.onclick=function(){openFeed(b.getAttribute('data-feededit'))}});
+    $$('[data-feedbuy]',view).forEach(function(b){b.onclick=function(){goDest('buy:'+b.getAttribute('data-feedbuy'))}});
+    $$('[data-petedit]',view).forEach(function(b){b.onclick=function(){openPet(+b.getAttribute('data-petedit'))}});
+    if($('#profSave')){
+      $('#pfN').oninput=function(e){p.name=e.target.value};
+      $('#pfT').oninput=function(e){p.phone=e.target.value};
+      $('#pfE').oninput=function(e){p.email=e.target.value};
+      $('#pfO').onchange=function(e){p.optin=e.target.checked};
+      $$('[data-pn]',view).forEach(function(i){i.oninput=function(e){p.pets[+i.getAttribute('data-pn')].n=e.target.value}});
+      $$('[data-pk]',view).forEach(function(i){i.onchange=function(e){p.pets[+i.getAttribute('data-pk')].k=e.target.value}});
+      var pa=$('#petAdd');if(pa)pa.onclick=function(){p.pets.push({n:'',k:'Cachorro'});render()};
+      $('#profSave').onclick=saveProfile;
+    }
+  
+  }
+  function tiersHtml(life){
+    var L=loy(),cur=tierOf(life);
+    var h='<div class="sec"><h2>Níveis do clube</h2><span>12 meses</span></div><p class="hint" style="margin:-4px 0 12px">O nível depende do quanto você comprou nos últimos 12 meses, no app e na loja física. Quanto maior o nível, mais cashback.</p><div class="tiers">';
+    L.tiers.forEach(function(t,i){
+      var k=window.FID?FID.bonus(D.bonus||[],t.n,null):{nomes:[]},isCur=t.n===cur.n;
+      h+='<div class="tiercard'+(isCur?' cur':'')+'">'+(isCur?'<span class="here">Seu nível</span>':'')+'<h3><span class="med t'+Math.min(i,3)+'"></span>'+esc(t.n)+'</h3>'+
+        '<span class="big">'+String(t.pct).replace('.',',')+'%</span><span class="muted" style="margin-top:-4px">de cashback</span>'+
+        '<span class="min">'+(t.min>0?'a partir de '+brl(t.min).replace(',00','')+' em compras':'ao se cadastrar')+'</span>'+(k.nomes&&k.nomes.length?'<span class="ext">+ '+esc(k.nomes.join(', '))+'</span>':'')+'</div>';
+    });
+    return h+'</div><p class="hint">Em todos os níveis: '+L.pts+' ponto'+(L.pts===1?'':'s')+' a cada R$ 1 gasto, para trocar pelos prêmios abaixo.</p>';
+  }
+  function renderPet(){
+    if(D.nodb){view.innerHTML=noDbBox();return}
+    if(!X.checked||(X.uid&&!D.ready.me&&!D.slow)){view.innerHTML=loadingBox();return}
+    var h='<section class="phero"><h2>Cantinho do Pet</h2><p>'+(D.me&&(D.me.pets||[]).length?'Tudo de '+esc((D.me.pets||[]).map(function(x){return x.n}).slice(0,3).join(', ').replace(/, ([^,]*)$/,' e $1'))+' em um só lugar.':'Lembretes de banho, ração, vacinas e recompras em um só lugar.')+'</p>'+svg('paw','art')+'</section>';
+    if(!X.uid){view.innerHTML=h+'<div class="empty-card"><h2>Entre na sua conta</h2><p class="muted">Abra o app na sua conta para cadastrar seus pets e receber lembretes.</p></div>';return}
+    if(!D.me)h+=profileHtml();
+    h+=careAgendaHtml();
+    h+=petsHtml();
+    h+=feedHtml();
+    h+=recHtml();
+    if(!D.myRec.length)h+='<div class="sec"><h2>Recompras</h2></div><p class="muted" style="margin-top:0">Escolha "Recompra" no produto para receber de novo automaticamente, com desconto. Você pausa ou cancela quando quiser.</p>';
+    if(D.me)h+='<div class="sec"><h2>Meus dados</h2></div>'+profileHtml();
+    view.innerHTML=h;
+    recBind();
+    profBind();
+  }
   function renderVantagens(){
     if(D.nodb){view.innerHTML=noDbBox();return}
     if(!X.checked||!D.ready.rewards||(X.uid&&!D.ready.me&&!D.slow)){view.innerHTML=loadingBox();return}
@@ -4230,10 +4299,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       '<div class="vbar" role="img" aria-label="Progresso para o próximo nível"><i style="width:'+prog+'%"></i></div>'+
       '<p class="vsmall">'+(nx?'Faltam '+brl(nx.min-w.life)+' em compras (últimos 12 meses) para o nível '+esc(nx.n)+'.':'Você está no nível mais alto.')+'</p></section>';
     h+='<p class="hint" style="margin:10px 2px 4px">Você ganha '+L.pts+' ponto'+(L.pts===1?'':'s')+' a cada R$ 1 e '+String(t.pct).replace('.',',')+'% de cashback no nível '+esc(t.n)+'. Vale nas compras do app e da loja física: no caixa, é só informar seu telefone. Os ganhos do app entram quando o pedido é entregue ou o serviço é concluído'+(window.FID&&FID.conf(D.settings).validadeDias?', e o cashback vale por '+FID.conf(D.settings).validadeDias+' dias':'')+'.</p>'+(w.vencendo?'<p class="loynote">'+brl(w.vencendo)+' do seu cashback vence em '+new Date(w.vencData).toLocaleDateString('pt-BR')+'. Use antes!</p>':'')+(function(){var k=window.FID?FID.bonus(D.bonus||[],t.n,null):{nomes:[]};return k.nomes.length?'<p class="loynote">Agora no clube: '+esc(k.nomes.join(', '))+'.</p>':''})();
-    h+=profileHtml();
-    h+=careAgendaHtml();
-    h+=petsHtml();
-    h+=feedHtml();
+    if(!D.me)h+=profileHtml();
+    h+=tiersHtml(w.life);
     var rw=D.rewards.filter(function(r){return r.active!==false}).sort(function(a,b){return num(a.cost)-num(b.cost)});
     h+='<div class="sec"><h2>Prêmios para resgatar</h2><span>'+rw.length+'</span></div>';
     if(!rw.length)h+='<p class="muted">Em breve a Gatecão terá prêmios por aqui.</p>';
@@ -4260,23 +4327,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     });
     view.innerHTML=h;
     $$('[data-redeem]',view).forEach(function(b){b.onclick=function(){redeemReward(b.getAttribute('data-redeem'))}});
-    var p=state.prof,pe=$('#profEdit');
-    if(pe)pe.onclick=function(){state.prof=null;profInit();state.prof.open=true;renderVantagens()};
-    var pn=$('#petNew');if(pn)pn.onclick=function(){openPet(-1)};
-    var fn=$('#feedNew');if(fn)fn.onclick=function(){openFeed(null)};
-    $$('[data-feededit]',view).forEach(function(b){b.onclick=function(){openFeed(b.getAttribute('data-feededit'))}});
-    $$('[data-feedbuy]',view).forEach(function(b){b.onclick=function(){goDest('buy:'+b.getAttribute('data-feedbuy'))}});
-    $$('[data-petedit]',view).forEach(function(b){b.onclick=function(){openPet(+b.getAttribute('data-petedit'))}});
-    if($('#profSave')){
-      $('#pfN').oninput=function(e){p.name=e.target.value};
-      $('#pfT').oninput=function(e){p.phone=e.target.value};
-      $('#pfE').oninput=function(e){p.email=e.target.value};
-      $('#pfO').onchange=function(e){p.optin=e.target.checked};
-      $$('[data-pn]',view).forEach(function(i){i.oninput=function(e){p.pets[+i.getAttribute('data-pn')].n=e.target.value}});
-      $$('[data-pk]',view).forEach(function(i){i.onchange=function(e){p.pets[+i.getAttribute('data-pk')].k=e.target.value}});
-      var pa=$('#petAdd');if(pa)pa.onclick=function(){p.pets.push({n:'',k:'Cachorro'});renderVantagens()};
-      $('#profSave').onclick=saveProfile;
-    }
+    profBind();
   }
 
   /* ================= GESTÃO: CRM ================= */
@@ -5181,7 +5232,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     });
     D.myRec.forEach(function(r){
       if(!r.active||r.next>addDays(t0,3))return;
-      out.push({id:'rc_'+r.id+'_'+r.next,title:'Recompra '+(r.next<=t0?'chegando':'em '+fmtDay(r.next)),body:r.q+' x '+r.n+'. Quer mudar a data ou pausar? Veja em Pedidos.',go:'pedidos',cta:'Ver recompra'});
+      out.push({id:'rc_'+r.id+'_'+r.next,title:'Recompra '+(r.next<=t0?'chegando':'em '+fmtDay(r.next)),body:r.q+' x '+r.n+'. Quer mudar a data ou pausar? Veja em Meu Pet.',go:'pet',cta:'Ver recompra'});
     });
     var vermQ=(function(){try{var r=searchScores('vermifugo');return !!r&&Object.keys(r.s).length>0&&!r.partial}catch(e){return false}})();
     ((D.me&&D.me.pets)||[]).forEach(function(p,i){
@@ -5283,7 +5334,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       var rs=allRecs().filter(function(r){return r.active&&r.next===t1&&r.notified!==r.next&&!AUTO.done['r'+r.id+r.next]});
       for(var k=0;k<rs.length&&k<20;k++){
         var r=rs[k];AUTO.done['r'+r.id+r.next]=1;
-        await notifyUser(r.uid,'Sua recompra é amanhã','Vamos separar '+r.q+' x '+r.n+' para amanhã. Quer mudar a data ou pausar? É só abrir Pedidos no app.','pedido');
+        await notifyUser(r.uid,'Sua recompra é amanhã','Vamos separar '+r.q+' x '+r.n+' para amanhã. Quer mudar a data ou pausar? É só abrir Meu Pet no app.','pedido');
         await recPatch(r.uid,r.id,{notified:r.next});
       }
       var t0=todayStr(),allA=allAppts(),sent=0;
@@ -5353,7 +5404,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
 
   async function boot(){
     var h=location.hash.slice(1);
-    if(['loja','banho','vantagens','pedidos','gestao'].indexOf(h)>-1)state.tab=h;
+    if(['loja','banho','vantagens','pet','pedidos','gestao'].indexOf(h)>-1)state.tab=h;
     else if(h.indexOf('caixa')===0)state.tab='caixa';
     else if(h.indexOf('produto/')===0){state.tab='loja';PV.pending=decodeURIComponent(h.slice(8))}
     renderCats();persist();render();
@@ -5410,7 +5461,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(t.indexOf('produto/')===0){var pid=decodeURIComponent(t.slice(8));if(pid!==PV.id){if(D.ready.products)showProduct(pid,true);else PV.pending=pid}return}
     if(t.indexOf('caixa')===0){if(PV.id)hidePview();if(state.tab!=='caixa'){state.tab='caixa';render()}return}
     if(PV.id){hidePview();var a=PV.after;PV.after=null;if(a){a();return}}
-    if(['loja','banho','vantagens','pedidos','gestao'].indexOf(t)>-1&&t!==state.tab){state.tab=t;render();if(!reduced())anim(view,'enter')}
+    if(['loja','banho','vantagens','pet','pedidos','gestao'].indexOf(t)>-1&&t!==state.tab){state.tab=t;render();if(!reduced())anim(view,'enter')}
   });
   boot();
 
