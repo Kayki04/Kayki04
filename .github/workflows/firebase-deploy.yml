@@ -34,6 +34,13 @@ jobs:
       - name: Publicar regras das fotos
         continue-on-error: true
         run: npx --yes firebase-tools@14 deploy --only storage --project gatecao-5acbc --non-interactive
+      - name: Ligar a API de cobrança (necessária para o servidor de avisos)
+        continue-on-error: true
+        run: |
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS" --quiet
+          if ! gcloud services list --enabled --project gatecao-5acbc --format='value(config.name)' | grep -q cloudbilling; then
+            gcloud services enable cloudbilling.googleapis.com --project gatecao-5acbc --quiet && sleep 60
+          fi
       - name: Instalar o servidor de avisos
         run: cd functions && npm ci --omit=dev --no-audit --no-fund
       - name: Publicar o servidor de avisos
