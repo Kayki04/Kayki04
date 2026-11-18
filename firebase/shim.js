@@ -137,9 +137,14 @@
       try { if (u && pushOk() && Notification.permission === 'granted' && localStorage.getItem('gc_sysoff') !== 'true') setTimeout(window.GCFB.enablePush, 3000); } catch (e) {}
     });
   });
+  function claimAdminByPhone(u){
+    if (!u || !u.phoneNumber) return Promise.resolve();
+    try { return firebase.app().functions('southamerica-east1').httpsCallable('claimAdmin')().catch(function(){}); }
+    catch (e) { return Promise.resolve(); }
+  }
   var adminP = ready.then(function(u){
     if (!u) return false;
-    return adminDoc.get().then(function(s){
+    return claimAdminByPhone(u).then(function(){ return adminDoc.get(); }).then(function(s){
       if (s.exists) return (s.data().uids || []).indexOf(u.uid) > -1;
       return firstAdminOffer(u);
     }).catch(function(){ return false; });
