@@ -601,6 +601,24 @@ nav.bar button{font-size:10.5px;padding:7px 0;line-height:1.15;text-align:center
 .bradm .lg{width:64px;height:44px;border:1px solid var(--line);border-radius:10px;display:grid;place-items:center;background:#fff;overflow:hidden;flex:none}
 .bradm .lg img{max-width:100%;max-height:100%;object-fit:contain}
 .bradm .lg span{font-size:11px;color:var(--muted)}
+/* Cupom gerencial (bobina 80mm) */
+#printSlip{display:none}
+@media print{
+  body{visibility:hidden}
+  #printSlip,#printSlip *{visibility:visible}
+  #printSlip{display:block;position:absolute;left:0;top:0;width:72mm;color:#000;background:#fff;font-family:'Courier New',ui-monospace,monospace;font-size:12.5px;line-height:1.35;padding:0}
+  @page{size:80mm auto;margin:3mm}
+}
+#printSlip .ph{text-align:center}
+#printSlip .ph b{font-size:18px;letter-spacing:1px}
+#printSlip .big{font-size:16px;font-weight:700}
+#printSlip hr{border:0;border-top:1px dashed #000;margin:5px 0}
+#printSlip .it{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+#printSlip .it .bx{width:16px;height:16px;border:1.5px solid #000;flex:none;margin-top:1px}
+#printSlip .it .q{font-size:17px;font-weight:700;min-width:26px}
+#printSlip .it .nm{flex:1}
+#printSlip .row{display:flex;justify-content:space-between;gap:10px}
+#printSlip .mut{font-size:11px}
 </style>
 <div id="cust">
   <header class="top">
@@ -636,6 +654,7 @@ nav.bar button{font-size:10.5px;padding:7px 0;line-height:1.15;text-align:center
 <div id="pview" class="pview" hidden role="dialog" aria-modal="true" aria-label="Guia do produto"></div>
 <div id="overlay"></div>
 <div id="toast" class="toast" hidden></div>
+<div id="printSlip" aria-hidden="true"></div>
 
 <div id="pdvRoot" hidden></div>
 <script>
@@ -4025,6 +4044,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
         h+='<div class="acard ord"><div class="rowtight"><b>'+esc(o.name)+' · #'+esc(String(o.id).slice(-5))+'</b><span class="st '+stClass(st)+'">'+esc(st)+'</span></div>'+
           '<div class="items">'+o.items.map(function(i){return '<div class="rowtight"><span>'+i.q+' x '+esc(i.n)+'</span><span>'+brl(i.q*i.p)+'</span></div>'}).join('')+'</div>'+
           (o.addr?'<div class="muted">Entregar em: '+esc(o.addr.addr)+', '+esc(o.addr.bairro)+(o.addr.comp?' · '+esc(o.addr.comp):'')+(o.addr.ref?' · Ref.: '+esc(o.addr.ref):'')+(o.addr.phone?' · '+esc(fmtPhone(o.addr.phone)):'')+'</div>':'')+(o.coupon?'<span class="muted">Cupom '+esc(o.coupon.code)+(o.coupon.off?': - '+brl(o.coupon.off):'')+(o.coupon.ship?' (frete grátis)':'')+'</span>':'')+'<div class="rowtight"><span class="muted">'+fmtTs(o.ts)+' · '+esc(o.mode)+' · '+esc(o.pay)+'</span><b>'+brl(o.total)+'</b></div>'+
+          '<div class="rowtight"><button class="mini" data-act="printOrd" data-id="'+esc(o.uid)+'|'+esc(o.id)+'">🖨️ Imprimir separação</button></div>'+
           '<label class="fld">Situação<select class="in" data-chg="ordSt" data-id="'+esc(o.uid)+'|'+esc(o.id)+'">'+opts(ORDER_ST,st)+'</select></label>'+
           (applied?'<span class="hint">Estoque já descontado deste pedido.</span>':'<span class="hint">Ao confirmar, o estoque dos produtos é descontado.</span>')+'</div>';
       });
@@ -4205,7 +4225,30 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
 
   /* ----- ações da gestão ----- */
+  function printOrder(uid,oid){
+    var o=allOrders().filter(function(x){return x.id===oid&&x.uid===uid})[0];if(!o)return;
+    var sl=$('#printSlip'),a=o.addr,st=ordStatus(o);
+    var h='<div class="ph"><b>GATECÃO</b><br><span class="big">SEPARAÇÃO DE PEDIDO</span></div>';
+    h+='<hr><div class="row"><span>Pedido</span><b>#'+esc(String(o.id).slice(-5))+'</b></div>';
+    h+='<div class="row"><span>'+esc(fmtTs(o.ts))+'</span><span>'+esc(st)+'</span></div>';
+    h+='<div class="big">'+esc(o.name||'Cliente')+'</div>';
+    h+='<div class="row"><span>'+esc(o.mode||'')+'</span><span>'+esc(o.pay||'')+'</span></div>';
+    if(a)h+='<div class="mut">Entregar: '+esc(a.addr||'')+(a.bairro?', '+esc(a.bairro):'')+(a.comp?' ('+esc(a.comp)+')':'')+(a.ref?' - Ref: '+esc(a.ref):'')+(a.phone?'<br>Tel: '+esc(fmtPhone(a.phone)):'')+'</div>';
+    h+='<hr><div class="big">ITENS ('+(o.items||[]).reduce(function(a,i){return a+num(i.q)},0)+')</div>';
+    (o.items||[]).forEach(function(i){h+='<div class="it"><span class="bx"></span><span class="q">'+num(i.q)+'x</span><span class="nm">'+esc(i.n)+(i.rec?'<br><span class="mut">recompra</span>':'')+'</span></div>'});
+    h+='<hr>';
+    if(o.coupon)h+='<div class="row"><span>Cupom '+esc(o.coupon.code)+'</span><span>'+(o.coupon.off?'- '+brl(o.coupon.off):'')+(o.coupon.ship?'frete grátis':'')+'</span></div>';
+    if(num(o.pixOff))h+='<div class="row"><span>Desconto Pix</span><span>- '+brl(o.pixOff)+'</span></div>';
+    if(num(o.cashUse))h+='<div class="row"><span>Cashback</span><span>- '+brl(o.cashUse)+'</span></div>';
+    if(num(o.fee))h+='<div class="row"><span>Entrega</span><span>'+brl(o.fee)+'</span></div>';
+    h+='<div class="row big"><span>TOTAL</span><span>'+brl(o.total)+'</span></div>';
+    h+='<hr><div class="mut">Separado por: ____________________</div><div class="mut">Conferido por: ___________________</div>';
+    h+='<div class="ph mut" style="margin-top:8px">Gatecão Pet Shop · obrigado!</div>';
+    sl.innerHTML=h;
+    setTimeout(function(){window.print()},60);
+  }
   var ACT={
+    printOrd:function(id){var a=String(id).split('|');printOrder(a[0],a[1])},
     prodNew:function(){openProduct(null)},
     prodEdit:function(id){openProduct(id)},
     stockInc:function(id){var p=byId(D.products,id);if(p)setProd(id,{stock:stockOf(p)+1})},
