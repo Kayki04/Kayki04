@@ -3,7 +3,7 @@
 Uso: python3 tools/build_firebase.py
 O mesmo gatecao.html continua sendo o app publicado no Claude.
 """
-import base64, io, json, os, re, shutil
+import base64, io, json, os, re, shutil, time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'gatecao.html')
 OUT = os.path.join(ROOT, 'public')
@@ -28,7 +28,8 @@ html = html.replace('</head>', head + '</head>', 1)
 
 sdk = ''.join('<script src="https://www.gstatic.com/firebasejs/%s/firebase-%s-compat.js"></script>' % (SDK, m)
               for m in ('app', 'auth', 'firestore', 'storage', 'messaging', 'functions'))
-shim = sdk + '<script src="/config.js"></script><script src="/shim.js"></script>\n'
+VER = str(int(time.time()))
+shim = sdk + '<script src="/config.js?v=' + VER + '"></script><script src="/shim.js?v=' + VER + '"></script>\n'
 i = html.index('<script>')
 html = html[:i] + shim + html[i:]
 

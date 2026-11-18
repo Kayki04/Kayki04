@@ -1,7 +1,7 @@
 /* Service worker da Gatecão: abre rápido e funciona com internet fraca. */
 importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js', 'https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js', '/config.js');
 try { firebase.initializeApp(self.GC_FIREBASE_CONFIG); firebase.messaging(); } catch (e) {}
-const CACHE = 'gatecao-v2';
+const CACHE = 'gatecao-v3';
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/', '/manifest.webmanifest', '/icons/icon-192.png']).catch(() => {}))); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
