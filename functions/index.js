@@ -8,7 +8,7 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 setGlobalOptions({ region: 'southamerica-east1', maxInstances: 5, memory: '256MiB' });
 const db = admin.firestore();
-const SITE = 'https://gatecao-5acbc.web.app';
+const SITE = 'https://gatecao.com.br';
 const brl = v => 'R$ ' + Number(v || 0).toFixed(2).replace('.', ',');
 
 async function tokensOf(uids) {

@@ -1,7 +1,6 @@
 # Textos para divulgar o app da Gatecão
 
-Link do app: https://gatecao-5acbc.web.app
-(Quando o domínio estiver ligado, troque pelo https://gatecao.com.br e gere o cartaz de novo.)
+Link do app: https://gatecao.com.br
 
 ## WhatsApp (lista de transmissão ou status)
 
@@ -13,7 +12,7 @@ Pelo celular você:
 ✅ Recebe aviso quando a ração está acabando e na hora do banho
 ✅ Ganha pontos e cashback em todas as compras
 
-👉 Acesse: https://gatecao-5acbc.web.app
+👉 Acesse: https://gatecao.com.br
 
 No iPhone: toque em Compartilhar › *Adicionar à Tela de Início*.
 No Android: toque nos 3 pontinhos › *Instalar app*.
@@ -27,7 +26,7 @@ Link na bio! Cadastre seu pet e ganhe benefícios desde a primeira compra.
 ## Bio do Instagram
 
 🐾 Pet shop, banho e tosa
-📲 Compre e agende pelo app: gatecao-5acbc.web.app
+📲 Compre e agende pelo app: gatecao.com.br
 
 ## Mensagem no balcão (fala da equipe)
 

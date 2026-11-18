@@ -2,7 +2,7 @@
 import base64, io, os, re, sys
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
-URL = sys.argv[1] if len(sys.argv) > 1 else 'https://gatecao-5acbc.web.app'
+URL = sys.argv[1] if len(sys.argv) > 1 else 'https://gatecao.com.br'
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'divulgacao')
 html = open(os.path.join(ROOT, 'gatecao.html'), encoding='utf8').read()
