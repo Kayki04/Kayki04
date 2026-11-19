@@ -12,6 +12,8 @@
   // Sem cache offline: evita snapshots marcados como "do cache" que deixam o caixa preso em "Sem resposta do banco ainda".
   auth.languageCode = 'pt';
   window.GCFB = { auth: auth, db: fs, logout: function(){ auth.signOut().then(function(){ location.reload(); }); } };
+  window.GCFB.fnBase = 'https://southamerica-east1-gatecao-5acbc.cloudfunctions.net';
+  window.GCFB.idToken = function(){ var u = auth.currentUser; return u ? u.getIdToken() : Promise.resolve(null); };
 
   /* ---------- avisos no celular (push) ---------- */
   function pushOk(){ try { return !!(firebase.messaging && firebase.messaging.isSupported && firebase.messaging.isSupported()) && 'serviceWorker' in navigator && 'Notification' in window; } catch (e) { return false; } }

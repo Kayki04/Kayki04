@@ -41,6 +41,13 @@ jobs:
           if ! gcloud services list --enabled --project gatecao-5acbc --format='value(config.name)' | grep -q cloudbilling; then
             gcloud services enable cloudbilling.googleapis.com --project gatecao-5acbc --quiet && sleep 60
           fi
+      - name: Guardar a credencial do Mercado Pago (ou placeholder)
+        continue-on-error: true
+        env:
+          MP_TOKEN: ${{ secrets.MP_ACCESS_TOKEN }}
+        run: |
+          VAL="${MP_TOKEN:-disabled}"
+          printf '%s' "$VAL" | npx --yes firebase-tools@14 functions:secrets:set MP_ACCESS_TOKEN --project gatecao-5acbc --data-file=- || echo "não foi possível definir o segredo (seguindo)"
       - name: Instalar o servidor de avisos
         run: cd functions && npm ci --omit=dev --no-audit --no-fund
       - name: Publicar o servidor de avisos

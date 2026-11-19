@@ -88,3 +88,91 @@ exports.avisoLojaAgenda = onDocumentWritten('appts/{uid}', async ev => {
   }
 });
 
+
+/* ---------- Mercado Pago: pagamento online (Pix e cartão) ---------- */
+const { onRequest } = require('firebase-functions/v2/https');
+const { defineSecret } = require('firebase-functions/params');
+const MP_TOKEN = defineSecret('MP_ACCESS_TOKEN');
+const FN_BASE = 'https://southamerica-east1-gatecao-5acbc.cloudfunctions.net';
+
+async function mpApi(path, method, body, token) {
+  const r = await fetch('https://api.mercadopago.com' + path, {
+    method,
+    headers: Object.assign({ Authorization: 'Bearer ' + token },
+      method === 'POST' ? { 'Content-Type': 'application/json', 'X-Idempotency-Key': String(Date.now()) + '-' + Math.random().toString(36).slice(2) } : {}),
+    body: body ? JSON.stringify(body) : undefined
+  });
+  let j = null; try { j = await r.json(); } catch (e) {}
+  return { ok: r.ok, status: r.status, j };
+}
+
+// Cria o pagamento (Pix com QR, ou cartão via Checkout Pro). Só o dono do pedido chama.
+exports.mpCreate = onRequest({ secrets: [MP_TOKEN], cors: true, region: 'southamerica-east1' }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'metodo' }); return; }
+  try {
+    const token = MP_TOKEN.value();
+    if (!token || token === 'disabled') { res.status(503).json({ error: 'nao_configurado' }); return; }
+    const authH = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    let uid = null; try { uid = (await admin.auth().verifyIdToken(authH)).uid; } catch (e) {}
+    if (!uid) { res.status(401).json({ error: 'auth' }); return; }
+    const body = req.body || {};
+    const orderId = String(body.orderId || '').slice(0, 40);
+    const total = Math.round(Number(body.total) * 100) / 100;
+    const method = body.method === 'card' ? 'card' : 'pix';
+    if (!orderId || !(total > 0)) { res.status(400).json({ error: 'dados' }); return; }
+    const os = await db.doc('orders/' + uid).get();
+    const ord = os.exists && os.data().o && os.data().o[orderId];
+    if (!ord) { res.status(404).json({ error: 'pedido' }); return; }
+    const extRef = uid + '::' + orderId;
+    const notification_url = FN_BASE + '/mpHook';
+    if (method === 'pix') {
+      const payer = { email: (body.email || '').slice(0, 80) || ('cliente.' + uid.slice(0, 10) + '@gatecao.com.br'), first_name: (body.name || 'Cliente').slice(0, 40) };
+      const { ok, j } = await mpApi('/v1/payments', 'POST', {
+        transaction_amount: total, description: 'Pedido Gatecao ' + orderId, payment_method_id: 'pix',
+        external_reference: extRef, notification_url, payer
+      }, token);
+      if (!ok || !j || !j.id) { res.status(502).json({ error: 'mp' }); return; }
+      const tx = (j.point_of_interaction && j.point_of_interaction.transaction_data) || {};
+      await db.doc('pay/' + j.id).set({ uid, orderId, status: j.status, method: 'pix', amount: total, ts: Date.now() });
+      res.json({ ok: true, id: String(j.id), method: 'pix', status: j.status, qr: tx.qr_code || '', qr_base64: tx.qr_code_base64 || '', ticket: tx.ticket_url || '' });
+      return;
+    }
+    const { ok, j } = await mpApi('/checkout/preferences', 'POST', {
+      items: [{ title: 'Pedido Gatecao ' + orderId, quantity: 1, currency_id: 'BRL', unit_price: total }],
+      external_reference: extRef, notification_url,
+      back_urls: { success: 'https://gatecao.com.br/#pedidos', pending: 'https://gatecao.com.br/#pedidos', failure: 'https://gatecao.com.br/#pedidos' },
+      auto_return: 'approved', payment_methods: { excluded_payment_types: [{ id: 'ticket' }] }
+    }, token);
+    if (!ok || !j || !j.init_point) { res.status(502).json({ error: 'mp' }); return; }
+    await db.doc('pay/pref_' + j.id).set({ uid, orderId, status: 'init', method: 'card', amount: total, ts: Date.now() });
+    res.json({ ok: true, id: String(j.id), method: 'card', init_point: j.init_point });
+  } catch (e) { res.status(500).json({ error: 'erro' }); }
+});
+
+// Webhook do Mercado Pago: confirma o pagamento e marca o pedido como pago.
+exports.mpHook = onRequest({ secrets: [MP_TOKEN], region: 'southamerica-east1' }, async (req, res) => {
+  res.status(200).send('ok');
+  try {
+    const token = MP_TOKEN.value(); if (!token || token === 'disabled') return;
+    const q = req.query || {}, b = req.body || {};
+    const type = q.type || q.topic || b.type || '';
+    const id = q['data.id'] || q.id || (b.data && b.data.id) || b.id;
+    if (!id) return;
+    if (type && String(type).indexOf('payment') < 0) return;
+    const { ok, j } = await mpApi('/v1/payments/' + id, 'GET', null, token);
+    if (!ok || !j) return;
+    const parts = String(j.external_reference || '').split('::');
+    const uid = parts[0], orderId = parts[1];
+    if (!uid || !orderId) return;
+    await db.doc('pay/' + j.id).set({ uid, orderId, status: j.status, method: j.payment_type_id || '', amount: j.transaction_amount || 0, ts: Date.now() }, { merge: true });
+    if (j.status !== 'approved') return;
+    const oref = db.doc('orders/' + uid);
+    const osnap = await oref.get(); if (!osnap.exists) return;
+    const data = osnap.data(); const o = (data.o || {})[orderId]; if (!o || o.paid) return;
+    o.paid = true; o.paidAt = Date.now(); o.payMethod = j.payment_type_id || 'mp'; o.mpId = String(j.id);
+    const no = Object.assign({}, data.o); no[orderId] = o;
+    await oref.set(Object.assign({}, data, { o: no }));
+    try { const ad0 = await adminUids(); await send(ad0, 'Pagamento recebido · ' + (o.name || 'Cliente'), brl(o.total) + ' · ' + (j.payment_type_id === 'pix' ? 'Pix' : 'Cartão') + ' · pedido ' + String(orderId).slice(-5), 'gestao', 'gc-pay-' + orderId); } catch (e) {}
+    try { const iref = db.doc('inbox/' + uid); const iss = await iref.get(); const m = (iss.exists && iss.data().m) || {}; const nid = 'n' + Date.now(); m[nid] = { id: nid, ts: Date.now(), title: 'Pagamento confirmado', body: 'Recebemos seu pagamento de ' + brl(o.total) + '. Já estamos cuidando do seu pedido!', kind: 'pedido' }; await iref.set({ m }); } catch (e) {}
+  } catch (e) {}
+});
