@@ -3631,7 +3631,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(!mo.length)h+='<p class="muted">Nenhum pedido ainda. Adicione produtos ao carrinho para começar.</p>';
     mo.forEach(function(o){
       var st=(D.status[o.id]&&D.status[o.id].status)||'Novo';
-      h+='<div class="hist"><div class="row"><b>Pedido #'+esc(String(o.id).slice(-5))+'</b><span class="pill">'+esc(st)+'</span></div>'+
+      if(o.payState==='pendente'&&!o.paid){h+='<div class="hist"><div class="row"><b>Pedido #'+esc(String(o.id).slice(-5))+'</b><span class="pill bad">Aguardando pagamento</span></div><p class="hint" style="margin:0">Finalize o pagamento para a loja preparar seu pedido.</p>'+o.items.map(function(i){return '<div class="row"><span>'+i.q+' x '+esc(i.n)+'</span><span>'+brl(i.q*i.p)+'</span></div>'}).join('')+'<div class="row"><span class="muted">'+fmtTs(o.ts)+' · '+esc(o.pay)+'</span><b>'+brl(o.total)+'</b></div><div class="apact"><button class="primary" data-mppay="'+esc(o.id)+'">Pagar agora</button><button class="ghost dangerline" data-mpcancel="'+esc(o.id)+'">Cancelar pedido</button></div></div>';return}
+      h+='<div class="hist"><div class="row"><b>Pedido #'+esc(String(o.id).slice(-5))+'</b><span class="pill">'+esc(st)+'</span>'+(o.paid?' <span class="st ok">Pago</span>':'')+'</div>'+
         ordTimeline(o,st)+o.items.map(function(i){return '<div class="row"><span>'+i.q+' x '+esc(i.n)+'</span><span>'+brl(i.q*i.p)+'</span></div>'}).join('')+
         (o.addr?'<div class="muted">Entregar em: '+esc(o.addr.addr)+', '+esc(o.addr.bairro)+(o.addr.comp?' · '+esc(o.addr.comp):'')+(o.addr.ref?' · Ref.: '+esc(o.addr.ref):'')+(o.addr.phone?' · '+esc(fmtPhone(o.addr.phone)):'')+'</div>':'')+(o.coupon?'<div class="muted">Cupom '+esc(o.coupon.code)+(o.coupon.off?': - '+brl(o.coupon.off):'')+(o.coupon.ship?' (frete grátis)':'')+'</div>':'')+'<div class="row"><span class="muted">'+fmtTs(o.ts)+' · '+esc(o.mode)+' · '+esc(o.pay)+'</span><b>'+brl(o.total)+'</b></div>'+
         '<div class="apact"><button class="ghost" data-again="'+esc(o.id)+'">Comprar de novo</button>'+waBtn('Olá! Sobre o meu pedido #'+String(o.id).slice(-5)+' no app:','Falar sobre o pedido')+'</div></div>';
@@ -3654,6 +3655,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     }});
     var oa=$('#openAdm');if(oa)oa.onclick=function(){go('gestao')};
     $$('[data-rateap]',view).forEach(function(b){b.onclick=function(){goDest('rate:'+b.getAttribute('data-rateap'))}});
+    $$('[data-mppay]',view).forEach(function(b){b.onclick=function(){var o=myAllOrders().filter(function(x){return x.id===b.getAttribute('data-mppay')})[0];if(!o)return;if(o.pm==='card')mpCardStart(o);else mpStart(o,'pix')}});
+    $$('[data-mpcancel]',view).forEach(function(b){b.onclick=async function(){if(b.getAttribute('data-sure')!=='1'){b.setAttribute('data-sure','1');b.textContent='Toque de novo para cancelar';return}var id=b.getAttribute('data-mpcancel');b.disabled=true;try{if(X.uid&&X.db){var ref=X.db.doc('orders/'+X.uid),cs=await ref.get(),w=cs.exists?cs.data():{},nx=Object.assign({},w.o||{});delete nx[id];await ref.set(Object.assign({},w,{o:nx}))}state.myOrders=state.myOrders.filter(function(x){return x.id!==id});save('gc_orders',state.myOrders);toast('Pedido cancelado');render()}catch(e){b.disabled=false;wfail(e)}}});
     $$('[data-again]',view).forEach(function(b){b.onclick=function(){
       var o=myAllOrders().filter(function(x){return x.id===b.getAttribute('data-again')})[0];if(!o)return;
       var added=0,miss=0;
@@ -4480,7 +4483,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       if(!list.length)h+='<div class="empty-card"><h2>Nenhum pedido ainda</h2><p class="muted">Os pedidos feitos no app aparecem aqui na hora.</p></div>';
       list.forEach(function(o){
         var st=ordStatus(o),applied=D.status[o.id]&&D.status[o.id].stockApplied;
-        h+='<div class="acard ord"><div class="rowtight"><b>'+esc(o.name)+' · #'+esc(String(o.id).slice(-5))+'</b><span class="st '+stClass(st)+'">'+esc(st)+'</span></div>'+
+        h+='<div class="acard ord"><div class="rowtight"><b>'+esc(o.name)+' · #'+esc(String(o.id).slice(-5))+'</b><span class="st '+stClass(st)+'">'+esc(st)+'</span>'+(o.payState==='pendente'&&!o.paid?'<span class="st bad">Aguardando pagamento</span>':o.paid?'<span class="st ok">Pago</span>':'')+'</div>'+
           '<div class="items">'+o.items.map(function(i){return '<div class="rowtight"><span>'+i.q+' x '+esc(i.n)+'</span><span>'+brl(i.q*i.p)+'</span></div>'}).join('')+'</div>'+
           (o.addr?'<div class="muted">Entregar em: '+esc(o.addr.addr)+', '+esc(o.addr.bairro)+(o.addr.comp?' · '+esc(o.addr.comp):'')+(o.addr.ref?' · Ref.: '+esc(o.addr.ref):'')+(o.addr.phone?' · '+esc(fmtPhone(o.addr.phone)):'')+'</div>':'')+(o.coupon?'<span class="muted">Cupom '+esc(o.coupon.code)+(o.coupon.off?': - '+brl(o.coupon.off):'')+(o.coupon.ship?' (frete grátis)':'')+'</span>':'')+'<div class="rowtight"><span class="muted">'+fmtTs(o.ts)+' · '+esc(o.mode)+' · '+esc(o.pay)+'</span><b>'+brl(o.total)+'</b></div>'+
           '<div class="rowtight"><button class="mini" data-act="printOrd" data-id="'+esc(o.uid)+'|'+esc(o.id)+'">🖨️ Imprimir separação</button></div>'+

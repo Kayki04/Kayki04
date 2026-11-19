@@ -59,7 +59,7 @@ exports.avisoCliente = onDocumentWritten('inbox/{uid}', async ev => {
 exports.avisoLojaPedido = onDocumentWritten('orders/{uid}', async ev => {
   const bd = ev.data.before.exists ? ev.data.before.data() : {}, ad = ev.data.after.exists ? ev.data.after.data() : {};
   const b = bd.o || {}, a = ad.o || {};
-  const novos = Object.keys(a).filter(k => !b[k]).map(k => a[k]).filter(o => Date.now() - (o.ts || 0) < 3600e3);
+  const novos = Object.keys(a).filter(k => !b[k]).map(k => a[k]).filter(o => Date.now() - (o.ts || 0) < 3600e3 && o.payState !== 'pendente');
   const ad0 = await adminUids();
   if (novos.length === 1) {
     const o = novos[0];
