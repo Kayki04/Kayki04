@@ -65,7 +65,7 @@ const listLocal = (path, filters) => Object.entries(colOf(path))
 const newId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => { if (e.key === KEY) { mem = null; listeners.forEach((l) => l()); } });
+  try { window.addEventListener('storage', (e) => { if (e.key === KEY) { mem = null; listeners.forEach((l) => l()); } }); } catch { /* sem storage */ }
 }
 
 const local = {

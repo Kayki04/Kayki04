@@ -9,6 +9,11 @@ const Ctx = createContext(null);
 export const useApp = () => useContext(Ctx);
 
 const DEMO_UID_KEY = 'brota_demo_uid';
+// Alguns navegadores (ex.: iOS dentro de apps) bloqueiam o localStorage e jogam erro.
+let memUid = null;
+const safeGet = (k) => { try { return localStorage.getItem(k); } catch { return memUid; } };
+const safeSet = (k, v) => { memUid = v; try { localStorage.setItem(k, v); } catch { /* fica só na memória */ } };
+const safeDel = (k) => { memUid = null; try { localStorage.removeItem(k); } catch { /* ignora */ } };
 const TABS = ['home', 'explore', 'reels', 'match', 'profile'];
 
 async function seedIfEmpty() {
@@ -51,7 +56,7 @@ export function AppProvider({ children }) {
     if (isFirebaseConfigured) {
       return onAuthStateChanged(auth, (u) => setAuthUser(u ? { uid: u.uid, displayName: u.displayName, photoURL: u.photoURL, email: u.email } : null));
     }
-    const uid = localStorage.getItem(DEMO_UID_KEY);
+    const uid = safeGet(DEMO_UID_KEY);
     setAuthUser(uid ? { uid, displayName: '', photoURL: '' } : null);
     return undefined;
   }, []);
@@ -104,13 +109,13 @@ export function AppProvider({ children }) {
       return;
     }
     const id = `local_${Math.random().toString(36).slice(2, 10)}`;
-    localStorage.setItem(DEMO_UID_KEY, id);
+    safeSet(DEMO_UID_KEY, id);
     setAuthUser({ uid: id, displayName: '', photoURL: '' });
   }, []);
 
   const logout = useCallback(async () => {
     if (isFirebaseConfigured) await signOut(auth);
-    localStorage.removeItem(DEMO_UID_KEY);
+    safeDel(DEMO_UID_KEY);
     setAuthUser(null); setOverlay(null); setRoute({ name: 'home' });
   }, []);
 
