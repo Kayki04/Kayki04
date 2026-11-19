@@ -2923,8 +2923,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='<div class="co-h">Como receber</div><div class="opts">';
     ['Retirada na loja','Entrega'].forEach(function(m){h+='<button class="opt" data-mode="'+m+'" aria-pressed="'+(state.co.mode===m)+'"><b>'+m+'</b><span class="muted">'+(m==='Entrega'?(etaText()?etaText()+' · ':'')+'grátis acima de '+brl(freeMin):'Sem custo')+'</span></button>'});
     h+='</div><div class="co-h">Pagamento</div><div class="opts">';
-    var PAYS=mpOn()?[['Pix (pague agora)','Pix na hora pelo QR Code'+(pixPct?' · '+pixPct+'% de desconto':'')],['Cartão (pague agora)','Crédito ou débito, na hora']]:[['Pix',(pixPct?pixPct+'% de desconto':'')],['Cartão na entrega',''],['Dinheiro','']];
-    if(mpOn()&&['Pix (pague agora)','Cartão (pague agora)'].indexOf(state.co.pay)<0)state.co.pay='Pix (pague agora)';
+    var PAYS=mpOn()?[['Pix (pague agora)','Pague na hora pelo QR Code, sem sair do app'+(pixPct?' · '+pixPct+'% de desconto':'')]]:[['Pix',(pixPct?pixPct+'% de desconto':'')],['Cartão na entrega',''],['Dinheiro','']];
+    if(mpOn()&&state.co.pay!=='Pix (pague agora)')state.co.pay='Pix (pague agora)';
     PAYS.forEach(function(m){h+='<button class="opt" data-pay="'+esc(m[0])+'" aria-pressed="'+(state.co.pay===m[0])+'"><b>'+esc(m[0])+'</b>'+(m[1]?'<span class="muted">'+esc(m[1])+'</span>':'')+'</button>'});
     h+='</div>';
     if(wl&&wl.cash>0)h+='<button class="opt" id="useCash" aria-pressed="'+(!!state.co.useCash)+'"><span><b>Usar meu cashback</b><br><span class="muted">Saldo disponível: '+brl(wl.cash)+(cbOk?'':' · use em compras a partir de '+brl(fc.minCompraUso))+(num(fc.maxUsoPct)<100?' · até '+fc.maxUsoPct+'% da compra':'')+'</span></span><b>'+(cashUse?'- '+brl(cashUse):'Não usar')+'</b></button>';
