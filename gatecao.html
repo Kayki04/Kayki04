@@ -169,6 +169,7 @@ body.adm::before{background:#F1F5FB}
 .athumb .cambadge{position:absolute;right:-5px;bottom:-5px;background:var(--accent);color:#fff;border-radius:999px;width:22px;height:22px;display:grid;place-items:center;font-size:12px;box-shadow:0 1px 3px rgba(0,0,0,.3);border:2px solid #fff}
 .arow .main b{display:block;overflow-wrap:anywhere}
 .arow .ctl{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;border-top:1px dashed var(--line);padding-top:10px}
+.prodmore{display:flex;justify-content:center;padding:6px 0 12px}
 .pxrow{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;border-top:1px dashed var(--line);padding-top:10px;margin-top:2px}
 .pxrow label{display:grid;gap:3px;font-size:11px;font-weight:800;color:var(--muted);min-width:0;text-transform:none}
 .pxin{padding:7px 9px!important;border-width:1.5px!important;border-radius:10px!important;text-align:right}
@@ -5800,20 +5801,26 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(f==='baixo')return p.active!==false&&stockOf(p)<=minStock(p);
     return true;
   }
+  function prodInfinite(){
+    if(window._prodObs){window._prodObs.disconnect();window._prodObs=null}
+    var sent=$('#prodSentinel');if(!sent)return;
+    try{window._prodObs=new IntersectionObserver(function(es){if(es[0]&&es[0].isIntersecting){state.adm.prodShown=(num(state.adm.prodShown)||80)+120;var pl=$('#plist');if(pl){pl.innerHTML=prodList();prodInfinite()}}},{rootMargin:'600px 0px'});window._prodObs.observe(sent)}catch(e){}
+  }
   function prodList(){
     var q=state.adm.q.trim().toLowerCase(),f=state.adm.pf;
     if(!D.ready.products)return loadingBox();
     if(!D.products.length)return '<div class="empty-card"><h2>Nenhum produto ainda</h2><p class="muted">Importe a planilha do seu sistema ou cadastre o primeiro produto.</p><div class="rowtight" style="justify-content:center"><button class="btn" data-act="impOpen">Importar planilha</button><button class="btn line" data-act="prodNew">Novo produto</button></div></div>';
     var list=D.products.filter(function(p){return pfMatch(p,f)&&(!q||(String(p.name)+' '+(p.t||[]).join(' ')+' '+(p.code||'')).toLowerCase().indexOf(q)>-1)})
       .sort(function(a,b){return String(a.name).localeCompare(String(b.name),'pt-BR')});
-    var shown=list.slice(0,80);
+    var lim=Math.max(80,num(state.adm.prodShown)||80),shown=list.slice(0,lim);
     var h=shown.map(prodRow).join('')||'<p class="empty">Nenhum produto encontrado.</p>';
-    if(list.length>shown.length)h+='<p class="hint" style="text-align:center">Mostrando 80 de '+list.length+'. Use a busca ou os filtros para encontrar os demais.</p>';
+    if(list.length>shown.length){var rest=list.length-shown.length;h+='<div id="prodSentinel" class="prodmore"><button class="btn line" data-act="prodMore">Mostrar mais '+Math.min(80,rest)+' · '+shown.length+' de '+list.length+'</button></div>';}
     if(f==='ocultos'&&list.length)h='<div class="acard"><span class="hint">Estes produtos não aparecem para os clientes.</span><button class="btn alt" data-act="showHidden" id="showHid">Mostrar os '+list.length+' no app</button></div>'+h;
     return h;
   }
   function aProdutos(m){
     ensureTables();
+    state.adm.prodShown=80;
     var sem=D.products.filter(function(p){return !p.img}).length;
     var h='<div class="toolbar"><input class="in" id="aq" type="search" placeholder="Buscar nome, código ou categoria" value="'+esc(state.adm.q)+'" aria-label="Buscar produto"><button class="btn" data-act="prodNew">+ Novo produto</button></div>';
     h+='<div class="toolbar"><button class="btn alt" data-act="impOpen">Importar planilha</button><button class="btn alt" data-act="photoBulk">Fotos em lote'+(sem?' ('+sem+' sem foto)':'')+'</button>'+(X.dl?'<button class="btn line" data-act="expCsv">Exportar</button>':'')+'</div>';
@@ -5821,7 +5828,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(X.assets)h+='<p class="hint" style="margin:0 0 10px">Toque em <b>Foto</b> num produto para enviar do celular (ou tirar na hora). No computador, você também pode arrastar a foto para cima do produto.</p>';
     h+='<div id="plist">'+prodList()+'</div>';
     m.innerHTML=h;
-    $('#aq').oninput=function(e){state.adm.q=e.target.value;$('#plist').innerHTML=prodList()};
+    prodInfinite();
+    $('#aq').oninput=function(e){state.adm.q=e.target.value;state.adm.prodShown=80;$('#plist').innerHTML=prodList();prodInfinite()};
   }
 
   /* ---------- exportar e modelo ---------- */
@@ -6076,6 +6084,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     photoBulk:function(){openPhotoBulk()},
     expCsv:function(){exportCsv()},
     pfilter:function(id){state.adm.pf=id;renderAdmin()},
+    prodMore:function(){state.adm.prodShown=(num(state.adm.prodShown)||80)+120;var pl=$('#plist');if(pl){pl.innerHTML=prodList();prodInfinite()}},
     showHidden:async function(id,btn){
       if(btn.getAttribute('data-sure')!=='1'){btn.setAttribute('data-sure','1');btn.textContent='Toque de novo para mostrar no app';return}
       var hid=D.products.filter(function(p){return p.active===false});btn.disabled=true;
