@@ -169,6 +169,9 @@ body.adm::before{background:#F1F5FB}
 .athumb .cambadge{position:absolute;right:-5px;bottom:-5px;background:var(--accent);color:#fff;border-radius:999px;width:22px;height:22px;display:grid;place-items:center;font-size:12px;box-shadow:0 1px 3px rgba(0,0,0,.3);border:2px solid #fff}
 .arow .main b{display:block;overflow-wrap:anywhere}
 .arow .ctl{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;border-top:1px dashed var(--line);padding-top:10px}
+.pxrow{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;border-top:1px dashed var(--line);padding-top:10px;margin-top:2px}
+.pxrow label{display:grid;gap:3px;font-size:11px;font-weight:800;color:var(--muted);min-width:0;text-transform:none}
+.pxin{padding:7px 9px!important;border-width:1.5px!important;border-radius:10px!important;text-align:right}
 .athumb{width:56px;height:56px;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:var(--soft);color:var(--accent);position:relative}
 .athumb svg{width:60%;height:60%}
 .stk{display:flex;align-items:center;gap:8px}
@@ -4037,10 +4040,28 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function buyText(){var lb='',t='Pedido de compra - Gatecão\n';buySuggest().forEach(function(x){if(x.b!==lb){t+='\n'+x.b+'\n';lb=x.b}t+='- '+x.need+' x '+pName(x.p)+(x.p.code?' ('+x.p.code+')':'')+'\n'});return t}
 
   /* ----- Produtos ----- */
+  var _tablesEnsured=false;
+  async function ensureTables(){
+    if(_tablesEnsured||!X.db||!X.isAdmin||!D.ready.tables)return;
+    var need=[];
+    if(!appTable())need.push({app:true,name:'App e site',adj:0});
+    if(!recTable())need.push({rec:true,name:'Recorrência',adj:0,days:[15,30,45,60]});
+    if(!balcaoTable())need.push({balcao:true,name:'Balcão',adj:0});
+    _tablesEnsured=true;
+    try{for(var i=0;i<need.length;i++){await X.db.collection('tables').doc().set(need[i])}}catch(e){_tablesEnsured=false}
+  }
+  function pxStrip(p){
+    var rt=recTable(),bt=balcaoTable(),m=function(v){return (v!=null&&v!=='')?esc(String(v).replace('.',',')):''};
+    return '<div class="pxrow">'+
+      '<label><span>App e site</span><input class="in pxin" inputmode="decimal" data-chg="px" data-id="app|'+esc(p.id)+'" value="'+m(p.price)+'" aria-label="Preço app e site de '+esc(p.name)+'"></label>'+
+      (rt?'<label><span>Recorrência</span><input class="in pxin" inputmode="decimal" data-chg="px" data-id="rec|'+esc(p.id)+'" value="'+m(p.tp&&p.tp[rt.id])+'" placeholder="—" aria-label="Preço de recorrência de '+esc(p.name)+'"></label>':'')+
+      (bt?'<label><span>Balcão</span><input class="in pxin" inputmode="decimal" data-chg="px" data-id="bal|'+esc(p.id)+'" value="'+m(p.tp&&p.tp[bt.id])+'" placeholder="—" aria-label="Preço de balcão de '+esc(p.name)+'"></label>':'')+
+    '</div>';
+  }
   function prodRow(p){
     var pr=priced(p);
     return '<div class="arow" data-pid="'+esc(p.id)+'"><div class="athumb'+(X.assets?' tap':'')+'"'+(X.assets?' data-act="rowPhoto" data-id="'+esc(p.id)+'" role="button" tabindex="0" title="Enviar foto"':'')+'>'+(p.img?'<img class="pimg" src="/_blob/'+esc(p.img)+'" alt="">':svg(p.i||'paw'))+(X.assets?'<span class="cambadge" aria-hidden="true">📷</span>':'')+'</div>'+
-      '<div class="main"><b>'+esc(p.name)+'</b><span class="muted">'+esc((p.t||[]).join(', '))+(p.code?' · '+esc(p.code):'')+'</span><div><b>'+brl(pr.price)+'</b>'+(pr.off?' <span class="old">'+brl(pr.base)+'</span> <span class="st ok">-'+pr.off+'%</span>':'')+' '+stockBadge(p)+(p.active===false?' <span class="st off">Oculto no app</span>':'')+'</div></div>'+
+      '<div class="main"><b>'+esc(p.name)+'</b><span class="muted">'+esc((p.t||[]).join(', '))+(p.code?' · '+esc(p.code):'')+'</span><div><b>'+brl(pr.price)+'</b>'+(pr.off?' <span class="old">'+brl(pr.base)+'</span> <span class="st ok">-'+pr.off+'%</span>':'')+' '+stockBadge(p)+(p.active===false?' <span class="st off">Oculto no app</span>':'')+'</div></div>'+pxStrip(p)+
       '<div class="ctl"><div class="stk'+(stockOf(p)<=minStock(p)?' low':'')+'"><button data-act="stockDec" data-id="'+esc(p.id)+'" aria-label="Tirar 1 do estoque">-</button><b>'+stockOf(p)+'</b><button data-act="stockInc" data-id="'+esc(p.id)+'" aria-label="Colocar 1 no estoque">+</button><span class="muted">em estoque</span></div>'+
       '<div class="stk"><span class="muted">No app</span>'+swHtml(p.active!==false,'prodOn',p.id,'Mostrar no app')+(X.assets?'<button class="mini" data-act="rowPhoto" data-id="'+esc(p.id)+'">'+(p.img?'Trocar foto':'Foto')+'</button>':'')+'<button class="mini" data-act="prodEdit" data-id="'+esc(p.id)+'">Editar</button></div></div></div>';
   }
@@ -4297,20 +4318,21 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
 
   /* ----- Tabelas de preço ----- */
   function aTabelas(m){
-    var h='<div class="toolbar"><p class="hint" style="flex:1">Cada tabela ajusta o preço base em porcentagem (negativo dá desconto). Na grade abaixo você pode fixar um preço específico por produto. A tabela marcada como "No app" é a que os clientes veem. A tabela do tipo <b>Recorrência</b> define o preço de quem escolhe recompra.</p><button class="btn" data-act="tblNew">+ Nova tabela</button>'+(recTable()?'':'<button class="btn alt" data-act="tblNewRec">+ Tabela de recorrência</button>')+'</div>';
-    if(!D.tables.length)h+='<div class="empty-card"><h2>Nenhuma tabela de preço</h2><p class="muted">Sem tabela, o app usa o preço base de cada produto.</p></div>';
+    ensureTables();
+    var h='<div class="toolbar"><p class="hint" style="flex:1">Três tabelas fixas: <b>App e site</b> (preço que o cliente vê), <b>Recorrência</b> (preço de quem assina recompra — só aparece se for mais barato) e <b>Balcão</b> (preço só da loja física, não aparece no app). Edite aqui na grade ou direto na lista de Produtos.</p></div>';
     D.tables.slice().sort(function(a,b){return (b.app?1:0)-(a.app?1:0)||String(a.name).localeCompare(String(b.name),'pt-BR')}).forEach(function(t){
       h+='<div class="acard"><div class="rowtight"><b>'+esc(t.name)+'</b>'+(t.rec?'<span class="st warn">Recorrência</span>':t.balcao?'<span class="st info">Balcão</span>':t.app?'<span class="st ok">No app</span>':'<span class="st off">Fora do app</span>')+'</div><span class="muted">Ajuste sobre o preço base: '+(num(t.adj)>0?'+':'')+num(t.adj)+'%'+(t.rec?' · intervalos: '+recDays().join(', ')+' dias':'')+'</span>'+
         (t.rec?'<span class="hint">Preço usado quando o cliente escolhe recompra. Só aparece no app quando fica mais barato que a compra normal.</span>':'')+
         '<div class="rowtight">'+(t.rec?'<span></span>':'<button class="mini" data-act="tblApp" data-id="'+esc(t.id)+'"'+(t.app?' disabled':'')+'>Usar no app</button>')+'<button class="mini" data-act="tblEdit" data-id="'+esc(t.id)+'">Editar</button></div></div>';
     });
-    if(D.tables.length&&D.products.length){
-      var cols=D.tables.slice().sort(function(a,b){return (b.app?1:0)-(a.app?1:0)||String(a.name).localeCompare(String(b.name),'pt-BR')});
-      h+='<div class="acard"><b>Grade de preços</b><p class="hint">Deixe em branco para usar o preço base com o ajuste da tabela. Digite um valor para fixar o preço do produto naquela tabela.</p><div class="gridwrap"><table class="pt"><thead><tr><th>Produto</th><th>Base</th>'+cols.map(function(t){return '<th>'+esc(t.name)+'</th>'}).join('')+'</tr></thead><tbody>';
+    var cols3=[appTable(),recTable(),balcaoTable()].filter(Boolean);
+    if(cols3.length&&D.products.length){
+      h+='<div class="acard"><b>Grade de preços</b><p class="hint">App e site é o preço que o cliente vê. Recorrência e Balcão em branco = sem preço especial.</p><div class="gridwrap"><table class="pt"><thead><tr><th>Produto</th>'+cols3.map(function(t){return '<th>'+esc(t.name)+'</th>'}).join('')+'</tr></thead><tbody>';
       D.products.slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),'pt-BR')}).forEach(function(p){
-        h+='<tr><td>'+esc(p.name)+'</td><td>'+brl(p.price)+'</td>'+cols.map(function(t){
-          var o=p.tp&&p.tp[t.id],auto=r2(num(p.price)*(1+num(t.adj)/100));
-          return '<td><input inputmode="decimal" data-chg="cell" data-id="'+esc(p.id)+'|'+esc(t.id)+'" value="'+(o!=null&&o!==''?esc(String(o).replace('.',',')):'')+'" placeholder="'+String(auto).replace('.',',')+'" aria-label="Preço de '+esc(p.name)+' na tabela '+esc(t.name)+'"></td>';
+        h+='<tr><td>'+esc(p.name)+'</td>'+cols3.map(function(t){
+          if(t.app){return '<td><input inputmode="decimal" data-chg="px" data-id="app|'+esc(p.id)+'" value="'+esc(p.price!==''&&p.price!=null?String(p.price).replace('.',','):'')+'" aria-label="Preço app e site de '+esc(p.name)+'"></td>'}
+          var o=p.tp&&p.tp[t.id];
+          return '<td><input inputmode="decimal" data-chg="cell" data-id="'+esc(p.id)+'|'+esc(t.id)+'" value="'+(o!=null&&o!==''?esc(String(o).replace('.',',')):'')+'" placeholder="—" aria-label="Preço de '+esc(p.name)+' na tabela '+esc(t.name)+'"></td>';
         }).join('')+'</tr>';
       });
       h+='</tbody></table></div></div>';
@@ -4791,6 +4813,15 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     fixNames:async function(){var bad=D.products.filter(function(p){return p.name&&niceName(p.name)!==p.name});if(!state.adm.fixSure||Date.now()-state.adm.fixSure>8000){state.adm.fixSure=Date.now();toast('Toque de novo para gravar '+bad.length+' nomes');return}state.adm.fixSure=0;toast('Gravando nomes...');var n=0;for(var i=0;i<bad.length;i++){try{await X.db.doc('products/'+bad[i].id).update({name:niceName(bad[i].name)});n++}catch(e){}}toast(n+' nomes padronizados')}
   };
   var CHG={
+    px:async function(id,el){
+      var parts=id.split('|'),kind=parts[0],p=byId(D.products,parts[1]);if(!p)return;
+      var raw=el.value.trim(),val=raw===''?null:num(el.value);
+      if(raw!==''&&!(val>0)){toast('Digite um preço válido');el.focus();return}
+      try{
+        if(kind==='app'){if(!(val>0)){toast('O preço do app e site é obrigatório');return}await X.db.doc('products/'+p.id).update({price:val});toast('Preço do app salvo')}
+        else{var t=kind==='rec'?recTable():balcaoTable();if(!t){toast('Tabela indisponível, tente de novo');return}var tp=JSON.parse(JSON.stringify(p.tp||{}));tp[t.id]=val;await X.db.doc('products/'+p.id).update({tp:tp});toast((kind==='rec'?'Recorrência':'Balcão')+' salvo')}
+      }catch(e){wfail(e)}
+    },
     planSt:async function(uid,el){try{var v=el.value;await X.db.doc('status/plan_'+uid).set({status:v,ts:Date.now()});var d=D.orders.filter(function(x){return x.id===uid})[0];if(v==='Ativo')notifyUser(uid,'Plano ativado!','Seu '+(d&&d.pl?d.pl.name:'plano')+' está ativo. Agende pelo app: o serviço do plano sai sem custo até o limite do mês.','agenda').catch(function(){});toast('Plano atualizado')}catch(e){wfail(e)}},
     cell:async function(id,el){
       var parts=id.split('|'),p=byId(D.products,parts[0]);if(!p)return;
@@ -5782,6 +5813,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     return h;
   }
   function aProdutos(m){
+    ensureTables();
     var sem=D.products.filter(function(p){return !p.img}).length;
     var h='<div class="toolbar"><input class="in" id="aq" type="search" placeholder="Buscar nome, código ou categoria" value="'+esc(state.adm.q)+'" aria-label="Buscar produto"><button class="btn" data-act="prodNew">+ Novo produto</button></div>';
     h+='<div class="toolbar"><button class="btn alt" data-act="impOpen">Importar planilha</button><button class="btn alt" data-act="photoBulk">Fotos em lote'+(sem?' ('+sem+' sem foto)':'')+'</button>'+(X.dl?'<button class="btn line" data-act="expCsv">Exportar</button>':'')+'</div>';
