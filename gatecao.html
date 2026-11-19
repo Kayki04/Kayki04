@@ -3903,14 +3903,19 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     }catch(e){$('#mbSave').disabled=false;wfail(e)}
   }
   function mbBanhoHtml(){
-    var A=MB.ag||(MB.ag={pet:'',tutor:'',kind:'Cachorro',svc:'',day:todayStr(),slot:'',price:'',obs:''});
+    var A=MB.ag||(MB.ag={pet:'',tutor:'',kind:'Cachorro',svc:'',day:todayStr(),slot:'',price:'',obs:'',weight:'',coat:'',breed:'',extras:[]});
+    if(!A.extras)A.extras=[];
     var sv=D.services.filter(function(s){return s.active!==false&&!isExtra(s)});
+    var adds=D.services.filter(function(s){return s.active!==false});
     var h='<div class="acard"><b>Cliente e pet</b><p class="hint" style="margin:0">Busque um cliente cadastrado ou cadastre na hora. O pet do cliente aparece na lista.</p><div id="mbAgCustBox"></div></div>';
-    h+='<div class="acard"><b>Agendar banho e tosa (manual)</b><p class="hint">O horário é reservado na agenda.</p>'+
+    h+='<div class="acard"><b>Agendar banho e tosa (manual)</b><p class="hint">O horário é reservado na agenda. O valor é sugerido pela tabela por peso e pelagem — dá para ajustar.</p>'+
       '<div class="two"><label class="fld">Nome do pet<input class="in" id="mbPet" list="mbPetList" value="'+esc(A.pet)+'"><datalist id="mbPetList"></datalist></label><label class="fld">Tutor<input class="in" id="mbTutor" value="'+esc(A.tutor)+'"></label></div>'+
-      '<div class="two"><label class="fld">Tipo<select class="in" id="mbKind">'+opts(['Cachorro','Gato','Outro'],A.kind)+'</select></label><label class="fld">Serviço<select class="in" id="mbSvc">'+opts([['','Escolha']].concat(sv.map(function(x){return [x.id,x.name]})),A.svc)+'</select></label></div>'+
+      '<div class="two"><label class="fld">Tipo<select class="in" id="mbKind">'+opts(['Cachorro','Gato','Outro'],A.kind)+'</select></label><label class="fld">Peso (kg)<input class="in" id="mbWeight" inputmode="decimal" value="'+esc(A.weight!==''&&A.weight!=null?String(A.weight).replace('.',','):'')+'" placeholder="Ex.: 8,5"></label></div>'+
+      '<div class="two"><label class="fld">Pelagem<select class="in" id="mbCoat">'+opts([['','Escolha']].concat(COATS.map(function(c){return [c,c]})),A.coat)+'</select></label><label class="fld">Raça <small class="muted">(opcional)</small><input class="in" id="mbBreed" value="'+esc(A.breed||'')+'"></label></div>'+
+      '<label class="fld">Serviço principal<select class="in" id="mbSvc">'+opts([['','Escolha']].concat(sv.map(function(x){return [x.id,x.name]})),A.svc)+'</select></label>'+
+      (adds.length>1?'<div class="fld"><span>Serviços adicionais</span><div class="checks" id="mbExtras">'+adds.map(function(s){return '<label><input type="checkbox" data-mbx="'+esc(s.id)+'"'+(A.extras.indexOf(s.id)>=0?' checked':'')+'>'+esc(s.name)+'</label>'}).join('')+'</div></div>':'')+
       '<div class="two"><label class="fld">Dia<input class="in" type="date" id="mbDay" min="'+todayStr()+'" value="'+esc(A.day)+'"></label><label class="fld">Horário<select class="in" id="mbSlot">'+mbSlotOpts(A.day,A.slot)+'</select></label></div>'+
-      '<div class="two"><label class="fld">Valor (R$)<input class="in" id="mbPrice" inputmode="decimal" value="'+esc(A.price!==''?String(A.price).replace('.',','):'')+'" placeholder="Preço combinado"></label><span></span></div>'+
+      '<div class="two"><label class="fld">Valor total (R$)<input class="in" id="mbPrice" inputmode="decimal" value="'+esc(A.price!==''?String(A.price).replace('.',','):'')+'" placeholder="Preço combinado"></label><span></span></div>'+
       '<label class="fld">Observações<input class="in" id="mbObs" value="'+esc(A.obs)+'" placeholder="Ex.: tosa na máquina 2"></label>'+
       '<button class="primary" id="mbAgSave">Agendar</button></div>';
     return h;
@@ -3921,33 +3926,42 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
   function mbAgPets(){var A=MB.ag,dl=document.getElementById('mbPetList');if(!dl)return;dl.innerHTML=(A.cust&&A.cust.pets||[]).map(function(x){return '<option value="'+esc(x.n)+'">'}).join('')}
   function mbBanhoBind(){
-    var A=MB.ag;if(!('cust' in A))A.cust=null;
+    var A=MB.ag;if(!('cust' in A))A.cust=null;if(!A.extras)A.extras=[];
     custPickerBind('mbAgCust',function(){return A.cust},function(v){A.cust=v},function(c){if(c){var t=$('#mbTutor');if(t)t.value=c.name;A.tutor=c.name}mbAgPets()});
     mbAgPets();
-    function grab(){A.pet=$('#mbPet').value;A.tutor=$('#mbTutor').value;A.kind=$('#mbKind').value;A.svc=$('#mbSvc').value;A.obs=$('#mbObs').value;A.price=$('#mbPrice').value}
-    $('#mbSvc').onchange=function(){A.svc=this.value;var sv=byId(D.services,this.value);if(sv&&!$('#mbPrice').value)$('#mbPrice').value=String(mainPrice(sv,null).price).replace('.',',')};
+    function effExtras(){var cur=$('#mbSvc').value;return (A.extras||[]).filter(function(id){return id!==cur&&byId(D.services,id)})}
+    function pet0(){return {weight:num($('#mbWeight').value),coat:$('#mbCoat').value,breed:($('#mbBreed').value||'').trim()}}
+    function suggest(){var main=byId(D.services,$('#mbSvc').value);if(!main)return null;var pet=pet0(),t=mainPrice(main,pet).price;effExtras().forEach(function(id){var x=byId(D.services,id);if(x)t+=extraPrice(x,pet).price});return r2(t)}
+    function refreshPrice(){var v=suggest();var e=$('#mbPrice');if(v!=null&&e){e.value=String(v).replace('.',',');A.price=String(v)}}
+    function grab(){A.pet=$('#mbPet').value;A.tutor=$('#mbTutor').value;A.kind=$('#mbKind').value;A.svc=$('#mbSvc').value;A.obs=$('#mbObs').value;A.price=$('#mbPrice').value;A.weight=$('#mbWeight').value;A.coat=$('#mbCoat').value;A.breed=$('#mbBreed').value}
+    var mw=$('#mbWeight');if(mw)mw.oninput=function(){A.weight=this.value;refreshPrice()};
+    var mc=$('#mbCoat');if(mc)mc.onchange=function(){A.coat=this.value;refreshPrice()};
+    var mbr=$('#mbBreed');if(mbr)mbr.oninput=function(){A.breed=this.value;refreshPrice()};
+    $('#mbSvc').onchange=function(){A.svc=this.value;refreshPrice()};
+    $$('[data-mbx]',$('#mbExtras')).forEach(function(c){c.onchange=function(){var id=c.getAttribute('data-mbx');if(c.checked){if(A.extras.indexOf(id)<0)A.extras.push(id)}else{A.extras=A.extras.filter(function(x){return x!==id})}refreshPrice()}});
     $('#mbDay').onchange=function(){grab();A.day=this.value;A.slot='';$('#mbSlot').innerHTML=mbSlotOpts(A.day,'')};
     $('#mbSlot').onchange=function(){A.slot=this.value};
     $('#mbAgSave').onclick=async function(){
       grab();A.day=$('#mbDay').value;A.slot=$('#mbSlot').value;
       if(!A.pet.trim()){toast('Informe o nome do pet');return}
-      if(!A.svc){toast('Escolha o serviço');return}
+      if(!A.svc){toast('Escolha o serviço principal');return}
       if(!A.day||!A.slot){toast('Escolha dia e horário');return}
-      var svc=byId(D.services,A.svc),price=num(A.price)||mainPrice(svc,null).price;
+      var main=byId(D.services,A.svc);
+      var names=[main.name].concat(effExtras().map(function(id){return byId(D.services,id).name}));
+      var price=num(A.price)||suggest()||mainPrice(main,pet0()).price;
       var uid=A.cust?A.cust.id:'balcao';
       var petN=$('#mbPet').value.trim();
-      var id='a'+Date.now(),rec={id:id,ts:Date.now(),day:A.day,slot:A.slot,svc:svc.name,price:r2(price),pet:petN,kind:A.kind,tutor:$('#mbTutor').value.trim(),size:'',weight:'',coat:'',breed:'',obs:A.obs.trim(),manual:true};
+      var id='a'+Date.now(),rec={id:id,ts:Date.now(),day:A.day,slot:A.slot,svc:names.join(' + '),price:r2(price),pet:petN,kind:A.kind,tutor:$('#mbTutor').value.trim(),size:sizeOf(num(A.weight)),weight:num(A.weight),coat:A.coat||'',breed:($('#mbBreed').value||'').trim().slice(0,60),obs:A.obs.trim(),manual:true};
       this.disabled=true;
       try{
         var okR=await slotReserve(A.day,A.slot,id,rec.ts);
         if(!okR){this.disabled=false;toast('Esse horário lotou. Escolha outro.');$('#mbSlot').innerHTML=mbSlotOpts(A.day,'');return}
         var ref=X.db.doc('appts/'+uid),cs=await ref.get(),nx=Object.assign({},(cs.exists&&cs.data().a)||{});nx[id]=rec;await ref.set({a:nx});
-        if(A.cust&&petN&&!(A.cust.pets||[]).some(function(x){return normTxt(x.n)===normTxt(petN)})){try{var cref=X.db.doc('customers/'+uid),cc=await cref.get();if(cc.exists){var cd=cc.data(),pets=(cd.pets||[]).concat([{n:petN,k:A.kind}]);await cref.set(Object.assign({},cd,{pets:pets}))}}catch(w){}}
-        toast('Agendamento criado'+(A.cust?' para '+A.cust.name:''));MB.ag={pet:'',tutor:'',kind:'Cachorro',svc:'',day:todayStr(),slot:'',price:'',obs:'',cust:null};renderAdmin();
+        if(A.cust&&petN&&!(A.cust.pets||[]).some(function(x){return normTxt(x.n)===normTxt(petN)})){try{var cref=X.db.doc('customers/'+uid),cc=await cref.get();if(cc.exists){var cd=cc.data(),pets=(cd.pets||[]).concat([{n:petN,k:A.kind,w:num(A.weight)||'',coat:A.coat||'',b:($('#mbBreed').value||'').trim()}]);await cref.set(Object.assign({},cd,{pets:pets}))}}catch(w){}}
+        toast('Agendamento criado'+(A.cust?' para '+A.cust.name:''));MB.ag={pet:'',tutor:'',kind:'Cachorro',svc:'',day:todayStr(),slot:'',price:'',obs:'',weight:'',coat:'',breed:'',extras:[],cust:null};renderAdmin();
       }catch(e){this.disabled=false;wfail(e)}
     };
   }
-
   /* ----- Relatórios ----- */
   function repData(days){
     var since=Date.now()-days*864e5,ords=allOrders().filter(function(o){return o.ts>=since&&ordStatus(o)!=='Cancelado'});
