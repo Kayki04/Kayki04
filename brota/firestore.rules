@@ -1,0 +1,21 @@
+rules_version = '2';
+// Regras do BROTA (fase de testes).
+// Qualquer pessoa logada lê e escreve — necessário porque o app grava os dados
+// de exemplo do Rio (rolês, galera, posts) na primeira abertura.
+// Antes de lançar de verdade: mover o seed para um script de admin e restringir
+// cada coleção ao dono (ex.: users/{uid} só o próprio uid escreve).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+
+    match /users/{userId} { allow read, write: if signedIn(); }
+    match /roles/{roleId} { allow read, write: if signedIn(); }
+    match /posts/{postId} { allow read, write: if signedIn(); }
+    match /checkins/{id} { allow read, write: if signedIn(); }
+    match /likes/{id} { allow read, write: if signedIn(); }
+    match /matches/{matchId} {
+      allow read, write: if signedIn();
+      match /messages/{msgId} { allow read, write: if signedIn(); }
+    }
+  }
+}
