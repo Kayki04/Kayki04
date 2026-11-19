@@ -176,3 +176,5 @@ exports.mpHook = onRequest({ secrets: [MP_TOKEN], region: 'southamerica-east1' }
     try { const iref = db.doc('inbox/' + uid); const iss = await iref.get(); const m = (iss.exists && iss.data().m) || {}; const nid = 'n' + Date.now(); m[nid] = { id: nid, ts: Date.now(), title: 'Pagamento confirmado', body: 'Recebemos seu pagamento de ' + brl(o.total) + '. Já estamos cuidando do seu pedido!', kind: 'pedido' }; await iref.set({ m }); } catch (e) {}
   } catch (e) {}
 });
+
+// deploy: ativar Mercado Pago (token em MP_ACCESS_TOKEN)
