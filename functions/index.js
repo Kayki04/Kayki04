@@ -2,6 +2,7 @@
    Quando a loja manda uma mensagem ao cliente (inbox), quando chega um pedido
    ou um agendamento, este servidor envia o aviso para o celular, mesmo com o app fechado. */
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 
@@ -85,6 +86,22 @@ exports.avisoLojaAgenda = onDocumentWritten('appts/{uid}', async ev => {
       const x = a[k];
       await send(ad0, 'Agendamento cancelado · ' + (x.pet || 'Pet'), String(x.svc || '') + ' · ' + String(x.day || '').split('-').reverse().slice(0, 2).join('/') + ' às ' + (x.slot || '') + ' (cancelado pelo cliente)', 'gestao', 'gc-agc-' + x.id);
     }
+  }
+});
+
+// Carrinho abandonado: lembra o cliente que deixou itens no carrinho, mesmo com o app fechado.
+// Roda de hora em hora e avisa uma vez cada carrinho parado há mais de 4h (e menos de 3 dias).
+exports.carrinhoAbandonado = onSchedule({ schedule: 'every 60 minutes', timeZone: 'America/Sao_Paulo', region: 'southamerica-east1' }, async () => {
+  const now = Date.now(), minAge = 4 * 3600e3, maxAge = 72 * 3600e3;
+  let snap;
+  try { snap = await db.collection('carts').get(); } catch (e) { return; }
+  for (const doc of snap.docs) {
+    const c = doc.data() || {};
+    const ts = Number(c.ts || 0), count = Number(c.count || 0), age = now - ts;
+    if (!count || c.notified || age < minAge || age > maxAge) continue;
+    const body = count + (count > 1 ? ' itens estão' : ' item está') + ' esperando por você. Finalize antes que acabem! 🛒';
+    await send([doc.id], 'Você esqueceu seu carrinho', body, 'cart', 'gc-cart').catch(() => {});
+    await doc.ref.update({ notified: true, notifiedAt: now }).catch(() => {});
   }
 });
 

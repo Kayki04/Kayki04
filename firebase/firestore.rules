@@ -60,5 +60,8 @@ service cloud.firestore {
 
     // Endereços de aviso (push) de cada aparelho.
     match /pushTokens/{uid} { allow read, write: if own(uid) || isAdmin(); }
+
+    // Carrinho salvo de cada cliente (para o lembrete de carrinho abandonado).
+    match /carts/{uid} { allow read, write: if own(uid) || isAdmin(); }
   }
 }

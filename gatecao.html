@@ -2838,7 +2838,20 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     return out;
   }
   function cartCount(){return cartLines().reduce(function(a,l){return a+l.q},0)}
-  function persist(){try{if(Object.keys(state.cart).length)save('gc_cartTs',Date.now());else save('gc_cartTs',0)}catch(e){}Object.keys(state.cartRec).forEach(function(k){if(!state.cart[k])delete state.cartRec[k]});save('gc_cart',state.cart);save('gc_cartrec',state.cartRec);$('#cartN').textContent=cartCount()}
+  function persist(){try{if(Object.keys(state.cart).length)save('gc_cartTs',Date.now());else save('gc_cartTs',0)}catch(e){}Object.keys(state.cartRec).forEach(function(k){if(!state.cart[k])delete state.cartRec[k]});save('gc_cart',state.cart);save('gc_cartrec',state.cartRec);$('#cartN').textContent=cartCount();try{syncCart()}catch(e){}}
+  var _cartSyncT=null;
+  function syncCart(){
+    if(!X.uid||!X.db||!window.GCFB)return;
+    clearTimeout(_cartSyncT);
+    _cartSyncT=setTimeout(function(){
+      try{
+        var lines=cartLines();
+        if(!lines.length){X.db.doc('carts/'+X.uid).delete().catch(function(){});return}
+        var items=lines.map(function(l){return {id:l.p.id,n:pName(l.p),q:l.q}}),total=lines.reduce(function(a,l){return a+num(l.price)*l.q},0);
+        X.db.doc('carts/'+X.uid).set({items:items.slice(0,40),count:cartCount(),total:r2(total),ts:Date.now(),notified:false,name:(D.me&&D.me.name)||''}).catch(function(){});
+      }catch(e){}
+    },1500);
+  }
   function addToCart(id){
     var p=byId(D.products,id);if(!p)return;
     var cur=state.cart[id]||0;
@@ -5762,7 +5775,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
   function orderNote(next,st){
     var m={'Confirmado':'Seu pedido foi confirmado. Já estamos cuidando dele.','Em separação':'Estamos separando os itens do seu pedido.','Saiu para entrega':'Seu pedido saiu para entrega.','Pronto para retirada':'Seu pedido está pronto para retirada na loja.','Cancelado':'Seu pedido foi cancelado. Se precisar, fale com a loja.'};
-    if(next==='Entregue')return 'Pedido entregue!'+(st&&(st.earnedPts||st.earnedCash)?' Você ganhou '+st.earnedPts+' pontos e '+brl(st.earnedCash)+' de cashback.':'');
+    if(next==='Entregue')return 'Pedido entregue!'+(st&&(st.earnedPts||st.earnedCash)?' Você ganhou '+st.earnedPts+' pontos e '+brl(st.earnedCash)+' de cashback.':'')+' Que tal avaliar sua compra? Leva 10 segundos.';
     return m[next]||'';
   }
   function apptNote(next,st,ap){
@@ -6515,6 +6528,12 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       if(bd&&bd.d<=3)out.push({id:'bd_'+i+'_'+bd.day,title:(bd.d===0?'Hoje é aniversário '+de+' '+p.n+'!':'Aniversário '+de+' '+p.n+' em '+bd.d+' dia'+(bd.d===1?'':'s')),body:(bd.age>0?bd.age+(bd.age===1?' aninho':' anos')+'! ':'')+(function(){var cp=D.coupons.filter(function(c){return c.uid===X.uid&&c.auto==='niver'&&cpState(c)==='ativo'})[0];return cp?'Presente da Gatecão: cupom '+cp.code+' com '+num(cp.value)+'% de desconto até '+fmtDM(cp.end)+'.':'Que tal um mimo? Veja petiscos e brinquedos na loja.'})(),go:'cat:Petiscos',cta:'Ver petiscos'});
     });
     state.myAppts.forEach(function(a){if(apStatus(a)!=='Concluído'||!D.me||myRev('svc:'+a.id))return;var dd=dayDiff(a.day,t0);if(dd<0||dd>7)return;out.push({id:'rv_'+a.id,title:'Como foi o banho '+(a.pet?'do '+a.pet:'')+'?',body:'Sua avaliação ajuda a gente a cuidar cada vez melhor. Leva 10 segundos.',go:'rate:'+a.id,cta:'Avaliar'})});
+    myAllOrders().forEach(function(o){
+      if(!D.me)return;var ost=(D.status[o.id]&&D.status[o.id].status)||'Novo';if(ost!=='Entregue')return;
+      var dts=(D.status[o.id]&&D.status[o.id].ts)||o.ts||0,dd=dts?Math.floor((Date.now()-dts)/86400e3):99;if(dd<0||dd>7)return;
+      var it=(o.items||[]).filter(function(i){return byId(D.products,i.id)&&!myRev(i.id)});if(!it.length)return;
+      out.push({id:'rvo_'+o.id,title:'Gostou da sua compra?',body:'Avalie '+(it.length>1?'os produtos do pedido #'+String(o.id).slice(-5):it[0].n)+' e ajude outros tutores a escolher. Leva 10 segundos.',go:'rateord:'+o.id,cta:'Avaliar'});
+    });
     var cts=num(load('gc_cartTs',0)),cn=cartCount();
     if(cn&&cts&&Date.now()-cts>3*3600e3)out.push({id:'cart_'+cts,title:'Seus itens estão no carrinho',body:cn+' ite'+(cn>1?'ns esperando':'m esperando')+' por você. Finalize antes que acabem.',go:'cart',cta:'Ver carrinho'});
     myPetsAll().forEach(function(x){
@@ -6536,6 +6555,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(g.indexOf('cat:')===0){state.cat=g.slice(4);state.q='';$('#q').value='';state.showAll=false;go('loja');return}
     if(g==='cart'){openCart();return}
     if(g.indexOf('rate:')===0){var ra=state.myAppts.filter(function(x){return x.id===g.slice(5)})[0];if(ra)openReview('svc:'+ra.id,String(ra.svc).split(' + ')[0]+' '+(ra.pet?'de '+ra.pet:''),fmtDayLong(ra.day));return}
+    if(g.indexOf('rateord:')===0){var oo=myAllOrders().filter(function(x){return x.id===g.slice(8)})[0];if(oo){var ri=(oo.items||[]).filter(function(i){return byId(D.products,i.id)&&!myRev(i.id)});if(ri.length){var rp=byId(D.products,ri[0].id);if(rp)openReview(rp.id,pName(rp),'Sua nota ajuda outros tutores a escolher.')}else toast('Você já avaliou os produtos deste pedido')}return}
     if(g.indexOf('buy:')===0){var bp=byId(D.products,g.slice(4));if(bp&&bp.active!==false&&stockOf(bp)>0){if(state.tab!=='loja')go('loja');addToCart(bp.id);openCart()}else{toast('Esse produto está indisponível. Veja outras opções.');state.cat='Rações';state.q='';$('#q').value='';go('loja')}return}
     if(g.indexOf('banho:')===0){var nm=petKey(g.slice(6)),kp=knownPets().filter(function(x){return petKey(x.pet)===nm})[0],ag=state.ag;if(kp){ag.pet=kp.pet;ag.kind=kp.kind;ag.weight=kp.weight?String(kp.weight):ag.weight;ag.coat=kp.coat||ag.coat;ag.breed=kp.breed||ag.breed}go('banho');return}
     if(g.indexOf('q:')===0){state.cat='Todos';state.q=g.slice(2);$('#q').value=state.q;go('loja');return}
@@ -6698,6 +6718,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     else if(h==='balcao'||h==='balcao-banho'){state.tab='gestao';state.adm.tab='balcao';MB.fromCaixa=true;MB.tab=(h==='balcao-banho'?'banho':'venda')}
     else if(h.indexOf('caixa')===0)state.tab='caixa';
     else if(h.indexOf('produto/')===0){state.tab='loja';PV.pending=decodeURIComponent(h.slice(8))}
+    else if(h==='cart'){state.tab='loja';setTimeout(function(){try{if(cartCount())openCart()}catch(e){}},400)}
     renderCats();persist();render();
     try{
       if(!window.claude||!window.claude.use)throw new Error('sem runtime');
