@@ -477,6 +477,27 @@ button.bnmini:hover .hero,button.bnmini:focus-visible .hero{box-shadow:0 0 0 3px
 .gstage button{flex:1;min-width:84px;border:0;border-radius:10px;padding:9px 6px;font-weight:800;font-size:12.5px;cursor:pointer;background:var(--sunk);color:var(--ink)}
 .gstage button.cur{background:var(--brand);color:#fff}
 .gphoto-big{width:100%;max-height:220px;object-fit:cover;border-radius:14px;background:var(--sunk)}
+.gnav{display:flex;align-items:center;gap:8px;margin:2px 0 2px;flex-wrap:wrap}
+.gnavb{width:38px;height:38px;border-radius:12px;border:1.5px solid var(--line);background:#fff;font-size:20px;font-weight:800;color:var(--brand);cursor:pointer;flex:none;line-height:1}
+.gnavd{position:relative;font-family:var(--font-display);font-size:15px;font-weight:600;color:var(--ink);background:var(--sunk);border:1.5px solid var(--line);border-radius:12px;padding:8px 14px;cursor:pointer;text-transform:capitalize}
+.gnavd input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.co{display:grid;gap:11px}
+.co h2{font-size:21px}
+.co .line b{font-size:15px}
+.co-h{font-family:var(--font-display);font-weight:600;font-size:15px;color:var(--ink);margin-top:2px}
+.co .opt{padding:9px 12px;border-radius:12px}
+.co .opt b{font-size:14px}
+.co .opt .muted{font-size:12.5px}
+.co .shipbar{font-size:12.5px;padding:9px 12px}
+.co .cpbox .in{padding:9px 11px}
+.co .addrbox.co-addr{background:#fff;border:1.5px solid var(--line);padding:12px;gap:9px}
+.co-addr .co-f{font-size:12.5px;font-weight:700;color:var(--muted);gap:4px}
+.co-addr .in{padding:9px 11px;border-width:1.5px;font-size:14px}
+.co .two{gap:8px}
+.co .cpbox{padding:9px 10px}
+.co-foot{position:sticky;bottom:calc(-18px - env(safe-area-inset-bottom,0px));margin:4px -16px calc(-18px - env(safe-area-inset-bottom,0px));padding:12px 16px calc(14px + env(safe-area-inset-bottom,0px));background:#fff;border-top:1px solid var(--line);display:grid;gap:8px;box-shadow:0 -8px 20px rgba(11,42,91,.08);z-index:2}
+.co-foot .total{font-size:22px}
+.co-foot .co-ft{font-weight:800;font-size:16px}
 .recnote{font-size:12px;font-weight:800;color:#12663A}
 .pvmode{display:grid;gap:8px;margin-top:14px}
 .recsel{margin-top:6px;padding:7px 10px;font-size:13px}
@@ -2847,9 +2868,9 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     lines.forEach(function(l){relatedOf(l.p,12).forEach(function(x){var g=varOf(x),k=g?g.key:x.id;if(inC[x.id]||seenS[k]||stockOf(x)<=0)return;seenS[k]=1;sugg.push(x)})});
     sugg=sugg.slice(0,8);
     if(sugg.length)h+='<div class="cartx"><div class="f" style="font-weight:700;margin-bottom:6px">Leve junto</div><div class="hscroll">'+sugg.map(function(x){var pr=priced(x);return '<article class="card"><div class="tile t1">'+tileInner(x)+'</div><div class="cbody"><div class="nm" style="font-size:13px">'+esc(pName(x))+'</div><div class="pr"><span class="price">'+brl(pr.price)+'</span></div><button class="add" data-cadd="'+esc(x.id)+'">+ Adicionar</button></div></article>'}).join('')+'</div></div>';
-    h+='<div class="f" style="font-weight:700">Como receber</div><div class="opts">';
+    h+='<div class="co-h">Como receber</div><div class="opts">';
     ['Retirada na loja','Entrega'].forEach(function(m){h+='<button class="opt" data-mode="'+m+'" aria-pressed="'+(state.co.mode===m)+'"><b>'+m+'</b><span class="muted">'+(m==='Entrega'?(etaText()?etaText()+' · ':'')+'grátis acima de '+brl(freeMin):'Sem custo')+'</span></button>'});
-    h+='</div><div class="f" style="font-weight:700">Pagamento</div><div class="opts">';
+    h+='</div><div class="co-h">Pagamento</div><div class="opts">';
     ['Pix','Cartão na entrega','Dinheiro'].forEach(function(m){h+='<button class="opt" data-pay="'+m+'" aria-pressed="'+(state.co.pay===m)+'"><b>'+m+'</b><span class="muted">'+(m==='Pix'&&pixPct?pixPct+'% de desconto':'')+'</span></button>'});
     h+='</div>';
     if(wl&&wl.cash>0)h+='<button class="opt" id="useCash" aria-pressed="'+(!!state.co.useCash)+'"><span><b>Usar meu cashback</b><br><span class="muted">Saldo disponível: '+brl(wl.cash)+(cbOk?'':' · use em compras a partir de '+brl(fc.minCompraUso))+(num(fc.maxUsoPct)<100?' · até '+fc.maxUsoPct+'% da compra':'')+'</span></span><b>'+(cashUse?'- '+brl(cashUse):'Não usar')+'</b></button>';
@@ -2866,13 +2887,13 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='<label class="f">Seu nome<input class="in" id="cname" value="'+esc(state.co.name||(D.me&&D.me.name)||'')+'" placeholder="Nome para o pedido" autocomplete="name"></label>';
     if(state.co.mode==='Entrega'){
       var A=state.ag;if(!A.ltPhone&&D.me&&D.me.phone)A.ltPhone=fmtPhone(D.me.phone);
-      h+='<div class="addrbox"><b>Endereço de entrega</b>'+
-        '<label class="f">CEP <small class="muted">(preenche o endereço)</small><input class="in" id="ccep" inputmode="numeric" maxlength="9" value="'+esc(state.co.cep||'')+'" placeholder="00000-000" autocomplete="postal-code"></label>'+
-        '<label class="f">Rua e número<input class="in" id="caddr" value="'+esc(A.ltAddr)+'" placeholder="Ex.: Rua das Flores, 120" autocomplete="street-address"></label>'+
-        '<div class="two"><label class="f">Bairro'+(zones().length?'<select class="in" id="cbairro"><option value="">Escolha</option>'+zones().map(function(z){return '<option'+(normTxt(z.b)===normTxt(A.ltBairro)?' selected':'')+' value="'+esc(z.b)+'">'+esc(z.b)+(z.fee!==''&&z.fee!=null?' · '+(num(z.fee)?brl(num(z.fee)):'grátis'):'')+'</option>'}).join('')+(A.ltBairro&&!zoneOf(A.ltBairro)?'<option selected value="'+esc(A.ltBairro)+'">'+esc(A.ltBairro)+' (consultar)</option>':'')+'</select>':'<input class="in" id="cbairro" value="'+esc(A.ltBairro)+'" autocomplete="address-level3">')+'</label><label class="f">Complemento<input class="in" id="ccomp" value="'+esc(A.ltComp)+'" placeholder="Apto, bloco"></label></div>'+
-        '<label class="f"><span>Ponto de referência <small class="muted">(opcional)</small></span><input class="in" id="cref" value="'+esc(state.co.ref||'')+'" placeholder="Ex.: ao lado da padaria"></label>'+
-        '<label class="f">Telefone para contato<input class="in" id="cphone" inputmode="tel" value="'+esc(A.ltPhone)+'" placeholder="(11) 90000-0000" autocomplete="tel"></label>'+
-        '<p class="hint" style="margin:0">Guardamos este endereço neste aparelho para as próximas compras.</p></div>';
+      h+='<div class="co-h">Endereço de entrega</div><div class="addrbox co-addr">'+
+        '<label class="f co-f">CEP<input class="in" id="ccep" inputmode="numeric" maxlength="9" value="'+esc(state.co.cep||'')+'" placeholder="00000-000 (preenche sozinho)" autocomplete="postal-code"></label>'+
+        '<label class="f co-f">Rua e número<input class="in" id="caddr" value="'+esc(A.ltAddr)+'" placeholder="Rua das Flores, 120" autocomplete="street-address"></label>'+
+        '<div class="two"><label class="f co-f">Bairro'+(zones().length?'<select class="in" id="cbairro"><option value="">Escolha</option>'+zones().map(function(z){return '<option'+(normTxt(z.b)===normTxt(A.ltBairro)?' selected':'')+' value="'+esc(z.b)+'">'+esc(z.b)+(z.fee!==''&&z.fee!=null?' · '+(num(z.fee)?brl(num(z.fee)):'grátis'):'')+'</option>'}).join('')+(A.ltBairro&&!zoneOf(A.ltBairro)?'<option selected value="'+esc(A.ltBairro)+'">'+esc(A.ltBairro)+' (consultar)</option>':'')+'</select>':'<input class="in" id="cbairro" value="'+esc(A.ltBairro)+'" autocomplete="address-level3">')+'</label><label class="f co-f">Complemento<input class="in" id="ccomp" value="'+esc(A.ltComp)+'" placeholder="Apto, bloco"></label></div>'+
+        '<label class="f co-f">Ponto de referência <small class="muted">(opcional)</small><input class="in" id="cref" value="'+esc(state.co.ref||'')+'" placeholder="Ex.: ao lado da padaria"></label>'+
+        '<label class="f co-f">Telefone para contato<input class="in" id="cphone" inputmode="tel" value="'+esc(A.ltPhone)+'" placeholder="(11) 90000-0000" autocomplete="tel"></label>'+
+        '</div><p class="hint" style="margin:-2px 0 0">Guardamos este endereço neste aparelho para as próximas compras.</p>';
     }
     h+='<div class="row"><span class="muted">Subtotal</span><span>'+brl(sub)+'</span></div>';
     if(cpOff)h+='<div class="row"><span class="muted">Cupom '+esc(cpc.code)+'</span><span>- '+brl(cpOff)+'</span></div>';
@@ -2880,10 +2901,10 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(cpShip&&sub<freeMin)h+='<div class="row"><span class="muted">Entrega</span><span class="cpok">Grátis com cupom</span></div>';
     if(cashUse)h+='<div class="row"><span class="muted">Cashback</span><span>- '+brl(cashUse)+'</span></div>';
     if(frete)h+='<div class="row"><span class="muted">Entrega</span><span>'+brl(frete)+'</span></div>';
-    h+='<div class="row"><span>Total</span><span class="total">'+brl(tot)+'</span></div>';
-    if(wl){var ev=earnFor(Math.max(0,tot-frete),wl.life);if(ev.pts>0)h+='<p class="loynote">Nesta compra você ganha <b>'+ev.pts+' pontos</b> e <b>'+brl(ev.cash)+'</b> de cashback, depois que o pedido for entregue.</p>'}
-    h+='<button class="primary" id="finish">Finalizar pedido</button>';
-    $('#overlay').innerHTML=sheetHtml(h,'Carrinho');bindClose();
+    h+='<div class="co-foot"><div class="row"><span class="co-ft">Total</span><span class="total">'+brl(tot)+'</span></div>';
+    if(wl){var ev=earnFor(Math.max(0,tot-frete),wl.life);if(ev.pts>0)h+='<p class="loynote" style="margin:0">Você ganha <b>'+ev.pts+' pontos</b> e <b>'+brl(ev.cash)+'</b> de cashback após a entrega.</p>'}
+    h+='<button class="primary" id="finish">Finalizar pedido · '+brl(tot)+'</button></div>';
+    $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Carrinho');bindClose();
     var s=$('#overlay');
     $$('[data-cadd]',s).forEach(function(b){b.onclick=function(){coGrab();addToCart(b.getAttribute('data-cadd'));openCart()}});
     $$('[data-inc]',s).forEach(function(b){b.onclick=function(){addToCart(b.getAttribute('data-inc'));openCart()}});
@@ -4338,17 +4359,17 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     '</div>';
   }
   function aBanhoPainel(m){
-    var t0=todayStr();
-    var aps=allAppts().filter(function(a){var st=apStatus(a);if(st==='Cancelado'||st==='Faltou')return false;var stg=gStage(st);if(!stg)return false;if(a.day===t0)return true;return stg==='arr'||stg==='bath'||stg==='done'});
+    var today=todayStr(),t0=state.adm.gday||today,isToday=t0===today;
+    var aps=allAppts().filter(function(a){var st=apStatus(a);if(st==='Cancelado'||st==='Faltou')return false;var stg=gStage(st);if(!stg)return false;if(a.day===t0)return true;return isToday&&(stg==='arr'||stg==='bath'||stg==='done')});
     var byc={mark:[],arr:[],bath:[],done:[],out:[]};
     aps.forEach(function(a){var stg=gStage(apStatus(a));if(stg==='out'&&a.day!==t0)return;if(byc[stg])byc[stg].push(a)});
     Object.keys(byc).forEach(function(k){byc[k].sort(function(a,b){return (String(a.slot||'')+a.pet)<(String(b.slot||'')+b.pet)?-1:1})});
-    var active=byc.arr.length+byc.bath.length+byc.done.length;
-    var h='<div class="toolbar"><div style="flex:1"><b style="font-family:var(--font-display);font-size:19px">Painel de banho e tosa</b><br><span class="hint">'+esc(fmtDayLong(t0))+' · '+aps.length+' pet'+(aps.length===1?'':'s')+' · toque num card para abrir a ficha</span></div><button class="btn line" data-act="seg" data-id="agenda" style="display:none"></button></div>';
+    var h='<div><b style="font-family:var(--font-display);font-size:19px">Painel de banho e tosa</b><br><span class="hint">'+aps.length+' pet'+(aps.length===1?'':'s')+(isToday?' · toque num card para abrir a ficha':'')+'</span></div>';
+    h+='<div class="gnav"><button class="gnavb" data-act="gdayShift" data-id="-1" aria-label="Dia anterior">‹</button><label class="gnavd">'+esc(isToday?'Hoje, '+fmtDay(t0):fmtDayLong(t0))+'<input type="date" value="'+esc(t0)+'" data-chg="gdayPick" aria-label="Escolher dia"></label><button class="gnavb" data-act="gdayShift" data-id="1" aria-label="Próximo dia">›</button>'+(isToday?'':'<button class="btn line" data-act="gdayToday">Hoje</button>')+'</div>';
     h+='<div class="gboard">';
     GCOLS.forEach(function(c){var L=byc[c[0]];h+='<div class="gcol '+c[0]+'"><h3>'+c[1]+'<span class="cnt">'+L.length+'</span></h3>';if(!L.length)h+='<div class="gempty">—</div>';L.forEach(function(a){h+=gCardHtml(a)});h+='</div>'});
     h+='</div>';
-    if(!aps.length)h+='<div class="empty-card" style="margin-top:12px"><h2>Nenhum pet hoje</h2><p class="muted">Os banhos marcados para hoje aparecem aqui. Marque horários em Pedidos › Banho e tosa, no Balcão, ou pelo app do cliente.</p></div>';
+    if(!aps.length)h+='<div class="empty-card" style="margin-top:12px"><h2>'+(isToday?'Nenhum pet hoje':'Nada marcado neste dia')+'</h2><p class="muted">Marque horários em Pedidos › Banho e tosa, no Balcão, ou pelo app do cliente.</p></div>';
     m.innerHTML=h;
   }
   async function setApptStatus(aid,day,slot,uid,next){
@@ -4676,6 +4697,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     petFicha:function(id){openFicha(id)},
     groomOpen:function(id){openGroom(id)},
     groomNext:async function(id){var ap=allAppts().filter(function(x){return x.id===id})[0];if(!ap)return;var st=apStatus(ap),nx=gNextOf(st);if(!nx)return;await setApptStatus(ap.id,ap.day,ap.slot,ap.uid,nx);if(nx==='Aguardando')openGroom(ap.id)},
+    gdayShift:function(id){state.adm.gday=addDays(state.adm.gday||todayStr(),+id);renderAdmin()},
+    gdayToday:function(){state.adm.gday=todayStr();renderAdmin()},
     planNew:function(){openPlan(null)},
     planEdit:function(id){openPlan(id)},
     cpEdit:function(id){openCoupon(id)},
@@ -4742,7 +4765,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
         toast('Situação do pedido atualizada');
       }catch(e){wfail(e)}
     },
-    apSt:function(id,el){var p=String(id).split('|');setApptStatus(p[0],p[1],p[2],p[3],el.value)}
+    apSt:function(id,el){var p=String(id).split('|');setApptStatus(p[0],p[1],p[2],p[3],el.value)},
+    gdayPick:function(id,el){if(el.value){state.adm.gday=el.value;renderAdmin()}}
   };
 
   /* ================= VANTAGENS: regras, carteira e resgates ================= */
