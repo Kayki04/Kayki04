@@ -180,6 +180,15 @@ body.adm::before{background:#F1F5FB}
 .mpspin{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:mpsp 1s linear infinite;flex:none}
 @keyframes mpsp{to{transform:rotate(360deg)}}
 .mpok .mpcheck{width:64px;height:64px;border-radius:50%;background:#1D7F53;color:#fff;font-size:36px;display:grid;place-items:center;margin:0 auto}
+.delbar{display:flex;align-items:center;gap:11px;background:linear-gradient(135deg,#FFF3E6,#FFE2C2);border:1px solid #FFD2A1;border-radius:14px;padding:11px 13px;margin-bottom:12px}
+.delbar svg{width:26px;height:26px;flex:none;color:var(--accent)}
+.delbar span{display:flex;flex-direction:column;font-size:12.5px;color:#7a4a12;line-height:1.3;min-width:0}
+.delbar b{font-size:14px;color:var(--ink)}
+.delbar.live{background:linear-gradient(135deg,#E6F7EC,#C9EED6);border-color:#9FE0B6}
+.delbar.live svg{color:#1D7F53}
+.delbar.live span{color:#196b45}
+.delnote{display:flex;align-items:center;gap:9px;background:#E6F7EC;border:1px solid #9FE0B6;border-radius:12px;padding:9px 11px;margin:2px 0 10px;font-size:13px;font-weight:700;color:#196b45}
+.delnote svg{width:22px;height:22px;flex:none;color:#1D7F53}
 .instbox{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#FFF3E6,#FFE2C2);border:1px solid #FFD2A1;border-radius:var(--r);padding:14px;margin-top:16px}
 .instbox .instic{flex:none;width:44px;height:44px;border-radius:12px;background:var(--accent);color:#fff;display:grid;place-items:center}
 .instbox .instic svg{width:26px;height:26px}
@@ -2366,6 +2375,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
 
   var IC_SHARE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-2px"><path d="M12 15V4m0 0l-3.5 3.5M12 4l3.5 3.5"/><path d="M5 11v8a1 1 0 001 1h12a1 1 0 001-1v-8"/></svg>';
   var IC_IG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>';
+  var IC_MOTO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="17" r="2.5"/><circle cx="18" cy="17" r="2.5"/><path d="M8 17h7.5M15.5 17l-3-7H10m6 0h3l1.5 4M7 10h4"/></svg>';
   /* ---------- WhatsApp da loja ---------- */
   function waNum(){var d=String(S('wa','')).replace(/\D/g,'');if(d.length===10||d.length===11)d='55'+d;return d.length>=12?d:''}
   function waUrl(t){var d=waNum();return d?'https://wa.me/'+d+'?text='+encodeURIComponent(t||''):''}
@@ -2641,6 +2651,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     }
     var home=state.cat==='Todos'&&!q&&!state.showAll&&!nF;
     if(home){
+      h+=delStrip();
       h+=loyStrip();
       h+=bnCarousel();
       h+=quickTiles(all);
@@ -2886,11 +2897,16 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function zones(){var z=S('zones',null);return Array.isArray(z)?z.filter(function(x){return x&&x.b}):[]}
   function zoneOf(b){var k=normTxt(b);return zones().filter(function(z){return normTxt(z.b)===k})[0]||null}
   function etaText(){
-    var cut=num(S('delCut',16)),d=new Date(),h=d.getHours()+d.getMinutes()/60,wd=d.getDay();
+    var cut=num(S('delCut',15)),d=new Date(),h=d.getHours()+d.getMinutes()/60,wd=d.getDay();
     if(!(cut>0))return '';
     if(wd!==0&&h<cut)return 'Chega hoje';
     var t=new Date();t.setDate(t.getDate()+1);if(t.getDay()===0)return 'Chega na segunda';return 'Chega amanhã';
   }
+  function cutHour(){return Math.max(0,Math.min(23,Math.round(num(S('delCut',15)))))}
+  function cutLabel(){var c=cutHour();return c+'h'}
+  function sameDayPromise(){var c=cutHour();if(!(c>0))return '';return 'Pedidos feitos até as '+c+'h têm entrega no mesmo dia.';}
+  function sameDayLive(){var c=cutHour();if(!(c>0))return '';var d=new Date(),h=d.getHours()+d.getMinutes()/60,wd=d.getDay();if(wd!==0&&h<c)return 'Peça agora e receba ainda hoje! 🛵 Pedidos até as '+c+'h chegam no mesmo dia.';return 'Pedidos feitos até as '+c+'h têm entrega no mesmo dia.';}
+  function delStrip(){var c=cutHour();if(!(c>0))return '';var d=new Date(),h=d.getHours()+d.getMinutes()/60,wd=d.getDay(),hoje=wd!==0&&h<c;return '<div class="delbar'+(hoje?' live':'')+'">'+IC_MOTO+'<span><b>'+(hoje?'Entrega no mesmo dia':'Entrega rápida')+'</b>Pedidos feitos até as '+c+'h chegam no mesmo dia.</span></div>';}
   async function cepFill(cep){
     try{
       var r=await fetch('https://viacep.com.br/ws/'+cep+'/json/');if(!r.ok)return false;var j=await r.json();if(j.erro)return false;
@@ -2987,7 +3003,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='<label class="f">Seu nome<input class="in" id="cname" value="'+esc(state.co.name||(D.me&&D.me.name)||'')+'" placeholder="Nome para o pedido" autocomplete="name"></label>';
     if(state.co.mode==='Entrega'){
       var A=state.ag;if(!A.ltPhone&&D.me&&D.me.phone)A.ltPhone=fmtPhone(D.me.phone);
-      h+='<div class="co-h">Endereço de entrega</div><div class="addrbox co-addr">'+
+      h+='<div class="co-h">Endereço de entrega</div>'+(sameDayPromise()?'<div class="delnote">'+IC_MOTO+'<span>'+esc(sameDayLive())+'</span></div>':'')+'<div class="addrbox co-addr">'+
         '<label class="f co-f">CEP<input class="in" id="ccep" inputmode="numeric" maxlength="9" value="'+esc(state.co.cep||'')+'" placeholder="00000-000 (preenche sozinho)" autocomplete="postal-code"></label>'+
         '<label class="f co-f">Rua e número<input class="in" id="caddr" value="'+esc(A.ltAddr)+'" placeholder="Rua das Flores, 120" autocomplete="street-address"></label>'+
         '<div class="two"><label class="f co-f">Bairro'+(zones().length?'<select class="in" id="cbairro"><option value="">Escolha</option>'+zones().map(function(z){return '<option'+(normTxt(z.b)===normTxt(A.ltBairro)?' selected':'')+' value="'+esc(z.b)+'">'+esc(z.b)+(z.fee!==''&&z.fee!=null?' · '+(num(z.fee)?brl(num(z.fee)):'grátis'):'')+'</option>'}).join('')+(A.ltBairro&&!zoneOf(A.ltBairro)?'<option selected value="'+esc(A.ltBairro)+'">'+esc(A.ltBairro)+' (consultar)</option>':'')+'</select>':'<input class="in" id="cbairro" value="'+esc(A.ltBairro)+'" autocomplete="address-level3">')+'</label><label class="f co-f">Complemento<input class="in" id="ccomp" value="'+esc(A.ltComp)+'" placeholder="Apto, bloco"></label></div>'+
@@ -4820,7 +4836,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       '<label class="fld">Taxa por trajeto (R$)<input class="in" id="ltfee" inputmode="decimal" value="'+esc(ltFeeSet()?String(D.settings.ltFee).replace('.',','):'')+'" placeholder="Em branco: a combinar"></label>'+
       '<p class="hint">Buscar e devolver conta 2 trajetos. Use 0 para grátis ou deixe em branco para combinar com o cliente.</p>'+
       '<label class="fld">Aviso para o cliente (opcional)<input class="in" id="ltnote" maxlength="140" value="'+esc(S('ltNote',''))+'" placeholder="Ex.: Atendemos até 5 km da loja."></label></div>';
-    h+='<div class="acard"><b>Entrega</b><label class="fld">Pedidos até que horas chegam no mesmo dia<input class="in" id="ldc" inputmode="numeric" value="'+esc(S('delCut',16))+'" placeholder="Ex.: 16"></label><p class="hint">Use 0 para não mostrar prazo. Aos domingos o app mostra o próximo dia útil.</p>'+
+    h+='<div class="acard"><b>Entrega</b><label class="fld">Pedidos até que horas chegam no mesmo dia<input class="in" id="ldc" inputmode="numeric" value="'+esc(S('delCut',15))+'" placeholder="Ex.: 15"></label><p class="hint">Use 0 para não mostrar prazo. Aos domingos o app mostra o próximo dia útil.</p>'+
       '<label class="fld">Taxa por bairro (opcional)<textarea class="in" id="lzn" rows="5" placeholder="Um bairro por linha. Ex.:&#10;Centro; 0&#10;Jardim América; 6,90&#10;Vila Nova; 9,90">'+esc(zones().map(function(z){return z.b+'; '+String(z.fee).replace('.',',')}).join('\n'))+'</textarea></label><p class="hint">Com a lista, o cliente escolhe o bairro e a taxa entra sozinha. Sem a lista, vale a taxa única acima.</p></div>';
     h+='<div class="acard"><b>A loja (aparece para o cliente)</b><p class="hint">Preencha para mostrar a página "A loja" no app, com endereço, horários e redes. Deixe tudo em branco para esconder.</p>'+
       '<label class="fld">Endereço<input class="in" id="lsAddr" value="'+esc(S('lojaAddr',''))+'" placeholder="Rua, número, bairro, cidade"></label>'+
