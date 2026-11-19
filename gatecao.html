@@ -2923,8 +2923,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='<div class="co-h">Como receber</div><div class="opts">';
     ['Retirada na loja','Entrega'].forEach(function(m){h+='<button class="opt" data-mode="'+m+'" aria-pressed="'+(state.co.mode===m)+'"><b>'+m+'</b><span class="muted">'+(m==='Entrega'?(etaText()?etaText()+' · ':'')+'grátis acima de '+brl(freeMin):'Sem custo')+'</span></button>'});
     h+='</div><div class="co-h">Pagamento</div><div class="opts">';
-    var PAYS=mpOn()?[['Pix (pague agora)','Pague na hora pelo QR Code, sem sair do app'+(pixPct?' · '+pixPct+'% de desconto':'')]]:[['Pix',(pixPct?pixPct+'% de desconto':'')],['Cartão na entrega',''],['Dinheiro','']];
-    if(mpOn()&&state.co.pay!=='Pix (pague agora)')state.co.pay='Pix (pague agora)';
+    var PAYS=mpOn()?[['Pix (pague agora)','Pague na hora pelo QR Code, sem sair do app'+(pixPct?' · '+pixPct+'% de desconto':'')]].concat(mpHasCard()?[['Cartão (pague agora)','Crédito à vista ou parcelado, no app']]:[]):[['Pix',(pixPct?pixPct+'% de desconto':'')],['Cartão na entrega',''],['Dinheiro','']];
+    if(mpOn()&&['Pix (pague agora)','Cartão (pague agora)'].indexOf(state.co.pay)<0)state.co.pay='Pix (pague agora)';
     PAYS.forEach(function(m){h+='<button class="opt" data-pay="'+esc(m[0])+'" aria-pressed="'+(state.co.pay===m[0])+'"><b>'+esc(m[0])+'</b>'+(m[1]?'<span class="muted">'+esc(m[1])+'</span>':'')+'</button>'});
     h+='</div>';
     if(wl&&wl.cash>0)h+='<button class="opt" id="useCash" aria-pressed="'+(!!state.co.useCash)+'"><span><b>Usar meu cashback</b><br><span class="muted">Saldo disponível: '+brl(wl.cash)+(cbOk?'':' · use em compras a partir de '+brl(fc.minCompraUso))+(num(fc.maxUsoPct)<100?' · até '+fc.maxUsoPct+'% da compra':'')+'</span></span><b>'+(cashUse?'- '+brl(cashUse):'Não usar')+'</b></button>';
@@ -3011,11 +3011,42 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     try{feedFromOrder(o).catch(function(){})}catch(e){}
     state.cart={};state.cartRec={};state.co.useCash=false;state.co.coupon='';persist();closeSheet();
     toast(synced?'Pedido enviado para a loja':'Pedido salvo neste aparelho');
-    if(_pm&&synced&&window.GCFB&&GCFB.idToken){mpStart(o,_pm);return}
+    if(_pm&&synced&&window.GCFB&&GCFB.idToken){if(_pm==='card')mpCardStart(o);else mpStart(o,'pix');return}
     go('pedidos');
   }
 
   function mpOn(){return !!(window.GCFB&&GCFB.idToken&&S('mpOn')===true)}
+  function mpHasCard(){return mpOn()&&!!String(S('mpPubKey','')||'').trim()}
+  function mpLoadSdk(){return new Promise(function(res,rej){if(window.MercadoPago)return res();var sc=document.getElementById('mpsdk');if(sc){sc.addEventListener('load',function(){res()});sc.addEventListener('error',function(){rej()});return}sc=document.createElement('script');sc.id='mpsdk';sc.src='https://sdk.mercadopago.com/js/v2';sc.onload=function(){res()};sc.onerror=function(){rej()};document.head.appendChild(sc)})}
+  async function mpCardStart(o){
+    var tok=null;try{tok=await GCFB.idToken()}catch(e){}
+    if(!tok){toast('Entre na sua conta para pagar');go('pedidos');return}
+    var pk=String(S('mpPubKey','')||'').trim();if(!pk){toast('Cartão indisponível no momento');go('pedidos');return}
+    mpBox('<div class="mpcard"><div class="mphd"><b>Pagamento no cartão</b><button class="ghost" id="mpX">Fechar</button></div><div class="mpwait"><div class="mpspin"></div><span>Carregando…</span></div></div>');
+    var x=$('#mpX');if(x)x.onclick=function(){mpClose();go('pedidos')};
+    try{await mpLoadSdk()}catch(e){mpClose();toast('Não foi possível carregar o cartão');go('pedidos');return}
+    mpBox('<div class="mpcard"><div class="mphd"><b>Pagamento no cartão</b><button class="ghost" id="mpX">Fechar</button></div><p class="muted" style="margin:0">À vista ou parcelado. Seus dados ficam seguros com o Mercado Pago.</p><div id="mpBrick"></div><div class="total" style="text-align:center">'+brl(o.total)+'</div></div>');
+    var x2=$('#mpX');if(x2)x2.onclick=function(){mpClose();go('pedidos')};
+    try{
+      var mp=new MercadoPago(pk,{locale:'pt-BR'});
+      var bricks=mp.bricks();
+      await bricks.create('cardPayment','mpBrick',{
+        initialization:{amount:o.total},
+        customization:{paymentMethods:{maxInstallments:12}},
+        callbacks:{
+          onReady:function(){},
+          onError:function(err){toast('Confira os dados do cartão.')},
+          onSubmit:function(fd){
+            return fetch(GCFB.fnBase+'/mpCardPay',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},body:JSON.stringify({orderId:o.id,token:fd.token,payment_method_id:fd.payment_method_id,installments:fd.installments,issuer_id:fd.issuer_id,payer:fd.payer})}).then(function(r){return r.json().then(function(j){return{r:r,j:j}})}).then(function(x){var j=x.j;
+              if(j&&j.ok&&j.status==='approved'){mpBox('<div class="mpcard mpok"><div class="mpcheck">✓</div><b>Pagamento aprovado!</b><p class="muted" style="margin:0">Obrigado! Seu pedido já está com a loja.</p><button class="primary" id="mpDone">Ver meu pedido</button></div>');var d=$('#mpDone');if(d)d.onclick=function(){mpClose();go('pedidos')};return}
+              if(j&&j.ok&&(j.status==='in_process'||j.status==='pending')){mpClose();toast('Pagamento em análise. Avisamos quando aprovar.');go('pedidos');return}
+              toast('Cartão não aprovado'+(j&&j.detail?': '+String(j.detail).slice(0,70):j&&j.status_detail?' ('+j.status_detail+')':''));
+            }).catch(function(){toast('Falha ao processar o cartão')});
+          }
+        }
+      });
+    }catch(e){mpClose();toast('Não foi possível abrir o cartão');go('pedidos')}
+  }
   function mpBox(html){var ov=document.getElementById('mpov');if(!ov){ov=document.createElement('div');ov.id='mpov';document.body.appendChild(ov)}ov.className='mpov';ov.innerHTML=html;return ov}
   function mpClose(){if(window._mpT){clearInterval(window._mpT);window._mpT=null}var ov=document.getElementById('mpov');if(ov)ov.remove()}
   async function mpStart(o,method){
@@ -4663,7 +4694,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   /* ----- Loja (textos e regras) ----- */
   function aLoja(m){
     var mpok=S('mpOn')===true;
-    var h='<div class="acard"><div class="rowtight"><b>Pagamento online (Mercado Pago)</b><span class="st '+(mpok?'ok':'off')+'">'+(mpok?'Ligado':'Desligado')+'</span></div><p class="hint">Aceita Pix e cartão pagos na hora, dentro do app, e marca o pedido como pago sozinho. Antes de ligar: crie o segredo <b>MP_ACCESS_TOKEN</b> no GitHub com seu Access Token de produção do Mercado Pago e publique.'+(window.GCFB?'':' (Funciona só no app publicado em gatecao.com.br.)')+'</p><div class="toolbar" style="margin:0"><button class="btn'+(mpok?' line':'')+'" data-act="mpTog">'+(mpok?'Desligar':'Ligar pagamento online')+'</button></div></div>';
+    var h='<div class="acard"><div class="rowtight"><b>Pagamento online (Mercado Pago)</b><span class="st '+(mpok?'ok':'off')+'">'+(mpok?'Ligado':'Desligado')+'</span></div><p class="hint">Aceita Pix e cartão pagos na hora, dentro do app, e marca o pedido como pago sozinho. Antes de ligar: crie o segredo <b>MP_ACCESS_TOKEN</b> no GitHub com seu Access Token de produção do Mercado Pago e publique.'+(window.GCFB?'':' (Funciona só no app publicado em gatecao.com.br.)')+'</p><div class="toolbar" style="margin:0"><button class="btn'+(mpok?' line':'')+'" data-act="mpTog">'+(mpok?'Desligar':'Ligar pagamento online')+'</button></div>'+(mpok?'<label class="fld" style="margin-top:8px">Public Key do Mercado Pago (para cartão no app)<input class="in" id="mpPK" value="'+esc(S('mpPubKey',''))+'" placeholder="APP_USR-... (Public Key)"></label><button class="btn alt" data-act="mpSaveKey">Salvar chave do cartão</button><p class="hint" style="margin:4px 0 0">Com a Public Key, o cliente paga no cartão (à vista ou parcelado) dentro do app, sem sair pro Mercado Pago. A Public Key é diferente do Access Token (não é segredo).</p>':'')+'</div>';
     h+='<div class="acard"><b>Banner da tela inicial</b>'+
       '<label class="fld">Etiqueta<input class="in" id="lt" value="'+esc(S('heroTag','Semana do Gatecão'))+'"></label>'+
       '<label class="fld">Título<input class="in" id="lh" value="'+esc(S('heroTitle','Ofertas para o seu pet'))+'"></label>'+
@@ -4826,6 +4857,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
   var ACT={
     mpTog:async function(){var on=!(S('mpOn')===true);try{await X.db.doc('settings/store').set(Object.assign({},D.settings,{mpOn:on}));toast(on?'Pagamento online ligado':'Pagamento online desligado');renderAdmin()}catch(e){wfail(e)}},
+    mpSaveKey:async function(){var v=($('#mpPK')&&$('#mpPK').value||'').trim();try{await X.db.doc('settings/store').set(Object.assign({},D.settings,{mpPubKey:v}));toast(v?'Chave do cartão salva':'Chave removida');renderAdmin()}catch(e){wfail(e)}},
     printOrd:function(id){var a=String(id).split('|');printOrder(a[0],a[1])},
     mbTab:function(id){MB.tab=id;renderAdmin()},
     prodNew:function(){openProduct(null)},

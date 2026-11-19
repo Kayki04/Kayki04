@@ -178,3 +178,39 @@ exports.mpHook = onRequest({ secrets: [MP_TOKEN], region: 'southamerica-east1' }
 });
 
 // deploy: ativar Mercado Pago (token em MP_ACCESS_TOKEN)
+
+// Processa pagamento no cartão (transparente/in-app). Recebe o token gerado no app.
+exports.mpCardPay = onRequest({ secrets: [MP_TOKEN], cors: true, region: 'southamerica-east1' }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'metodo' }); return; }
+  try {
+    const token = MP_TOKEN.value();
+    if (!token || token === 'disabled') { res.status(503).json({ error: 'nao_configurado' }); return; }
+    const authH = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    let uid = null; try { uid = (await admin.auth().verifyIdToken(authH)).uid; } catch (e) {}
+    if (!uid) { res.status(401).json({ error: 'auth' }); return; }
+    const b = req.body || {};
+    const orderId = String(b.orderId || '').slice(0, 40);
+    if (!b.token || !b.payment_method_id) { res.status(400).json({ error: 'dados' }); return; }
+    const os = await db.doc('orders/' + uid).get();
+    const ord = os.exists && os.data().o && os.data().o[orderId];
+    if (!ord) { res.status(404).json({ error: 'pedido' }); return; }
+    const total = Math.round(Number(ord.total) * 100) / 100;
+    const payer = b.payer || {};
+    const payload = {
+      transaction_amount: total, token: b.token, installments: Number(b.installments) || 1,
+      payment_method_id: b.payment_method_id, external_reference: uid + '::' + orderId,
+      notification_url: FN_BASE + '/mpHook',
+      payer: { email: (payer.email || '').slice(0, 80) || ('cliente.' + uid.slice(0, 10) + '@gatecao.com.br') }
+    };
+    if (b.issuer_id) payload.issuer_id = b.issuer_id;
+    if (payer.identification && payer.identification.type && payer.identification.number) payload.payer.identification = payer.identification;
+    const { ok, j } = await mpApi('/v1/payments', 'POST', payload, token);
+    if (!ok || !j || !j.id) { res.status(502).json({ error: 'mp', detail: (j && (j.message || (j.cause && j.cause[0] && j.cause[0].description))) || ('status ' + (j && j.status)) }); return; }
+    await db.doc('pay/' + j.id).set({ uid, orderId, status: j.status, method: 'card', amount: total, ts: Date.now() });
+    if (j.status === 'approved') {
+      const data = os.data(); const o = (data.o || {})[orderId];
+      if (o && !o.paid) { o.paid = true; o.paidAt = Date.now(); o.payMethod = 'card'; o.mpId = String(j.id); const no = Object.assign({}, data.o); no[orderId] = o; await db.doc('orders/' + uid).set(Object.assign({}, data, { o: no })); }
+    }
+    res.json({ ok: true, id: String(j.id), status: j.status, status_detail: j.status_detail || '' });
+  } catch (e) { res.status(500).json({ error: 'erro' }); }
+});
