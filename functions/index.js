@@ -131,7 +131,7 @@ exports.mpCreate = onRequest({ secrets: [MP_TOKEN], cors: true, region: 'southam
         transaction_amount: total, description: 'Pedido Gatecao ' + orderId, payment_method_id: 'pix',
         external_reference: extRef, notification_url, payer
       }, token);
-      if (!ok || !j || !j.id) { res.status(502).json({ error: 'mp' }); return; }
+      if (!ok || !j || !j.id) { res.status(502).json({ error: 'mp', detail: (j && (j.message || (j.cause && j.cause[0] && j.cause[0].description))) || ('status ' + status) }); return; }
       const tx = (j.point_of_interaction && j.point_of_interaction.transaction_data) || {};
       await db.doc('pay/' + j.id).set({ uid, orderId, status: j.status, method: 'pix', amount: total, ts: Date.now() });
       res.json({ ok: true, id: String(j.id), method: 'pix', status: j.status, qr: tx.qr_code || '', qr_base64: tx.qr_code_base64 || '', ticket: tx.ticket_url || '' });
@@ -143,7 +143,7 @@ exports.mpCreate = onRequest({ secrets: [MP_TOKEN], cors: true, region: 'southam
       back_urls: { success: 'https://gatecao.com.br/#pedidos', pending: 'https://gatecao.com.br/#pedidos', failure: 'https://gatecao.com.br/#pedidos' },
       auto_return: 'approved', payment_methods: { excluded_payment_types: [{ id: 'ticket' }] }
     }, token);
-    if (!ok || !j || !j.init_point) { res.status(502).json({ error: 'mp' }); return; }
+    if (!ok || !j || !j.init_point) { res.status(502).json({ error: 'mp', detail: (j && (j.message || (j.cause && j.cause[0] && j.cause[0].description))) || ('status ' + status) }); return; }
     await db.doc('pay/pref_' + j.id).set({ uid, orderId, status: 'init', method: 'card', amount: total, ts: Date.now() });
     res.json({ ok: true, id: String(j.id), method: 'card', init_point: j.init_point });
   } catch (e) { res.status(500).json({ error: 'erro' }); }
