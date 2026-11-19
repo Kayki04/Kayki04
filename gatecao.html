@@ -2635,9 +2635,9 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   var VAR={src:null,len:-1,by:{},groups:{}};
   if(!state.varSel)state.varSel={};
   function fmtKg(kg){return kg<1?Math.round(kg*1000)+' g':String(+kg.toFixed(2)).replace('.',',')+' kg'}
-  function fmtQ(it){var v=it.kg;if(it.u==='cp')return v+(v>1?' comprimidos':' comprimido');if(it.u==='un')return v+' un';if(it.u==='L')return v<1?Math.round(v*1000)+' ml':String(+v.toFixed(2)).replace('.',',')+' L';return fmtKg(v)}
-  function perLbl(u){return u==='cp'?'/comprimido':u==='un'?'/unidade':u==='L'?'/litro':'/kg'}
-  var V_STOP={fracionado:1,fracionada:1,x:1,racao:1,seca:1,para:1,de:1,'do':1,da:1,dos:1,das:1,e:1,com:1,sabor:1,a:1,o:1,em:1,gratis:1,gra:1,gr:1,g:1,kg:1};
+  function fmtQ(it){var v=it.kg;if(it.u==='cp')return v+(v>1?' comprimidos':' comprimido');if(it.u==='un')return v+' un';if(it.u==='L')return v<1?Math.round(v*1000)+' ml':String(+v.toFixed(2)).replace('.',',')+' L';if(it.u==='mg')return String(v).replace('.',',')+' mg';return fmtKg(v)}
+  function perLbl(u){return u==='cp'?'/comprimido':u==='un'?'/unidade':u==='L'?'/litro':u==='mg'?'/mg':'/kg'}
+  var V_STOP={fracionado:1,fracionada:1,x:1,racao:1,seca:1,para:1,de:1,'do':1,da:1,dos:1,das:1,e:1,com:1,sabor:1,a:1,o:1,em:1,gratis:1,gra:1,gr:1,g:1,kg:1,mg:1,fardo:1,fardos:1,fdo:1,saco:1,sacos:1,pacote:1,pacotes:1,pct:1,caixa:1,embalagem:1};
   var V_SYN={cao:'caes',adultos:'adulto',gatos:'gato',castrados:'castrado',cadastrados:'castrado',cast:'castrado',racas:'porte',raca:'porte',portes:'porte',
     pequenas:'pequeno',pequena:'pequeno',peq:'pequeno',medias:'medio',media:'medio',grandes:'grande',filhotes:'filhote',carnes:'carne',sen:'senior',qutree:'quatree',gigantes:'gigante',especificas:'especifica'};
   function wParse(n,noKg){
@@ -2645,6 +2645,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if((mu=/\bc\s*\/\s*(\d+)\b/i.exec(n))){kg=num(mu[1]);u='cp';cut=[mu.index,mu.index+mu[0].length]}
     else if((mu=/\b(\d+)\s*(un|unid|unidades|und)\b\.?/i.exec(n))){kg=num(mu[1]);u='un';cut=[mu.index,mu.index+mu[0].length]}
     else if((mu=/(\d+(?:[.,]\d+)?)\s*(ml|l|litros?)\b/i.exec(n))){var lv=num(mu[1]);kg=/^ml$/i.test(mu[2])?lv/1000:lv;u='L';cut=[mu.index,mu.index+mu[0].length]}
+    else if((mu=/(\d+(?:[.,]\d+)?)\s*mg\b/i.exec(n))){kg=num(mu[1]);u='mg';cut=[mu.index,mu.index+mu[0].length]}
     else if(noKg){return null}
     else if(m){kg=num(m[1])+num(m[2])/1000;cut=[m.index,m.index+m[0].length]}
     else{
@@ -2653,7 +2654,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       kg=/^k/i.test(last[2])?v:v/1000;cut=[last.index,last.index+last[0].length];
     }
     if(!(kg>0))return null;
-    var base=(n.slice(0,cut[0])+' '+n.slice(cut[1])).replace(/\b(gr[aá]tis|gra|gr|fracionad[oa])\b\.?/gi,' ').replace(/\s+g\s*$/i,' ').replace(/\s{2,}/g,' ').replace(/^[\s\-–,+]+|[\s\-–,+]+$/g,'').trim();
+    var base=(n.slice(0,cut[0])+' '+n.slice(cut[1])).replace(/\b(gr[aá]tis|gra|gr|fracionad[oa]|fardo|fardos|fdo|saco|sacos|pacote|pacotes|pct|caixa|embalagem)\b\.?/gi,' ').replace(/\s+g\s*$/i,' ').replace(/\s{2,}/g,' ').replace(/^[\s\-–,+]+|[\s\-–,+]+$/g,'').trim();
     var toks=normTxt(base).match(/[a-z0-9]+/g)||[];
     toks=toks.map(function(w){return V_SYN[w]||w}).filter(function(w){return !V_STOP[w]});
     var has=function(w){return toks.indexOf(w)>-1};
@@ -2695,7 +2696,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var ok=g.items.filter(function(it){return stockOf(it.p)>0});return (ok[0]||g.items[0]).p;
   }
   function perKg(p,kg){return kg>0?r2(priced(p).price/kg):0}
-  function bestKgId(g){var b=null;g.items.forEach(function(it){if(stockOf(it.p)<=0)return;var v=perKg(it.p,it.kg);if(!b||v<b.v)b={id:it.p.id,v:v}});return b&&g.items.length>1?b.id:null}
+  function bestKgId(g){if(g.u==='mg')return null;var b=null;g.items.forEach(function(it){if(stockOf(it.p)<=0)return;var v=perKg(it.p,it.kg);if(!b||v<b.v)b={id:it.p.id,v:v}});return b&&g.items.length>1?b.id:null}
   function collapse(list,pref){
     var out=[],seen={};
     list.forEach(function(p){
@@ -2716,7 +2717,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     return '<article class="card vcardp" data-vg="'+esc(g.key)+'" data-n="'+n+'"><div class="tile t'+(n%3)+'" data-open="'+esc(p.id)+'" role="button" tabindex="0" aria-label="Ver guia de '+esc(g.name)+'">'+(out?'<span class="badge out">Esgotado</span>':pr.off?'<span class="badge">-'+pr.off+'%</span>':p.badge?'<span class="badge alt">'+esc(p.badge)+'</span>':'')+tileInner(p)+favBtn(p)+'</div>'+
       '<div class="cbody">'+rateLine(p)+'<div class="nm" data-open="'+esc(p.id)+'">'+esc(niceName(g.name))+'</div>'+
       '<div class="vchips" role="radiogroup" aria-label="Tamanho da embalagem">'+g.items.map(function(x){var o=stockOf(x.p)<=0;return '<button class="vchip'+(o?' off':'')+'" data-var="'+esc(x.p.id)+'" role="radio" aria-pressed="'+(x.p.id===p.id)+'">'+fmtQ(x)+'</button>'}).join('')+'</div>'+
-      '<div class="ppk">'+brl(perKg(p,it.kg))+perLbl(it.u)+(best===p.id?' <span class="bestkg">melhor preço'+perLbl(it.u)+'</span>':'')+'</div>'+
+      (it.u!=='mg'?'<div class="ppk">'+brl(perKg(p,it.kg))+perLbl(it.u)+(best===p.id?' <span class="bestkg">melhor preço'+perLbl(it.u)+'</span>':'')+'</div>':'')+
       '<div class="pr"><span class="price">'+brl(pr.price)+'</span>'+(pr.off?'<span class="old">'+brl(pr.base)+'</span>':'')+'</div>'+
       (!out&&recInfo(p)?'<div class="recnote">Recompra: '+brl(recInfo(p).price)+'</div>':'')+
       '<button class="add" data-add="'+esc(p.id)+'" '+(out?'disabled':'')+'>'+(out?'Esgotado':'+ Adicionar')+'</button></div></article>';
@@ -3404,7 +3405,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='<h1 class="pv-name">'+esc(niceName(VG?VG.name:p.name))+'</h1>'+(RV.n?'<button class="pv-rate" id="pvRevGo"><span class="stars">'+starsTxt(RV.avg)+'</span>'+String(RV.avg.toFixed(1)).replace('.',',')+' · '+RV.n+' avaliaç'+(RV.n===1?'ão':'ões')+'</button>':'')+(p.desc?'<p class="pv-desc">'+esc(p.desc)+'</p>':'');
     if(VG){
       var bk=bestKgId(VG);
-      h+='<div class="pvvars"><div class="lbl">'+(VG.u==='cp'?'Escolha a quantidade':'Escolha a embalagem')+'</div><div class="pvvgrid" role="radiogroup" aria-label="Embalagem">'+VG.items.map(function(x){var xp=priced(x.p),o=stockOf(x.p)<=0;
+      h+='<div class="pvvars"><div class="lbl">'+(VG.u==='cp'?'Escolha a quantidade':VG.u==='mg'?'Escolha a dosagem':'Escolha a embalagem')+'</div><div class="pvvgrid" role="radiogroup" aria-label="Embalagem">'+VG.items.map(function(x){var xp=priced(x.p),o=stockOf(x.p)<=0;
         return '<button class="pvv'+(o?' off':'')+'" data-pvvar="'+esc(x.p.id)+'" role="radio" aria-pressed="'+(x.p.id===p.id)+'"><b>'+fmtQ(x)+'</b><span class="pz">'+brl(xp.price)+'</span><span class="kgp">'+brl(perKg(x.p,x.kg))+perLbl(x.u)+'</span>'+(bk===x.p.id?'<span class="bestkg">melhor preço'+perLbl(x.u)+'</span>':'')+(o?'<span class="kgp">esgotado</span>':'')+'</button>'}).join('')+'</div>'+
         '<p class="hint" style="margin:6px 0 0">'+(VG.u==='kg'?'O preço por kg':'O preço'+perLbl(VG.u).replace('/',' por '))+' é só para comparar. Você paga o valor da embalagem escolhida.</p></div>';
     }
