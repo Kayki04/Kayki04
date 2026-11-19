@@ -180,6 +180,17 @@ body.adm::before{background:#F1F5FB}
 .mpspin{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:mpsp 1s linear infinite;flex:none}
 @keyframes mpsp{to{transform:rotate(360deg)}}
 .mpok .mpcheck{width:64px;height:64px;border-radius:50%;background:#1D7F53;color:#fff;font-size:36px;display:grid;place-items:center;margin:0 auto}
+.sugbox{position:absolute;top:100%;left:0;right:0;margin-top:6px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 30px rgba(11,42,91,.16);z-index:30;overflow:hidden;max-height:60vh;overflow-y:auto}
+.sgrow{display:flex;align-items:center;gap:11px;width:100%;background:none;border:none;border-bottom:1px solid var(--line);padding:10px 12px;text-align:left;cursor:pointer}
+.sgrow:last-child{border-bottom:none}
+.sgrow:hover,.sgrow:focus{background:#FFF6EE}
+.sgrow .sgi{flex:none;width:38px;height:38px;border-radius:10px;background:#F3F5F9;display:grid;place-items:center;overflow:hidden}
+.sgrow .sgi svg{width:22px;height:22px;color:var(--accent)}
+.sgrow .sgi.cat svg{color:var(--brand)}
+.sgrow .sgi img{width:100%;height:100%;object-fit:cover}
+.sgrow .sgt{min-width:0;display:flex;flex-direction:column}
+.sgrow .sgt b{font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sgrow .sgt span{font-size:11.5px;color:var(--muted)}
 .delbar{display:flex;align-items:center;gap:11px;background:linear-gradient(135deg,#FFF3E6,#FFE2C2);border:1px solid #FFD2A1;border-radius:14px;padding:11px 13px;margin:14px 0 4px}
 .delbar svg{width:26px;height:26px;flex:none;color:var(--accent)}
 .delbar span{display:flex;flex-direction:column;font-size:12.5px;color:#7a4a12;line-height:1.3;min-width:0}
@@ -798,8 +809,9 @@ nav.bar button{font-size:10.5px;padding:7px 0;line-height:1.15;text-align:center
         </button>
       </div>
     </div>
-    <div id="searchWrap" style="display:grid;gap:4px">
-      <input class="search" id="q" type="search" placeholder="Buscar ração, petisco, brinquedo" aria-label="Buscar produtos">
+    <div id="searchWrap" style="display:grid;gap:4px;position:relative">
+      <input class="search" id="q" type="search" placeholder="Buscar ração, petisco, brinquedo" aria-label="Buscar produtos" autocomplete="off">
+      <div id="sugg" class="sugbox" role="listbox" aria-label="Sugestões de busca" hidden></div>
       <div class="cats" id="cats" role="group" aria-label="Categorias"></div>
     </div>
   </header>
@@ -6832,8 +6844,41 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     el.scrollLeft+=d;e.preventDefault();
   },{passive:false});
   var qT=0;
-  $('#q').oninput=function(e){state.q=e.target.value;clearTimeout(qT);qT=setTimeout(function(){if(state.tab==='loja')renderShop()},160)};
-  $('#q').onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();this.blur();clearTimeout(qT);renderShop();shopTop()}};
+  function suggItems(q){
+    q=String(q||'').trim();if(q.length<2)return [];
+    var out=[],qn=normTxt(q);
+    CATS_PRESENT().forEach(function(c){if(normTxt(c).indexOf(qn)>-1)out.push({t:'cat',c:c,label:c,sub:'Categoria'})});
+    var qs=null;try{qs=searchScores(q)}catch(e){}
+    if(qs&&qs.s){
+      var ids=Object.keys(qs.s).sort(function(a,b){return qs.s[b]-qs.s[a]}),seen={};
+      for(var i=0;i<ids.length&&out.length<7;i++){var p=byId(D.products,ids[i]);if(!p||p.active===false)continue;var g=varOf(p),nm=g?niceName(g.name):pName(p),k=normTxt(nm);if(seen[k])continue;seen[k]=1;out.push({t:'prod',id:p.id,label:nm,sub:(p.t&&p.t[0])||'Produto',img:p.img,icon:p.i})}
+    }
+    return out.slice(0,7);
+  }
+  function CATS_PRESENT(){var s={};D.products.forEach(function(p){if(p.active!==false)(p.t||[]).forEach(function(c){s[c]=1})});return Object.keys(s)}
+  function suggClose(){var b=$('#sugg');if(b){b.hidden=true;b.innerHTML=''}}
+  function suggShow(){
+    var q=$('#q').value,box=$('#sugg');if(!box)return;
+    var items=suggItems(q);
+    if(!items.length){suggClose();return}
+    box.innerHTML=items.map(function(x,i){
+      var ic=x.t==='cat'?'<span class="sgi cat">'+svg('tag')+'</span>':(x.img?'<span class="sgi"><img src="/_blob/'+esc(x.img)+'" alt=""></span>':'<span class="sgi">'+svg(x.icon||'paw')+'</span>');
+      return '<button class="sgrow" role="option" data-sg="'+x.t+'" data-sgv="'+esc(x.t==='cat'?x.c:x.id)+'">'+ic+'<span class="sgt"><b>'+esc(x.label)+'</b><span>'+esc(x.sub)+'</span></span></button>';
+    }).join('');
+    box.hidden=false;
+  }
+  $('#sugg').onmousedown=function(e){e.preventDefault()};
+  $('#sugg').onclick=function(e){
+    var b=e.target.closest('[data-sg]');if(!b)return;
+    var type=b.getAttribute('data-sg'),v=b.getAttribute('data-sgv');
+    suggClose();$('#q').blur();
+    if(type==='cat'){state.q='';$('#q').value='';state.cat=v;state.showAll=false;renderCats();if(state.tab!=='loja')go('loja');else renderShop();shopTop()}
+    else showProduct(v);
+  };
+  $('#q').oninput=function(e){state.q=e.target.value;suggShow();clearTimeout(qT);qT=setTimeout(function(){if(state.tab==='loja')renderShop()},160)};
+  $('#q').onfocus=function(){if(this.value.trim().length>=2)suggShow()};
+  $('#q').onblur=function(){setTimeout(suggClose,120)};
+  $('#q').onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();suggClose();this.blur();clearTimeout(qT);renderShop();shopTop()}else if(e.key==='Escape'){suggClose()}};
   window.addEventListener('hashchange',function(){
     var t=location.hash.slice(1);
     if(t.indexOf('produto/')===0){var pid=decodeURIComponent(t.slice(8));if(pid!==PV.id){if(D.ready.products)showProduct(pid,true);else PV.pending=pid}return}
