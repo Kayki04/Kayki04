@@ -165,6 +165,8 @@ body.adm::before{background:#F1F5FB}
 .mini{border:2px solid var(--line);background:#fff;border-radius:10px;padding:6px 10px;font-weight:800;color:var(--brand)}
 .arow{display:grid;grid-template-columns:56px minmax(0,1fr);gap:6px 12px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:10px}
 .arow .main{min-width:0}
+.athumb.tap{position:relative;cursor:pointer}
+.athumb .cambadge{position:absolute;right:-5px;bottom:-5px;background:var(--accent);color:#fff;border-radius:999px;width:22px;height:22px;display:grid;place-items:center;font-size:12px;box-shadow:0 1px 3px rgba(0,0,0,.3);border:2px solid #fff}
 .arow .main b{display:block;overflow-wrap:anywhere}
 .arow .ctl{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;border-top:1px dashed var(--line);padding-top:10px}
 .athumb{width:56px;height:56px;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:var(--soft);color:var(--accent);position:relative}
@@ -3976,10 +3978,10 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   /* ----- Produtos ----- */
   function prodRow(p){
     var pr=priced(p);
-    return '<div class="arow" data-pid="'+esc(p.id)+'"><div class="athumb">'+(p.img?'<img class="pimg" src="/_blob/'+esc(p.img)+'" alt="">':svg(p.i||'paw'))+'</div>'+
+    return '<div class="arow" data-pid="'+esc(p.id)+'"><div class="athumb'+(X.assets?' tap':'')+'"'+(X.assets?' data-act="rowPhoto" data-id="'+esc(p.id)+'" role="button" tabindex="0" title="Enviar foto"':'')+'>'+(p.img?'<img class="pimg" src="/_blob/'+esc(p.img)+'" alt="">':svg(p.i||'paw'))+(X.assets?'<span class="cambadge" aria-hidden="true">📷</span>':'')+'</div>'+
       '<div class="main"><b>'+esc(p.name)+'</b><span class="muted">'+esc((p.t||[]).join(', '))+(p.code?' · '+esc(p.code):'')+'</span><div><b>'+brl(pr.price)+'</b>'+(pr.off?' <span class="old">'+brl(pr.base)+'</span> <span class="st ok">-'+pr.off+'%</span>':'')+' '+stockBadge(p)+(p.active===false?' <span class="st off">Oculto no app</span>':'')+'</div></div>'+
       '<div class="ctl"><div class="stk'+(stockOf(p)<=minStock(p)?' low':'')+'"><button data-act="stockDec" data-id="'+esc(p.id)+'" aria-label="Tirar 1 do estoque">-</button><b>'+stockOf(p)+'</b><button data-act="stockInc" data-id="'+esc(p.id)+'" aria-label="Colocar 1 no estoque">+</button><span class="muted">em estoque</span></div>'+
-      '<div class="stk"><span class="muted">No app</span>'+swHtml(p.active!==false,'prodOn',p.id,'Mostrar no app')+(X.assets?'<button class="mini" data-act="rowPhoto" data-id="'+esc(p.id)+'">'+(p.img?'Trocar foto':'📷 Foto')+'</button>':'')+'<button class="mini" data-act="prodEdit" data-id="'+esc(p.id)+'">Editar</button></div></div></div>';
+      '<div class="stk"><span class="muted">No app</span>'+swHtml(p.active!==false,'prodOn',p.id,'Mostrar no app')+(X.assets?'<button class="mini" data-act="rowPhoto" data-id="'+esc(p.id)+'">'+(p.img?'Trocar foto':'Foto')+'</button>':'')+'<button class="mini" data-act="prodEdit" data-id="'+esc(p.id)+'">Editar</button></div></div></div>';
   }
   var busy={};
   async function setProd(id,patch){
