@@ -2855,12 +2855,31 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function openCart(){
     var lines=cartLines();
     var h='<div class="row"><h2>Seu carrinho</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
-    if(!lines.length){$('#overlay').innerHTML=sheetHtml(h+'<p class="muted">Seu carrinho está vazio. Escolha produtos na loja.</p>','Carrinho');bindClose();return}
+    if(!lines.length){$('#overlay').innerHTML=sheetHtml('<div class="co cocart">'+h+'<p class="muted">Seu carrinho está vazio. Escolha produtos na loja.</p></div>','Carrinho');bindClose();return}
     lines.forEach(function(l){
       var ri=recInfo(l.p);
       h+='<div class="line"><div><b>'+esc(pName(l.p))+'</b><div class="muted">'+brl(l.price)+' cada'+(l.rec?' · recompra a cada '+l.rec+' dias':'')+'</div>'+
         (ri?'<select class="in recsel" data-recsel="'+esc(l.p.id)+'" aria-label="Tipo de compra de '+esc(l.p.name)+'"><option value="0"'+(l.rec?'':' selected')+'>Compra única · '+brl(ri.normal)+'</option>'+recDays().map(function(d){return '<option value="'+d+'"'+(l.rec===d?' selected':'')+'>Recompra a cada '+d+' dias · '+brl(ri.price)+'</option>'}).join('')+'</select>':'')+'</div><div class="qty"><button data-dec="'+esc(l.p.id)+'" aria-label="Diminuir">-</button><b>'+l.q+'</b><button data-inc="'+esc(l.p.id)+'" aria-label="Aumentar" '+(l.q>=stockOf(l.p)?'disabled':'')+'>+</button></div></div>';
     });
+    var sub=r2(lines.reduce(function(a,l){return a+l.price*l.q},0));
+    var freeMin=num(S('freeMin',99));
+    if(freeMin>0){var falta=r2(freeMin-sub),pc=Math.min(100,Math.round(sub/freeMin*100));
+      h+='<div class="shipbar'+(falta<=0?' ok':'')+'">'+(falta<=0?'Você ganhou entrega grátis!':'Falta '+brl(falta)+' para entrega grátis')+'<div class="fprog"><i style="width:'+pc+'%"></i></div></div>'}
+    h+='<div class="co-foot"><div class="row"><span class="co-ft">Subtotal</span><span class="total">'+brl(sub)+'</span></div>'+
+      '<p class="hint" style="margin:0;text-align:center">Frete, cupom e descontos na próxima etapa.</p>'+
+      '<button class="primary" id="goPay">Pagar · '+brl(sub)+'</button></div>';
+    $('#overlay').innerHTML=sheetHtml('<div class="co cocart">'+h+'</div>','Carrinho');bindClose();
+    var s=$('#overlay');
+    $$('[data-inc]',s).forEach(function(b){b.onclick=function(){addToCart(b.getAttribute('data-inc'));openCart()}});
+    $$('[data-dec]',s).forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-dec');state.cart[k]=(state.cart[k]||1)-1;if(state.cart[k]<=0)delete state.cart[k];persist();openCart()}});
+    $$('[data-recsel]',s).forEach(function(sel){sel.onchange=function(){var id=sel.getAttribute('data-recsel'),v=+sel.value;if(v)state.cartRec[id]=v;else delete state.cartRec[id];persist();openCart()}});
+    var gp=$('#goPay');if(gp)gp.onclick=function(){openCheckout()};
+  }
+
+  function openCheckout(){
+    var lines=cartLines();
+    if(!lines.length){openCart();return}
+    var h='<div class="row"><h2>Finalizar compra</h2><button class="ghost" id="backCart">‹ Carrinho</button></div>';
     var sub=r2(lines.reduce(function(a,l){return a+l.price*l.q},0));
     var pixPct=num(S('pixOff',5)),freeMin=num(S('freeMin',99)),fee=num(S('fee',9.9));
     var cpc=state.co.coupon?cpFind(state.co.coupon):null;if(state.co.coupon&&!cpc)state.co.coupon='';
@@ -2876,7 +2895,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var inC=state.cart,sugg=[],seenS={};
     lines.forEach(function(l){relatedOf(l.p,12).forEach(function(x){var g=varOf(x),k=g?g.key:x.id;if(inC[x.id]||seenS[k]||stockOf(x)<=0)return;seenS[k]=1;sugg.push(x)})});
     sugg=sugg.slice(0,8);
-    if(sugg.length)h+='<div class="cartx"><div class="f" style="font-weight:700;margin-bottom:6px">Leve junto</div><div class="hscroll">'+sugg.map(function(x){var pr=priced(x);return '<article class="card"><div class="tile t1">'+tileInner(x)+'</div><div class="cbody"><div class="nm" style="font-size:13px">'+esc(pName(x))+'</div><div class="pr"><span class="price">'+brl(pr.price)+'</span></div><button class="add" data-cadd="'+esc(x.id)+'">+ Adicionar</button></div></article>'}).join('')+'</div></div>';
+    if(sugg.length)h+='<div class="cartx"><div class="co-h">Leve junto</div><div class="hscroll">'+sugg.map(function(x){var pr=priced(x);return '<article class="card"><div class="tile t1">'+tileInner(x)+'</div><div class="cbody"><div class="nm" style="font-size:13px">'+esc(pName(x))+'</div><div class="pr"><span class="price">'+brl(pr.price)+'</span></div><button class="add" data-cadd="'+esc(x.id)+'">+ Adicionar</button></div></article>'}).join('')+'</div></div>';
     h+='<div class="co-h">Como receber</div><div class="opts">';
     ['Retirada na loja','Entrega'].forEach(function(m){h+='<button class="opt" data-mode="'+m+'" aria-pressed="'+(state.co.mode===m)+'"><b>'+m+'</b><span class="muted">'+(m==='Entrega'?(etaText()?etaText()+' · ':'')+'grátis acima de '+brl(freeMin):'Sem custo')+'</span></button>'});
     h+='</div><div class="co-h">Pagamento</div><div class="opts">';
@@ -2913,28 +2932,26 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='<div class="co-foot"><div class="row"><span class="co-ft">Total</span><span class="total">'+brl(tot)+'</span></div>';
     if(wl){var ev=earnFor(Math.max(0,tot-frete),wl.life);if(ev.pts>0)h+='<p class="loynote" style="margin:0">Você ganha <b>'+ev.pts+' pontos</b> e <b>'+brl(ev.cash)+'</b> de cashback após a entrega.</p>'}
     h+='<button class="primary" id="finish">Finalizar pedido · '+brl(tot)+'</button></div>';
-    $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Carrinho');var _cs=$('#overlay .sheet');if(_cs)_cs.classList.add('cosheet');bindClose();
+    $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Finalizar compra');var _cs=$('#overlay .sheet');if(_cs)_cs.classList.add('cosheet');bindClose();
     var s=$('#overlay');
-    $$('[data-cadd]',s).forEach(function(b){b.onclick=function(){coGrab();addToCart(b.getAttribute('data-cadd'));openCart()}});
-    $$('[data-inc]',s).forEach(function(b){b.onclick=function(){addToCart(b.getAttribute('data-inc'));openCart()}});
-    $$('[data-recsel]',s).forEach(function(sel){sel.onchange=function(){coGrab();var id=sel.getAttribute('data-recsel'),v=+sel.value;if(v)state.cartRec[id]=v;else delete state.cartRec[id];persist();openCart()}});
-    $$('[data-dec]',s).forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-dec');state.cart[k]=(state.cart[k]||1)-1;if(state.cart[k]<=0)delete state.cart[k];persist();openCart()}});
-    $$('[data-mode]',s).forEach(function(b){b.onclick=function(){coGrab();state.co.mode=b.getAttribute('data-mode');openCart()}});
-    $$('[data-pay]',s).forEach(function(b){b.onclick=function(){coGrab();state.co.pay=b.getAttribute('data-pay');openCart()}});
-    var uc=$('#useCash');if(uc)uc.onclick=function(){coGrab();state.co.useCash=!state.co.useCash;openCart()};
-    var cb=$('#cbairro');if(cb&&cb.tagName==='SELECT')cb.onchange=function(){coGrab();openCart()};
-    var cc=$('#ccep');if(cc)cc.oninput=function(){var d=cc.value.replace(/\D/g,'');state.co.cep=cc.value;if(d.length===8){coGrab();cepFill(d).then(function(ok){if(ok){openCart();toast('Endereço encontrado. Confira o número.')}})}};
+    var bk=$('#backCart');if(bk)bk.onclick=function(){coGrab();openCart()};
+    $$('[data-cadd]',s).forEach(function(b){b.onclick=function(){coGrab();addToCart(b.getAttribute('data-cadd'));openCheckout()}});
+    $$('[data-mode]',s).forEach(function(b){b.onclick=function(){coGrab();state.co.mode=b.getAttribute('data-mode');openCheckout()}});
+    $$('[data-pay]',s).forEach(function(b){b.onclick=function(){coGrab();state.co.pay=b.getAttribute('data-pay');openCheckout()}});
+    var uc=$('#useCash');if(uc)uc.onclick=function(){coGrab();state.co.useCash=!state.co.useCash;openCheckout()};
+    var cb=$('#cbairro');if(cb&&cb.tagName==='SELECT')cb.onchange=function(){coGrab();openCheckout()};
+    var cc=$('#ccep');if(cc)cc.oninput=function(){var d=cc.value.replace(/\D/g,'');state.co.cep=cc.value;if(d.length===8){coGrab();cepFill(d).then(function(ok){if(ok){openCheckout();toast('Endereço encontrado. Confira o número.')}})}};
     function cpApply(code){
       coGrab();var c=cpFind(code);
       if(!c){toast(code?'Cupom não encontrado':'Digite o código do cupom');var ci=$('#cpIn');if(ci)ci.focus();return}
       var r=cpCheck(c,sub,state.co.mode);
       if(!r.ok&&!r.need){toast(r.msg);return}
-      state.co.coupon=c.code;toast(r.ok?'Cupom aplicado':'Cupom guardado: '+r.msg);openCart();
+      state.co.coupon=c.code;toast(r.ok?'Cupom aplicado':'Cupom guardado: '+r.msg);openCheckout();
     }
     var cpa=$('#cpApply');if(cpa)cpa.onclick=function(){cpApply($('#cpIn').value)};
     var cpi=$('#cpIn');if(cpi)cpi.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();cpApply(cpi.value)}};
     $$('[data-cphint]',s).forEach(function(b){b.onclick=function(){cpApply(b.getAttribute('data-cphint'))}});
-    var cpd=$('#cpDel');if(cpd)cpd.onclick=function(){coGrab();state.co.coupon='';openCart()};
+    var cpd=$('#cpDel');if(cpd)cpd.onclick=function(){coGrab();state.co.coupon='';openCheckout()};
     $('#finish').onclick=function(){
       coGrab();
       if(needLogin('Para finalizar o pedido, entre ou crie sua conta. Seu carrinho fica guardado.'))return;
