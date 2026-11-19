@@ -4060,7 +4060,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     };
   }
   function isImg(f){return f&&(/^image\//.test(f.type)||/\.(jpe?g|png|webp|gif|heic)$/i.test(f.name||''))}
-  function hasFiles(e){var t=e.dataTransfer&&e.dataTransfer.types;return !!t&&[].indexOf.call(t,'Files')>-1}
+  function hasFiles(e){var d=e.dataTransfer;if(!d)return false;var t=d.types;if(t&&([].indexOf.call(t,'Files')>-1||[].some.call(t,function(x){return /file/i.test(x)})))return true;if(d.items&&[].some.call(d.items,function(i){return i&&i.kind==='file'}))return true;return false}
   function dropZone(el,onFiles,mark){
     if(!el)return;var n=0,m=mark||el;
     el.addEventListener('dragenter',function(e){if(!hasFiles(e))return;e.preventDefault();n++;m.classList.add('dropzone')});
@@ -4086,9 +4086,9 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     function hide(){if(hint){hint.remove();hint=null}$$('.arow.dropzone').forEach(function(r){r.classList.remove('dropzone')})}
     function onProducts(){return !admEl.hidden&&state.adm.tab==='produtos'&&!$('#overlay .sheet')}
     document.addEventListener('dragover',function(e){
-      if(!hasFiles(e))return;
-      if($('#overlay .sheet')||!admEl.hidden)e.preventDefault();
-      if(!onProducts())return;
+      if(!($('#overlay .sheet')||!admEl.hidden))return;
+      e.preventDefault();try{e.dataTransfer.dropEffect='copy'}catch(_){}
+      if(!onProducts()||!hasFiles(e))return;
       var row=e.target.closest&&e.target.closest('.arow[data-pid]');
       $$('.arow.dropzone').forEach(function(r){if(r!==row)r.classList.remove('dropzone')});
       if(row){row.classList.add('dropzone');var p=byId(D.products,row.getAttribute('data-pid'));show('Solte para usar como foto de '+(p?p.name:'este produto'))}
@@ -4096,11 +4096,11 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     });
     document.addEventListener('dragleave',function(e){if(!e.relatedTarget||e.relatedTarget===document.documentElement)hide()});
     document.addEventListener('drop',function(e){
-      if(!hasFiles(e))return;
-      if($('#overlay .sheet')||!admEl.hidden)e.preventDefault();
+      if(!($('#overlay .sheet')||!admEl.hidden))return;
+      e.preventDefault();
       var go=onProducts();hide();if(!go)return;
       if(!X.assets){toast('O envio de fotos não está disponível neste acesso');return}
-      var fs=[].slice.call(e.dataTransfer.files||[]).filter(isImg);if(!fs.length){toast('Arraste um arquivo de foto');return}
+      var fs=[].slice.call((e.dataTransfer&&e.dataTransfer.files)||[]).filter(isImg);if(!fs.length){toast('Arraste um arquivo de imagem (JPG ou PNG)');return}
       var row=e.target.closest&&e.target.closest('.arow[data-pid]');
       if(row&&fs.length===1){photoToProduct(row.getAttribute('data-pid'),fs[0]);return}
       openPhotoBulk();photoItems(fs);renderPhotos();
