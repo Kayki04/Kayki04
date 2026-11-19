@@ -36,6 +36,13 @@
     var o = {}; o['t.' + tok] = firebase.firestore.FieldValue.delete();
     return fs.doc('pushTokens/' + u.uid).update(o).catch(function(){}).then(function(){ try { return firebase.messaging().deleteToken(); } catch (e) {} });
   };
+  // Token de push do app nativo (Capacitor): mesmo formato, origin 'app'.
+  window.GCFB.saveNativeToken = function(tok, platform){
+    var u = auth.currentUser; if (!u || !tok) return Promise.resolve(false);
+    var o = {}; o['t.' + tok] = { ts: Date.now(), origin: 'app', platform: platform || 'app' };
+    var ref = fs.doc('pushTokens/' + u.uid);
+    return ref.update(o).catch(function(){ var t = {}; t[tok] = o['t.' + tok]; return ref.set({ t: t }); }).then(function(){ return true; }).catch(function(){ return false; });
+  };
 
   /* ---------- tela de login ---------- */
   var css = '.gcl{position:fixed;inset:0;z-index:100;background:#fff;display:grid;place-items:center;padding:24px;font-family:"Nunito Sans",system-ui,sans-serif;color:#0B2A5B}' +

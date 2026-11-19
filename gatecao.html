@@ -3192,8 +3192,28 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();_bip=e;try{var b=document.getElementById('installBar');if(b)b.hidden=false}catch(_){}});
   window.addEventListener('appinstalled',function(){_bip=null;try{save('gc_installed',1)}catch(_){}var b=document.getElementById('installBar');if(b)b.remove();toast('App instalado! Abra pela tela inicial.')});
   function isStandalone(){try{return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true}catch(e){return false}}
-  function isIOSb(){return !!(window.GCFB&&GCFB.isIOSBrowser&&GCFB.isIOSBrowser())}
-  function canInstall(){if(isStandalone())return false;if(load('gc_installed'))return false;return !!_bip||isIOSb()||(!!window.GCFB)}
+  function isNative(){try{return !!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform())}catch(e){return false}}
+  function capPlatform(){try{return (window.Capacitor&&Capacitor.getPlatform&&Capacitor.getPlatform())||'app'}catch(e){return 'app'}}
+  function isIOSb(){return !isNative()&&!!(window.GCFB&&GCFB.isIOSBrowser&&GCFB.isIOSBrowser())}
+  function canInstall(){if(isNative()||isStandalone())return false;if(load('gc_installed'))return false;return !!_bip||isIOSb()||(!!window.GCFB)}
+  // ---- App nativo (Capacitor): splash, status bar e push nativo ----
+  var _natTok=null;
+  function capSaveTok(){if(_natTok&&X.uid&&window.GCFB&&GCFB.saveNativeToken)GCFB.saveNativeToken(_natTok.token,_natTok.platform)}
+  async function capNativeInit(){
+    if(!isNative())return;
+    try{document.documentElement.classList.add('native')}catch(e){}
+    var P=(window.Capacitor&&Capacitor.Plugins)||{};
+    try{if(P.StatusBar){P.StatusBar.setStyle({style:'DARK'});P.StatusBar.setBackgroundColor({color:'#FF7A00'})}}catch(e){}
+    try{if(P.SplashScreen)setTimeout(function(){P.SplashScreen.hide()},400)}catch(e){}
+    var PN=P.PushNotifications;if(!PN)return;
+    try{
+      PN.addListener('registration',function(t){_natTok={token:t.value,platform:capPlatform()};capSaveTok()});
+      PN.addListener('registrationError',function(){});
+      PN.addListener('pushNotificationActionPerformed',function(ev){try{var d=(ev&&ev.notification&&ev.notification.data)||{},link=d.path||d.link||d.go;if(link){var hsh=String(link).replace(/^.*#/,'').replace(/^\//,'');if(hsh)location.hash=hsh}}catch(e){}});
+      var pm=await PN.requestPermissions();
+      if(pm&&pm.receive==='granted')await PN.register();
+    }catch(e){}
+  }
   async function installApp(){
     if(_bip){try{_bip.prompt();var c=await _bip.userChoice;_bip=null;if(c&&c.outcome==='accepted')toast('Instalando…');else toast('Você pode instalar depois pelo menu do navegador')}catch(e){}return}
     if(isIOSb())return mpBox('<div class="mpcard"><div class="mphd"><b>Instalar no iPhone</b><button class="ghost" id="mpX">Fechar</button></div><ol class="iosins"><li>Toque no botão <b>Compartilhar</b> '+IC_SHARE+' na barra do Safari.</li><li>Escolha <b>Adicionar à Tela de Início</b>.</li><li>Toque em <b>Adicionar</b>. Pronto — abra a Gatecão pelo ícone.</li></ol></div>'),void bindBox();
@@ -6871,6 +6891,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       if(X.user){try{X.uid=await X.user.id();X.isAdmin=!!(await X.user.canEdit())}catch(e){}}
     }catch(e){}
     X.checked=true;
+    try{capNativeInit()}catch(e){}
+    try{capSaveTok()}catch(e){}
     if(!X.db){D.nodb=true;render();return}
     subscribe();
     setTimeout(function(){if(!D.ready.products){D.slow=true;render()}},10000);

@@ -1,0 +1,26 @@
+{
+  "appId": "br.com.gatecao.app",
+  "appName": "Gatecão",
+  "webDir": "public",
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "always"
+  },
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#FF7A00",
+      "showSpinner": false,
+      "androidSplashResourceName": "splash"
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}
