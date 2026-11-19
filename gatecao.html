@@ -1103,7 +1103,7 @@ function shell() {
       <div class="logo"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="9" r="2.2"/><circle cx="9.5" cy="5" r="2.2"/><circle cx="14.5" cy="5" r="2.2"/><circle cx="18.5" cy="9" r="2.2"/><path d="M12 10.5c-3.2 0-6.5 4.3-6.5 7.2 0 1.8 1.4 2.8 3 2.8 1.3 0 2.2-.7 3.5-.7s2.2.7 3.5.7c1.6 0 3-1 3-2.8 0-2.9-3.3-7.2-6.5-7.2z"/></svg><div><span id="loja-nome">Gatecão</span><small>Caixa · Clube · CRM</small></div></div>
       <div class="tright"><button class="hbtn" id="op-chip" data-act="op-sair" hidden></button><a class="hbtn" href="#caixa-consulta">Modo consulta</a><a class="hbtn" href="#gestao">Voltar ao app</a><div id="sync" class="sync"><i></i><span>Conectando…</span></div></div>
     </div>
-    <nav class="tabs" id="tabs">${TABS.map(t => `<a href="#${t === 'pdv' ? 'caixa' : 'caixa-' + t}" data-tab="${t}">${TAB_NOMES[t]}</a>`).join('')}</nav>
+    <nav class="tabs" id="tabs">${TABS.map(t => `<a href="#${t === 'pdv' ? 'caixa' : 'caixa-' + t}" data-tab="${t}">${TAB_NOMES[t]}</a>` + (t === 'pdv' ? `<a href="#balcao">Venda manual</a><a href="#balcao-banho">Agendar banho</a>` : '')).join('')}</nav>
   </div></header>
   <main class="wrap" id="main"></main>
   </div>
@@ -3627,7 +3627,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
 
   /* ================= GESTÃO ================= */
-  var ATABS=[['resumo','Resumo'],['relatorios','Relatórios'],['balcao','Balcão'],['produtos','Produtos'],['promos','Promoções'],['tabelas','Tabelas de preço'],['pedidos','Pedidos'],['painel','Painel banho'],['clientes','Clientes'],['vantagens','Vantagens'],['mensagens','Mensagens'],['servicos','Serviços'],['banners','Banners'],['loja','Loja']];
+  var ATABS=[['resumo','Resumo'],['relatorios','Relatórios'],['produtos','Produtos'],['promos','Promoções'],['tabelas','Tabelas de preço'],['pedidos','Pedidos'],['painel','Painel banho'],['clientes','Clientes'],['vantagens','Vantagens'],['mensagens','Mensagens'],['servicos','Serviços'],['banners','Banners'],['loja','Loja']];
   function wfail(e){toast(e&&e.code==='invalid_argument'?'Sem permissão para salvar':'Não foi possível salvar. Tente de novo.')}
   function allOrders(){
     var out=[];
@@ -3715,6 +3715,19 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
 
   function renderAdmin(){
     var tab=state.adm.tab;
+    if(tab==='balcao'&&MB.fromCaixa){
+      var hc='<header class="atop"><div class="ab">'+$('.logoimg').outerHTML+'<b>Caixa da loja</b></div><div class="brandact"><button id="aBackCx" style="background:#fff;color:var(--brand)">‹ Voltar ao caixa</button><button id="aBack">Ver o app</button></div></header>';
+      hc+='<section id="aMain"></section>';
+      admEl.innerHTML=hc;
+      $('#aBackCx').onclick=function(){MB.fromCaixa=false;location.hash='caixa'};
+      $('#aBack').onclick=function(){MB.fromCaixa=false;go('loja')};
+      var mc=$('#aMain');
+      if(D.nodb){mc.innerHTML=noDbBox();return}
+      aBalcao(mc);
+      mc.onclick=function(e){var b=e.target.closest('[data-act]');if(b&&ACT[b.getAttribute('data-act')])ACT[b.getAttribute('data-act')](b.getAttribute('data-id'),b)};
+      mc.onchange=function(e){var t=e.target;if(t.getAttribute&&t.getAttribute('data-chg')&&CHG[t.getAttribute('data-chg')])CHG[t.getAttribute('data-chg')](t.getAttribute('data-id'),t)};
+      return;
+    }
     var h='<header class="atop"><div class="ab">'+$('.logoimg').outerHTML+'<b>Gestão</b></div><div class="brandact"><button class="bellbtn abell" id="aBell" aria-label="Avisos da loja">'+BELL_SVG+(admUnread()?'<span class="n">'+(admUnread()>9?'9+':admUnread())+'</span>':'')+'</button><button id="aCaixa" style="background:#fff;color:var(--brand)">Caixa da loja</button><button id="aBack">Ver o app</button></div></header>';
     h+='<nav class="atabs" aria-label="Seções da gestão">'+ATABS.map(function(t){return '<button class="atab" data-atab="'+t[0]+'" aria-pressed="'+(tab===t[0])+'">'+t[1]+'</button>'}).join('')+'</nav><section id="aMain"></section>';
     admEl.innerHTML=h;
@@ -3771,7 +3784,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
 
   /* ----- Balcão (retaguarda): venda e agendamento manual ----- */
-  var MB={items:{},price:{},pay:'Dinheiro',mode:'Balcão',cust:null,addr:{},tab:'venda'};
+  var MB={items:{},price:{},pay:'Dinheiro',mode:'Balcão',cust:null,addr:{},tab:'venda',fromCaixa:false};
   function custResults(q){
     q=normTxt(q);var qd=q.replace(/\D/g,'');
     return D.customers.filter(function(c){if(!c.name&&!c.phone)return false;var byn=q&&normTxt(c.name||'').indexOf(q)>-1,byp=qd.length>=3&&String(c.phone||'').indexOf(qd)>-1;return byn||byp}).slice(0,8);
@@ -6445,6 +6458,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   async function boot(){
     var h=location.hash.slice(1);
     if(['loja','banho','vantagens','pet','pedidos','gestao'].indexOf(h)>-1)state.tab=h;
+    else if(h==='balcao'||h==='balcao-banho'){state.tab='gestao';state.adm.tab='balcao';MB.fromCaixa=true;MB.tab=(h==='balcao-banho'?'banho':'venda')}
     else if(h.indexOf('caixa')===0)state.tab='caixa';
     else if(h.indexOf('produto/')===0){state.tab='loja';PV.pending=decodeURIComponent(h.slice(8))}
     renderCats();persist();render();
@@ -6511,6 +6525,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   window.addEventListener('hashchange',function(){
     var t=location.hash.slice(1);
     if(t.indexOf('produto/')===0){var pid=decodeURIComponent(t.slice(8));if(pid!==PV.id){if(D.ready.products)showProduct(pid,true);else PV.pending=pid}return}
+    if(t==='balcao'||t==='balcao-banho'){if(PV.id)hidePview();MB.fromCaixa=true;MB.tab=(t==='balcao-banho'?'banho':'venda');state.tab='gestao';state.adm.tab='balcao';render();return}
     if(t.indexOf('caixa')===0){if(PV.id)hidePview();if(state.tab!=='caixa'){state.tab='caixa';render()}return}
     if(PV.id){hidePview();var a=PV.after;PV.after=null;if(a){a();return}}
     if(['loja','banho','vantagens','pet','pedidos','gestao'].indexOf(t)>-1&&t!==state.tab){state.tab=t;render();if(!reduced())anim(view,'enter')}
