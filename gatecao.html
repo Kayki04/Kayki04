@@ -4729,7 +4729,9 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function rxSimilars(p){var g=varOf(p),out=[];if(g)g.items.forEach(function(it){if(it.p.id!==p.id&&stockOf(it.p)>0)out.push(it.p)});relatedOf(p,8).forEach(function(x){if(out.length<6&&out.indexOf(x)<0&&(x.t||[]).some(function(c){return (p.t||[]).indexOf(c)>-1}))out.push(x)});return out.slice(0,6)}
   function renderRxBuilder(){
     var h='<div class="row"><h2>Montar receita</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
-    h+='<p class="hint" style="margin-top:0">Escolha os produtos, ajuste quantidade e orientação, e marque similares que o cliente pode trocar. O cliente recebe com <b>'+rxDiscPct()+'%</b> de desconto.</p>';
+    h+='<p class="hint" style="margin-top:0">Escolha os produtos, ajuste quantidade e orientação, e marque similares que o cliente pode trocar. O cliente recebe desconto nos itens.</p>';
+    var vw=X.uid?wal(X.uid):null;
+    if(vw)h+='<div class="combobar ok">⭐ <span>Seu clube de parceiro: <b>'+vw.points+' pontos</b> · '+brl(vw.cash)+' de cashback. Você ganha <b>1 ponto por R$1</b> que seus clientes pagarem com suas receitas.</span></div>';
     h+='<div class="acard"><div class="rowtight"><b>Para um cliente específico</b><button class="sw" id="rxfc" role="switch" aria-checked="'+(RXD.forClient?'true':'false')+'"></button></div>'+
       (RXD.forClient?'<label class="fld">Nome do cliente<input class="in" id="rxcn" value="'+esc(RXD.clientName)+'" placeholder="Nome do tutor"></label><label class="fld">WhatsApp do cliente<input class="in" id="rxcp" inputmode="tel" value="'+esc(RXD.clientPhone)+'" placeholder="(21) 90000-0000"></label><p class="hint">A receita aparece no app dele (quando ele usa o mesmo telefone) e você também recebe o código.</p>':'<p class="hint">Sem cliente: gera um código que você passa pra qualquer pessoa usar no app.</p>')+'</div>';
     h+='<div class="acard"><b>Produtos da receita</b><input class="in" id="rxq" value="'+esc(RXD.q||'')+'" placeholder="Buscar produto" autocomplete="off"><div id="rxres" class="picklist" hidden></div>';
@@ -4919,11 +4921,16 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
   function openPartner(uid){
     var cur=partnerOf(uid),cust=byId(D.customers,uid)||{};
-    var p=cur?JSON.parse(JSON.stringify(cur)):{name:cust.name||'',phone:cust.phone||'',crmv:'',pct:'',active:true,saldo:0};
+    var p=cur?JSON.parse(JSON.stringify(cur)):{name:cust.name||'',phone:cust.phone||'',crmv:'',especialidade:'',clinica:'',email:(cust.email||''),pct:'',active:true,saldo:0};
+    var w=X.db?wal(uid):null;
     var h='<div class="row"><h2>'+(cur?'Parceiro':'Novo parceiro')+'</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
     h+='<label class="fld">Nome<input class="in" id="ppn" value="'+esc(p.name)+'"></label>';
-    h+='<div class="two"><label class="fld">CRMV<input class="in" id="ppc" value="'+esc(p.crmv||'')+'" placeholder="Opcional"></label><label class="fld">Comissão (%)<input class="in" id="ppp" inputmode="decimal" value="'+esc(p.pct===''||p.pct==null?'':String(p.pct).replace('.',','))+'" placeholder="Padrão ('+rxCommPct()+'%)"></label></div>';
-    h+='<p class="hint">Telefone: '+(p.phone?esc(fmtPhone(p.phone)):'—')+'. Deixe a comissão em branco para usar a padrão/por categoria.</p>';
+    h+='<div class="two"><label class="fld">CRMV<input class="in" id="ppc" value="'+esc(p.crmv||'')+'" placeholder="Ex.: SP-12345"></label><label class="fld">Especialidade<input class="in" id="ppe" value="'+esc(p.especialidade||'')+'" placeholder="Ex.: Dermatologia"></label></div>';
+    h+='<label class="fld">Clínica / consultório<input class="in" id="ppcl" value="'+esc(p.clinica||'')+'" placeholder="Nome da clínica"></label>';
+    h+='<label class="fld">E-mail<input class="in" id="ppem" value="'+esc(p.email||'')+'" placeholder="Opcional" inputmode="email"></label>';
+    h+='<label class="fld">Comissão (%)<input class="in" id="ppp" inputmode="decimal" value="'+esc(p.pct===''||p.pct==null?'':String(p.pct).replace('.',','))+'" placeholder="Padrão ('+rxCommPct()+'%)"></label>';
+    h+='<p class="hint">Telefone: '+(p.phone?esc(fmtPhone(p.phone)):'—')+'. Deixe a comissão em branco para usar a padrão/por categoria. O vet entra no clube e ganha 1 ponto por R$1 que os clientes pagarem com a receita.</p>';
+    if(cur&&w)h+='<div class="rowtight"><span class="muted">Clube do vet</span><b>'+w.points+' pontos · '+brl(w.cash)+' cashback</b></div>';
     h+='<div class="rowtight"><span class="fld" style="font-weight:700">Parceiro ativo</span><button class="sw" id="ppa" role="switch" aria-checked="'+(p.active!==false?'true':'false')+'"></button></div>';
     if(cur)h+='<div class="rowtight"><span class="muted">Saldo a pagar</span><b>'+brl(num(p.saldo))+'</b></div>';
     if(cur&&(p.mov||[]).length){h+='<div class="sec" style="margin-top:6px"><h2>Movimentação</h2></div>'+(p.mov||[]).slice(0,20).map(function(mv){return '<div class="rowtight"><span class="muted" style="font-size:12px">'+fmtTs(mv.ts)+' · '+esc(mv.desc||'')+(mv.client?' · '+esc(mv.client):'')+'</span><b style="color:'+(num(mv.amount)<0?'#B4232A':'#1D7F53')+'">'+(num(mv.amount)<0?'- ':'+ ')+brl(Math.abs(num(mv.amount)))+'</b></div>'}).join('');}
@@ -4935,7 +4942,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     $('#ppsave').onclick=async function(){
       var nm=$('#ppn').value.trim();if(!nm){toast('Informe o nome');return}
       var pct=$('#ppp').value.trim();
-      var data={name:nm,crmv:$('#ppc').value.trim().slice(0,40),phone:cust.phone||p.phone||'',pct:pct===''?'':Math.max(0,Math.min(90,num(pct))),active:$('#ppa').getAttribute('aria-checked')==='true',saldo:num(p.saldo),ts:p.ts||Date.now()};
+      var data={name:nm,crmv:$('#ppc').value.trim().slice(0,40),especialidade:$('#ppe').value.trim().slice(0,60),clinica:$('#ppcl').value.trim().slice(0,80),email:$('#ppem').value.trim().slice(0,120),phone:cust.phone||p.phone||'',pct:pct===''?'':Math.max(0,Math.min(90,num(pct))),active:$('#ppa').getAttribute('aria-checked')==='true',saldo:num(p.saldo),mov:p.mov||[],pays:p.pays||[],ts:p.ts||Date.now()};
       this.disabled=true;
       try{await X.db.doc('partners/'+uid).set(data);closeSheet();toast(cur?'Parceiro salvo':'Parceiro cadastrado')}catch(e){this.disabled=false;wfail(e)}
     };
@@ -5484,7 +5491,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     ordSt:async function(id,el){
       var parts=id.split('|'),uid=parts[0],o=allOrders().filter(function(x){return x.id===parts[1]})[0];if(!o)return;
       var next=el.value,prev=D.status[o.id]||{};
-      var st={status:next,stockApplied:!!prev.stockApplied,cashApplied:num(prev.cashApplied),earnedPts:num(prev.earnedPts),earnedCash:num(prev.earnedCash),earnedBase:num(prev.earnedBase),rxComm:num(prev.rxComm),rxCredited:!!prev.rxCredited,ts:Date.now()};
+      var st={status:next,stockApplied:!!prev.stockApplied,cashApplied:num(prev.cashApplied),earnedPts:num(prev.earnedPts),earnedCash:num(prev.earnedCash),earnedBase:num(prev.earnedBase),rxComm:num(prev.rxComm),rxVpts:num(prev.rxVpts),rxCredited:!!prev.rxCredited,ts:Date.now()};
       var tag='Pedido #'+String(o.id).slice(-5);
       try{
         if(next==='Cancelado'||next==='Novo'){
@@ -5493,7 +5500,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
             await walletAdd(uid,{t:'compra',pago:-(st.earnedBase||0),pts:-st.earnedPts,cash:st.cashApplied-st.earnedCash,text:tag+' desfeito'});
             st.cashApplied=0;st.earnedPts=0;st.earnedCash=0;st.earnedBase=0;
           }
-          if(st.rxCredited&&o.rx){await rxAdjustVet(o.rx.vetUid,-num(st.rxComm),o,'Estorno receita '+(o.rx.code||''));st.rxComm=0;st.rxCredited=false;try{X.db.doc('rx/'+o.rx.code).update({status:'aberta'}).catch(function(){})}catch(e){}}
+          if(st.rxCredited&&o.rx){await rxAdjustVet(o.rx.vetUid,-num(st.rxComm),o,'Estorno receita '+(o.rx.code||''));if(num(st.rxVpts)>0){try{await walletAdd(o.rx.vetUid,{pts:-num(st.rxVpts),text:'Estorno pontos receita '+(o.rx.code||'')})}catch(e){}}st.rxComm=0;st.rxVpts=0;st.rxCredited=false;try{X.db.doc('rx/'+o.rx.code).update({status:'aberta'}).catch(function(){})}catch(e){}}
         }else{
           if(!st.stockApplied){
             await applyStock(o.items,-1);st.stockApplied=true;
@@ -5509,10 +5516,13 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
             if(e.pts>0||e.cash>0){await walletAdd(uid,{t:'compra',pago:base,pts:e.pts,cash:e.cash,text:'Compra pelo app ('+tag.toLowerCase()+')'});st.earnedPts=e.pts;st.earnedCash=e.cash;st.earnedBase=base;if(fb)await appIndicacao(uid)}
           }
           if(next==='Entregue'&&o.rx&&o.rx.vetUid&&!st.rxCredited){
-            var rc=rxCommOf(o);
-            if(rc>0){await rxAdjustVet(o.rx.vetUid,rc,o,'Comissão receita '+(o.rx.code||''));st.rxComm=rc;st.rxCredited=true;
+            var rc=rxCommOf(o),vpts=Math.floor(num(o.rx.paid));
+            if(rc>0||vpts>0){
+              if(rc>0)await rxAdjustVet(o.rx.vetUid,rc,o,'Comissão receita '+(o.rx.code||''));
+              if(vpts>0){try{await walletAdd(o.rx.vetUid,{pts:vpts,text:'Pontos de parceiro · receita '+(o.rx.code||'')})}catch(e){}}
+              st.rxComm=rc;st.rxVpts=vpts;st.rxCredited=true;
               try{X.db.doc('rx/'+o.rx.code).update({status:'usada',usedOrderId:o.id,usedTs:Date.now()}).catch(function(){})}catch(e){}
-              notifyUser(o.rx.vetUid,'Comissão da receita '+(o.rx.code||''),'Seu cliente '+(o.name||'')+' comprou com a sua receita. Você ganhou '+brl(rc)+' de comissão.','parceiro').catch(function(){});
+              notifyUser(o.rx.vetUid,'Sua receita virou venda! 🎉','Seu cliente '+(o.name||'')+' comprou com a sua receita '+(o.rx.code||'')+'.'+(rc>0?' Comissão: '+brl(rc)+'.':'')+(vpts>0?' +'+vpts+' pontos no clube.':''),'parceiro').catch(function(){});
             }
           }
         }
@@ -7180,6 +7190,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     else if(h.indexOf('produto/')===0){state.tab='loja';PV.pending=decodeURIComponent(h.slice(8))}
     else if(h==='cart'){state.tab='loja';setTimeout(function(){try{if(cartCount())openCart()}catch(e){}},400)}
     else if(h.indexOf('rx/')===0){state.tab='loja';var _rxc=decodeURIComponent(h.slice(3));setTimeout(function(){try{openRxRedeem(_rxc)}catch(e){}},700)}
+    else if(h==='receitas'||h==='parceiro'){state.tab='pet';setTimeout(function(){try{if(isPartner())openRxBuilder(true)}catch(e){}},700)}
     renderCats();persist();render();
     try{
       if(!window.claude||!window.claude.use)throw new Error('sem runtime');
@@ -7284,6 +7295,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var t=location.hash.slice(1);
     if(t.indexOf('produto/')===0){var pid=decodeURIComponent(t.slice(8));if(pid!==PV.id){if(D.ready.products)showProduct(pid,true);else PV.pending=pid}return}
     if(t.indexOf('rx/')===0){openRxRedeem(decodeURIComponent(t.slice(3)));return}
+    if(t==='receitas'||t==='parceiro'){if(isPartner())openRxBuilder(true);return}
     if(t==='balcao'||t==='balcao-banho'){if(PV.id)hidePview();MB.fromCaixa=true;MB.tab=(t==='balcao-banho'?'banho':'venda');state.tab='gestao';state.adm.tab='balcao';render();return}
     if(t.indexOf('caixa')===0){if(PV.id)hidePview();if(state.tab!=='caixa'){state.tab='caixa';render()}return}
     if(PV.id){hidePview();var a=PV.after;PV.after=null;if(a){a();return}}
