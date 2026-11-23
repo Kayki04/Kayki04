@@ -62,6 +62,48 @@
   function logoSrc(){ var i = document.querySelector('.logoimg'); return i ? i.src : ''; }
   var guestResolve = null, closable = false, ctxMsg = '';
   function isGuest(){ try { return localStorage.getItem('gc_guest') === '1'; } catch (e) { return false; } }
+  function googleSignIn(){
+    var p = new firebase.auth.GoogleAuthProvider();
+    p.setCustomParameters({ prompt: 'select_account' });
+    auth.signInWithPopup(p).catch(function(e){
+      if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) return auth.signInWithRedirect(p);
+      if (e && e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') showLogin('', 'Não foi possível entrar com Google. Tente de novo.');
+    });
+  }
+  function ensureRecap(){
+    if (recaptcha) return recaptcha;
+    var c = document.getElementById('gcRecap');
+    if (!c) { c = document.createElement('div'); c.id = 'gcRecap'; c.style.display = 'none'; document.body.appendChild(c); }
+    recaptcha = new firebase.auth.RecaptchaVerifier('gcRecap', { size: 'invisible' });
+    return recaptcha;
+  }
+  var cdT = null, cdLeft = 0, lastPhone = '';
+  function updCd(){ var b = document.getElementById('gcResend'); if (!b) return; if (cdLeft > 0) { b.disabled = true; b.textContent = 'Reenviar código em ' + cdLeft + 's'; } else { b.disabled = false; b.textContent = 'Reenviar código por SMS'; } }
+  function startCd(){ cdLeft = 60; updCd(); clearInterval(cdT); cdT = setInterval(function(){ cdLeft--; if (cdLeft <= 0) { clearInterval(cdT); cdT = null; } updCd(); }, 1000); }
+  function phoneErrText(e){
+    var c = (e && e.code) || '', m = String((e && e.message) || '');
+    var t = c === 'auth/too-many-requests' ? 'Muitas tentativas com este número. Espere alguns minutos ou use o Google.' :
+      c === 'auth/invalid-phone-number' ? 'Número inválido. Confira o DDD e o número.' :
+      /region|BILLING_NOT_ENABLED|sms/i.test(m) ? 'O envio de SMS para o Brasil ainda não foi liberado nas configurações. Use o Google por enquanto.' :
+      c === 'auth/operation-not-allowed' ? 'Login por celular ainda não foi ativado. Use o Google.' :
+      /captcha|domain|app-check/i.test(c + m) ? 'Falha na verificação de segurança. Recarregue a página e tente de novo.' :
+      'Não foi possível enviar o código. Tente de novo ou use o Google.';
+    return t + (c ? ' (' + c.replace('auth/', '') + ')' : '');
+  }
+  function doSendCode(d, isResend){
+    var btn = document.getElementById(isResend ? 'gcResend' : 'gcSend'); if (btn) btn.disabled = true;
+    try { if (recaptcha) { recaptcha.clear(); recaptcha = null; } } catch (e) {}
+    var r; try { r = ensureRecap(); } catch (e) {}
+    auth.signInWithPhoneNumber('+55' + d, r).then(function(res){
+      confirmRes = res; lastPhone = d;
+      if (isResend) { var e2 = document.getElementById('gcErr'); if (e2) { e2.style.color = '#1D7F53'; e2.textContent = 'Enviamos um novo código.'; } startCd(); }
+      else showLogin('code');
+    }).catch(function(e){
+      try { recaptcha && recaptcha.clear(); } catch (x) {} recaptcha = null;
+      if (isResend) { var e3 = document.getElementById('gcErr'); if (e3) e3.textContent = phoneErrText(e); updCd(); }
+      else showLogin('phone', phoneErrText(e));
+    });
+  }
   function showLogin(step, msg){
     if (!el) {
       var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
@@ -73,11 +115,15 @@
       h += '<h1>Entrar com celular</h1><p>Enviamos um código por SMS.</p>' +
         '<input id="gcPh" type="tel" inputmode="tel" autocomplete="tel" placeholder="(11) 90000-0000">' +
         '<button class="o" id="gcSend">Receber código</button><div class="err" id="gcErr">' + (msg || '') + '</div>' +
+        '<button class="g" id="gcGoogle2">' + G_ICON + 'Prefiro entrar com Google</button>' +
         '<button class="l" id="gcBack">Voltar</button><div id="gcCap"></div>';
     } else if (step === 'code') {
-      h += '<h1>Digite o código</h1><p>Enviado por SMS para o seu celular.</p>' +
+      h += '<h1>Digite o código</h1><p>Enviado por SMS para ' + (lastPhone ? '(' + lastPhone.slice(0, 2) + ') ' + lastPhone.slice(2, 7) + '-' + lastPhone.slice(7) : 'o seu celular') + '.</p>' +
         '<input id="gcCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">' +
         '<button class="o" id="gcOk">Entrar</button><div class="err" id="gcErr">' + (msg || '') + '</div>' +
+        '<button class="l" id="gcResend">Reenviar código por SMS</button>' +
+        '<small>O SMS pode levar até 1 minuto. Não chegou? Reenvie ou entre com o Google.</small>' +
+        '<button class="g" id="gcGoogle2">' + G_ICON + 'Entrar com Google</button>' +
         '<button class="l" id="gcBack">Usar outro número</button>';
     } else {
       h += '<h1>' + (closable ? 'Entrar ou cadastrar' : 'Bem-vindo à Gatecão') + '</h1><p>' + (ctxMsg || 'Entre para comprar, agendar banho e tosa e ganhar pontos no clube.') + '</p>' +
@@ -89,14 +135,8 @@
     }
     el.innerHTML = h + '</div>';
     var $ = function(id){ return document.getElementById(id); };
-    if ($('gcG')) $('gcG').onclick = function(){
-      var p = new firebase.auth.GoogleAuthProvider();
-      p.setCustomParameters({ prompt: 'select_account' });
-      auth.signInWithPopup(p).catch(function(e){
-        if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) return auth.signInWithRedirect(p);
-        if (e && e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') showLogin('', 'Não foi possível entrar com Google. Tente de novo.');
-      });
-    };
+    if ($('gcG')) $('gcG').onclick = googleSignIn;
+    if ($('gcGoogle2')) $('gcGoogle2').onclick = googleSignIn;
     if ($('gcP')) $('gcP').onclick = function(){ showLogin('phone'); };
     if ($('gcX')) $('gcX').onclick = function(){ hideLogin(); };
     if ($('gcGuest')) $('gcGuest').onclick = function(){ try { localStorage.setItem('gc_guest', '1'); } catch (e) {} hideLogin(); if (guestResolve) guestResolve(null); };
@@ -105,27 +145,16 @@
     if ($('gcSend')) $('gcSend').onclick = function(){
       var d = String($('gcPh').value).replace(/\D/g, '');
       if (d.length < 10 || d.length > 11) { $('gcErr').textContent = 'Digite o celular com DDD'; return; }
-      this.disabled = true;
-      try { if (!recaptcha) recaptcha = new firebase.auth.RecaptchaVerifier('gcSend', { size: 'invisible' }); } catch (e) {}
-      auth.signInWithPhoneNumber('+55' + d, recaptcha).then(function(r){ confirmRes = r; showLogin('code'); })
-        .catch(function(e){
-          try { recaptcha && recaptcha.clear(); } catch (x) {} recaptcha = null;
-          var c = (e && e.code) || '', m = String((e && e.message) || '');
-          var t = c === 'auth/too-many-requests' ? 'Muitas tentativas. Espere alguns minutos.' :
-            c === 'auth/invalid-phone-number' ? 'Número inválido. Confira o DDD e o número.' :
-            /region/i.test(m) ? 'O envio de SMS para o Brasil ainda não foi liberado pela loja. Use o Google por enquanto.' :
-            c === 'auth/operation-not-allowed' ? 'Login por celular ainda não foi ativado pela loja. Use o Google.' :
-            /captcha|domain/i.test(c + m) ? 'Falha na verificação de segurança. Recarregue a página e tente de novo.' :
-            'Não foi possível enviar o código. Confira o número.';
-          showLogin('phone', t + (c ? ' (' + c.replace('auth/', '') + ')' : ''));
-        });
+      doSendCode(d, false);
     };
+    if ($('gcResend')) $('gcResend').onclick = function(){ if (cdLeft > 0 || !lastPhone) return; var e = $('gcErr'); if (e) { e.style.color = ''; e.textContent = ''; } doSendCode(lastPhone, true); };
     if ($('gcOk')) $('gcOk').onclick = function(){
       var c = String($('gcCode').value).replace(/\D/g, '');
       if (c.length !== 6) { $('gcErr').textContent = 'O código tem 6 números'; return; }
       this.disabled = true;
       confirmRes.confirm(c).catch(function(){ showLogin('code', 'Código incorreto. Confira e tente de novo.'); });
     };
+    if (step === 'code') startCd(); else { clearInterval(cdT); cdT = null; }
   }
   function hideLogin(){ if (el) { el.remove(); el = null; } }
 
