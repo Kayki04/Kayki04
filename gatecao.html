@@ -208,6 +208,11 @@ body.adm::before{background:#F1F5FB}
 .kpis3>div{background:#F3F5F9;border-radius:10px;padding:8px;text-align:center}
 .kpis3>div span{display:block;font-size:11px;color:var(--muted)}
 .kpis3>div b{font-size:15px}
+.rxgrid{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:4px 0 8px}
+.rxgh,.rxgr{display:grid;grid-template-columns:1fr 90px 90px;align-items:center;gap:6px;padding:7px 10px}
+.rxgh{background:#F3F5F9;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.rxgr{border-top:1px solid var(--line);font-size:13px}
+.rxgi{padding:7px 8px!important;text-align:center;font-size:14px!important}
 .rxentry{display:flex;align-items:center;gap:12px;width:100%;background:linear-gradient(135deg,#0B2A5B,#1D4E9E);color:#fff;border:none;border-radius:var(--r);padding:14px;margin:0 0 14px;cursor:pointer;text-align:left}
 .rxentry svg{width:30px;height:30px;flex:none}
 .rxentry span{flex:1;display:flex;flex-direction:column;min-width:0}
@@ -4765,12 +4770,13 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     };
   }
   async function rxGenerate(){
-    var items=RXD.order.map(function(pid){var it=RXD.items[pid],p=byId(D.products,pid);if(!p)return null;return {id:pid,n:pName(p),q:Math.max(1,Math.floor(num(it.q))||1),note:(it.note||'').slice(0,160),alts:Object.keys(it.alts||{}).filter(function(a){return it.alts[a]}).slice(0,6)}}).filter(Boolean);
+    var items=RXD.order.map(function(pid){var it=RXD.items[pid],p=byId(D.products,pid);if(!p)return null;return {id:pid,n:pName(p),q:Math.max(1,Math.floor(num(it.q))||1),note:(it.note||'').slice(0,160),alts:Object.keys(it.alts||{}).filter(function(a){return it.alts[a]}).slice(0,6),disc:rxDiscForProd(p)}}).filter(Boolean);
     if(!items.length){toast('Adicione ao menos um produto');return}
     if(RXD.forClient&&!RXD.clientName.trim()){toast('Informe o nome do cliente');return}
     var code='RX'+Math.random().toString(36).slice(2,4).toUpperCase()+Date.now().toString(36).slice(-4).toUpperCase();
     var vetName=(D.partner&&D.partner.name)||(D.me&&D.me.name)||'Veterinário parceiro';
-    var rx={code:code,vetUid:X.uid,vetName:vetName,vetCrmv:(D.partner&&D.partner.crmv)||'',clientName:RXD.forClient?RXD.clientName.trim().slice(0,80):'',clientPhone:RXD.forClient?String(RXD.clientPhone).replace(/\D/g,'').slice(0,13):'',clientUid:'',items:items,discPct:rxDiscPct(),status:'aberta',ts:Date.now()};
+    var maxDisc=items.reduce(function(a,i){return Math.max(a,num(i.disc))},0);
+    var rx={code:code,vetUid:X.uid,vetName:vetName,vetCrmv:(D.partner&&D.partner.crmv)||'',clientName:RXD.forClient?RXD.clientName.trim().slice(0,80):'',clientPhone:RXD.forClient?String(RXD.clientPhone).replace(/\D/g,'').slice(0,13):'',clientUid:'',items:items,discPct:maxDisc,status:'aberta',ts:Date.now()};
     var g=$('#rxgen');if(g)g.disabled=true;
     try{await X.db.doc('rx/'+code).set(rx);toast('Receita gerada!');rxShareView(rx)}catch(e){if(g)g.disabled=false;wfail(e)}
   }
@@ -4792,10 +4798,12 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function rxSave(){try{if(state.rx)save('gc_rx',state.rx);else localStorage.removeItem('gc_rx')}catch(e){}}
   function rxClear(){state.rx=null;rxSave()}
   function rxApply(lines){
-    var rx=state.rx;if(!rx||!rx.qty)return {saved:0,lines:[],pct:0};
-    var pct=num(rx.discPct)||0;if(pct<=0)return {saved:0,lines:[],pct:0};
-    var saved=0,det=[];
-    lines.forEach(function(l){if(l.rec)return;var maxq=num(rx.qty[l.p.id]);if(!maxq)return;var dq=Math.min(l.q,maxq);var sv=r2(dq*l.price*pct/100);if(sv>0){saved+=sv;det.push({id:l.p.id,n:pName(l.p),q:dq,unit:r2(l.price*(1-pct/100))})}});
+    var rx=state.rx;if(!rx)return {saved:0,lines:[],pct:0};
+    var map={};
+    if(rx.items&&rx.items.length)rx.items.forEach(function(it){var m=map[it.pid]||{q:0,disc:0};m.q+=num(it.q);m.disc=Math.max(m.disc,num(it.disc));map[it.pid]=m});
+    else if(rx.qty){var d=num(rx.discPct)||0;Object.keys(rx.qty).forEach(function(pid){map[pid]={q:num(rx.qty[pid]),disc:d}})}
+    var saved=0,det=[],pct=0;
+    lines.forEach(function(l){if(l.rec)return;var m=map[l.p.id];if(!m||!(m.disc>0))return;var dq=Math.min(l.q,m.q);var sv=r2(dq*l.price*m.disc/100);if(sv>0){saved+=sv;pct=Math.max(pct,m.disc);det.push({id:l.p.id,n:pName(l.p),q:dq,unit:r2(l.price*(1-m.disc/100)),disc:m.disc})}});
     return {saved:r2(saved),lines:det,pct:pct};
   }
   function openRxRedeem(code){
@@ -4824,30 +4832,30 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
   function renderRxPreview(){
     var box=$('#rxrview');if(!box||!RXV)return;var rx=RXV.rx;
-    var h='<div class="acard"><div class="rowtight"><b>Receita '+esc(rx.code)+'</b><span class="st info">'+rx.discPct+'% off</span></div><span class="muted">'+(rx.vetName?'Dr(a). '+esc(rx.vetName):'Veterinário parceiro')+(rx.vetCrmv?' · CRMV '+esc(rx.vetCrmv):'')+'</span></div>';
+    var h='<div class="acard"><div class="rowtight"><b>Receita '+esc(rx.code)+'</b><span class="st info">'+(num(rx.discPct)>0?'até '+rx.discPct+'% off':'desconto')+'</span></div><span class="muted">'+(rx.vetName?'Dr(a). '+esc(rx.vetName):'Veterinário parceiro')+(rx.vetCrmv?' · CRMV '+esc(rx.vetCrmv):'')+'</span></div>';
     (rx.items||[]).forEach(function(it){
-      var opts=rxOptList(it),chosen=RXV.choice[it.id];
-      h+='<div class="rxitem"><div class="rowtight"><b>'+it.q+'x '+esc(it.n)+'</b></div>'+(it.note?'<div class="muted" style="font-size:12px">'+esc(it.note)+'</div>':'');
+      var opts=rxOptList(it),chosen=RXV.choice[it.id],idisc=it.disc!=null?num(it.disc):(num(rx.discPct)||0);
+      h+='<div class="rxitem"><div class="rowtight"><b>'+it.q+'x '+esc(it.n)+'</b>'+(idisc>0?'<span class="st ok">'+idisc+'% off</span>':'')+'</div>'+(it.note?'<div class="muted" style="font-size:12px">'+esc(it.note)+'</div>':'');
       if(opts.length>1){h+='<div class="rxsims"><span class="muted">Escolha a opção:</span><div class="rxchips">'+opts.map(function(p){var out=stockOf(p)<=0,on=chosen===p.id;return '<button class="rxchip'+(on?' on':'')+'" data-rxpick="'+esc(it.id)+'|'+esc(p.id)+'"'+(out?' disabled':'')+'>'+(on?'✓ ':'')+esc(pName(p))+' · '+brl(priced(p).price)+(out?' · esgotado':'')+'</button>'}).join('')+'</div></div>';}
       else{var p0=opts[0];h+='<div class="muted" style="font-size:12px">'+(p0?brl(priced(p0).price)+(stockOf(p0)<=0?' · esgotado':''):'produto indisponível')+'</div>'}
       h+='</div>';
     });
-    h+='<button class="primary" id="rxuse" style="margin-top:12px">Adicionar ao carrinho com '+rx.discPct+'% off</button>';
+    h+='<button class="primary" id="rxuse" style="margin-top:12px">Adicionar ao carrinho com desconto</button>';
     box.innerHTML=h;
     box.querySelectorAll('[data-rxpick]').forEach(function(b){b.onclick=function(){if(b.disabled)return;var a=b.getAttribute('data-rxpick').split('|');RXV.choice[a[0]]=a[1];renderRxPreview()}});
     var u=$('#rxuse');if(u)u.onclick=rxUse;
   }
   function rxUse(){
     var rx=RXV&&RXV.rx;if(!rx)return;
-    var qty={},added=0,miss=0;
+    var items=[],added=0,miss=0;
     (rx.items||[]).forEach(function(it){
       var pid=RXV.choice[it.id]||it.id,p=byId(D.products,pid);
       if(!p||p.active===false||stockOf(p)<=0){miss++;return}
       var cur=state.cart[pid]||0,want=Math.max(1,num(it.q)||1),n=Math.max(0,Math.min(want,stockOf(p)-cur));
-      if(n){state.cart[pid]=cur+n;qty[pid]=(qty[pid]||0)+n;added+=n}else miss++;
+      if(n){state.cart[pid]=cur+n;var disc=it.disc!=null?num(it.disc):(num(rx.discPct)||rxDiscForProd(byId(D.products,it.id)));items.push({pid:pid,q:n,disc:disc});added+=n}else miss++;
     });
     if(!added){toast('Os itens da receita estão indisponíveis no momento');return}
-    state.rx={code:rx.code,vetUid:rx.vetUid,vetName:rx.vetName||'',discPct:num(rx.discPct)||0,qty:qty};
+    state.rx={code:rx.code,vetUid:rx.vetUid,vetName:rx.vetName||'',discPct:num(rx.discPct)||0,items:items};
     rxSave();persist();bumpCart();
     toast(miss?'Receita adicionada. '+miss+' item(ns) indisponível(is)':'Receita adicionada ao carrinho');
     openCart();
@@ -4858,17 +4866,24 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function rxDiscPct(){return Math.max(0,Math.min(50,num(S('rxDiscPct',5))))}
   function rxCommByCat(){var m=S('rxCommByCat',null);return (m&&typeof m==='object'&&!Array.isArray(m))?m:{}}
   function rxCommForCat(cat){var m=rxCommByCat();return (cat&&m[cat]!=null&&m[cat]!=='')?Math.max(0,Math.min(90,num(m[cat]))):rxCommPct()}
+  function rxDiscByCat(){var m=S('rxDiscByCat',null);return (m&&typeof m==='object'&&!Array.isArray(m))?m:{}}
+  function rxDiscForCat(cat){var m=rxDiscByCat();return (cat&&m[cat]!=null&&m[cat]!=='')?Math.max(0,Math.min(50,num(m[cat]))):rxDiscPct()}
+  function rxDiscForProd(p){if(!p)return rxDiscPct();var t=p.t||[];for(var i=0;i<t.length;i++){var m=rxDiscByCat();if(m[t[i]]!=null&&m[t[i]]!=='')return Math.max(0,Math.min(50,num(m[t[i]])))}return rxDiscPct()}
   function partnerOf(uid){return (D.partners||[]).filter(function(x){return x.id===uid})[0]||null}
   function partnerPct(p){return (p&&p.pct!=null&&p.pct!=='')?Math.max(0,Math.min(90,num(p.pct))):null}
   function isPartner(){return !!(D.partner&&D.partner.active!==false)}
   function aParceiros(m){
     var ps=(D.partners||[]).slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''),'pt-BR')});
     var h='<div class="toolbar"><p class="hint" style="flex:1">Veterinários parceiros montam receitas no app: o cliente recebe os itens com desconto e cada item pago vira comissão pro vet. Acompanhe e pague por aqui.</p></div>';
+    var rxCats=['Rações','Petiscos','Antiparasitários','Farmácia','Higiene','Brinquedos','Acessórios'],cb=rxCommByCat(),db2=rxDiscByCat();
+    var vcc=function(c){return cb[c]!=null&&cb[c]!==''?esc(String(cb[c]).replace('.',',')):''},vdd=function(c){return db2[c]!=null&&db2[c]!==''?esc(String(db2[c]).replace('.',',')):''};
     h+='<div class="acard"><b>Regras da parceria</b>'+
       '<div class="two"><label class="fld">Comissão padrão do vet (%)<input class="in" id="rxcp" inputmode="decimal" value="'+esc(String(S('rxCommPct',10)).replace('.',','))+'"></label>'+
-      '<label class="fld">Desconto do cliente (%)<input class="in" id="rxdp" inputmode="decimal" value="'+esc(String(S('rxDiscPct',5)).replace('.',','))+'"></label></div>'+
-      '<label class="fld">Comissão por categoria (opcional)<textarea class="in" id="rxcc" rows="4" placeholder="Uma por linha. Ex.:&#10;Farmácia; 12&#10;Rações; 6">'+esc(Object.keys(rxCommByCat()).map(function(c){return c+'; '+String(rxCommByCat()[c]).replace('.',',')}).join('\n'))+'</textarea></label>'+
-      '<p class="hint">Sem a lista, vale a comissão padrão. A comissão incide só sobre o que o cliente pagar dos itens prescritos.</p>'+
+      '<label class="fld">Desconto padrão do cliente (%)<input class="in" id="rxdp" inputmode="decimal" value="'+esc(String(S('rxDiscPct',5)).replace('.',','))+'"></label></div>'+
+      '<p class="hint" style="margin:6px 0 2px">Ajuste por categoria (deixe em branco para usar o padrão):</p>'+
+      '<div class="rxgrid"><div class="rxgh"><span>Categoria</span><span>Comissão %</span><span>Desconto %</span></div>'+
+      rxCats.map(function(c){return '<div class="rxgr"><span>'+esc(c)+'</span><input class="in rxgi" inputmode="decimal" data-rxcc="'+esc(c)+'" value="'+vcc(c)+'" placeholder="padrão"><input class="in rxgi" inputmode="decimal" data-rxdd="'+esc(c)+'" value="'+vdd(c)+'" placeholder="padrão"></div>'}).join('')+'</div>'+
+      '<p class="hint">A comissão e o desconto incidem só sobre os itens prescritos que o cliente pagar.</p>'+
       '<button class="primary" data-act="rxCfgSave">Salvar regras</button></div>';
     h+='<div class="acard"><b>Adicionar parceiro</b><p class="hint">O vet precisa ter criado a conta no app (pelo telefone). Na visita, peça pra ele entrar e já cadastre aqui pelo nome ou telefone.</p>'+
       '<input class="in" id="rxpq" placeholder="Buscar cliente por nome ou telefone" autocomplete="off"><div id="rxpres" class="picklist" hidden></div></div>';
@@ -5392,8 +5407,10 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   var ACT={
     mpTog:async function(){var on=!(S('mpOn')===true);try{await X.db.doc('settings/store').set(Object.assign({},D.settings,{mpOn:on}));toast(on?'Pagamento online ligado':'Pagamento online desligado');renderAdmin()}catch(e){wfail(e)}},
     rxCfgSave:async function(){
-      var byc={};String($('#rxcc').value||'').split('\n').forEach(function(l){var a=l.split(/[;\t]/);var c=(a[0]||'').trim();if(!c)return;var v=(a[1]||'').trim();if(v!=='')byc[c.slice(0,40)]=Math.max(0,Math.min(90,num(v)))});
-      var data={rxCommPct:Math.max(0,Math.min(90,num($('#rxcp').value))),rxDiscPct:Math.max(0,Math.min(50,num($('#rxdp').value))),rxCommByCat:byc};
+      var byc={},byd={};
+      $$('[data-rxcc]').forEach(function(i){var v=String(i.value||'').trim();if(v!=='')byc[i.getAttribute('data-rxcc')]=Math.max(0,Math.min(90,num(v)))});
+      $$('[data-rxdd]').forEach(function(i){var v=String(i.value||'').trim();if(v!=='')byd[i.getAttribute('data-rxdd')]=Math.max(0,Math.min(50,num(v)))});
+      var data={rxCommPct:Math.max(0,Math.min(90,num($('#rxcp').value))),rxDiscPct:Math.max(0,Math.min(50,num($('#rxdp').value))),rxCommByCat:byc,rxDiscByCat:byd};
       try{await X.db.doc('settings/store').set(Object.assign({},D.settings,data));toast('Regras da parceria salvas')}catch(e){wfail(e)}
     },
     partnerOpen:function(id){openPartner(id)},
