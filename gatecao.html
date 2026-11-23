@@ -227,6 +227,11 @@ body.adm::before{background:#F1F5FB}
 .rxchip.on{background:#E6F0FF;border-color:var(--brand);color:var(--brand)}
 .rxcode{font-family:var(--font-display);font-size:30px;letter-spacing:3px;color:var(--accent);margin:4px 0}
 .rxentry.rxgreen{background:linear-gradient(135deg,#1D7F53,#2BA06C)}
+.doserow{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.dose{min-width:54px;background:#F1F3F7;border:1.5px solid var(--line);border-radius:10px;padding:9px 10px;font-weight:800;font-size:13px;cursor:pointer;color:var(--ink)}
+.dose.on{background:#E6F7EC;border-color:#1D7F53;color:#1D7F53}
+.chkline{display:flex;align-items:center;gap:9px;font-size:14px;margin-top:8px;cursor:pointer}
+.chkline input{width:18px;height:18px;flex:none;accent-color:var(--accent)}
 .delbar{display:flex;align-items:center;gap:11px;background:linear-gradient(135deg,#FFF3E6,#FFE2C2);border:1px solid #FFD2A1;border-radius:14px;padding:11px 13px;margin:14px 0 4px}
 .delbar svg{width:26px;height:26px;flex:none;color:var(--accent)}
 .delbar span{display:flex;flex-direction:column;font-size:12.5px;color:#7a4a12;line-height:1.3;min-width:0}
@@ -4795,6 +4800,66 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var nb=$('#rxnew');if(nb)nb.onclick=function(){openRxBuilder(true)};
   }
 
+  /* ----- Receitas do meu pet + cronograma de remédios ----- */
+  function myMeds(){return (D.me&&Array.isArray(D.me.meds))?D.me.meds:[]}
+  function medEnd(m){return addDays(m.start||todayStr(),Math.max(1,Math.floor(num(m.days))||1)-1)}
+  function medActive(m){return todayStr()<=medEnd(m)}
+  function medDay(m){return Math.max(1,dayDiff(m.start||todayStr(),todayStr())+1)}
+  function doseKey(m){return 'gc_dose_'+m.id+'_'+todayStr()}
+  function doseState(m){return load(doseKey(m),[])}
+  function doseToggle(m,i){var s=doseState(m);s[i]=!s[i];save(doseKey(m),s);render()}
+  async function medsSave(list){if(!X.uid||!X.db)return;var d=Object.assign({},D.me||{},{meds:list});try{await X.db.doc('customers/'+X.uid).set(d);D.me=d;render()}catch(e){wfail(e)}}
+  function rxMeusHtml(){
+    var list=(D.rxForMe||[]).slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)});
+    if(!list.length)return '';
+    var h='<div class="sec"><h2>Receitas do meu pet</h2><span>'+list.length+'</span></div>';
+    list.forEach(function(r){
+      var stt=r.status==='usada'?'Usada':r.status==='cancelada'?'Cancelada':'Disponível';
+      h+='<div class="acard"><div class="rowtight"><b>Dr(a). '+esc(r.vetName||'veterinário')+'</b><span class="st '+(r.status==='usada'?'ok':r.status==='cancelada'?'off':'info')+'">'+stt+'</span></div>'+
+        '<span class="muted" style="font-size:13px">'+(r.items||[]).map(function(i){return i.q+'x '+esc(i.n)}).join(', ')+'</span>'+
+        '<div class="rowtight" style="margin-top:6px">'+(r.status!=='cancelada'?'<button class="mini" data-rxget="'+esc(r.code)+'">Comprar com desconto</button>':'')+'<button class="mini alt" data-cron="'+esc(r.code)+'">Criar cronograma</button></div></div>';
+    });
+    return h;
+  }
+  function medsHtml(){
+    var meds=myMeds().filter(medActive);
+    if(!meds.length)return '';
+    var h='<div class="sec"><h2>Remédios em andamento</h2><span>'+meds.length+'</span></div>';
+    meds.forEach(function(m){
+      var per=Math.max(1,Math.min(6,Math.floor(num(m.perDay))||1)),s=doseState(m),done=s.filter(Boolean).length,day=medDay(m),tot=Math.max(1,Math.floor(num(m.days))||1);
+      h+='<div class="acard"><div class="rowtight"><b>'+esc(m.name)+'</b><span class="muted">'+(m.pet?esc(m.pet)+' · ':'')+'dia '+Math.min(day,tot)+' de '+tot+'</span></div>'+(m.note?'<div class="muted" style="font-size:12px;margin:-2px 0 4px">'+esc(m.note)+'</div>':'')+'<div class="doserow">';
+      for(var i=0;i<per;i++)h+='<button class="dose'+(s[i]?' on':'')+'" data-dose="'+esc(m.id)+'|'+i+'">'+(s[i]?'✓ ':'')+(i+1)+'ª</button>';
+      h+='</div><div class="rowtight"><span class="muted" style="font-size:12px">'+done+' de '+per+' doses hoje'+(done>=per?' · tudo certo hoje! 🎉':'')+'</span><button class="mini danger" data-medend="'+esc(m.id)+'">Encerrar</button></div></div>';
+    });
+    return h;
+  }
+  function openCronograma(code){
+    var rx=(D.rxForMe||[]).filter(function(x){return x.code===code})[0];if(!rx){toast('Receita não encontrada');return}
+    var pets=((D.me&&D.me.pets)||[]).map(function(p){return p.n});
+    var h='<div class="row"><h2>Cronograma de remédios</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
+    h+='<p class="hint" style="margin-top:0">Defina como dar cada medicamento. O app lembra você todo dia e você marca as doses conforme der.</p>';
+    (rx.items||[]).forEach(function(it,ix){
+      h+='<div class="rxitem"><b>'+esc(it.n)+'</b>'+(it.note?'<div class="muted" style="font-size:12px">'+esc(it.note)+'</div>':'')+
+        '<div class="two"><label class="fld">Vezes por dia<select class="in" data-cper="'+ix+'">'+[1,2,3,4,6].map(function(n){return '<option value="'+n+'">'+n+'x ao dia</option>'}).join('')+'</select></label>'+
+        '<label class="fld">Por quantos dias<input class="in" data-cdays="'+ix+'" inputmode="numeric" value="7"></label></div>'+
+        (pets.length?'<label class="fld">Pet<select class="in" data-cpet="'+ix+'"><option value="">—</option>'+pets.map(function(n){return '<option>'+esc(n)+'</option>'}).join('')+'</select></label>':'')+
+        '<label class="chkline"><input type="checkbox" data-con="'+ix+'" checked> Incluir no cronograma</label></div>';
+    });
+    h+='<label class="fld">Começar em<input class="in" type="date" id="cstart" value="'+todayStr()+'"></label>';
+    h+='<button class="primary" id="csave">Salvar cronograma</button>';
+    $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Cronograma');bindClose();
+    $('#csave').onclick=async function(){
+      var start=$('#cstart').value||todayStr(),list=myMeds().slice(),n=0;
+      (rx.items||[]).forEach(function(it,ix){
+        var on=$('[data-con="'+ix+'"]');if(!on||!on.checked)return;
+        var per=num(($('[data-cper="'+ix+'"]')||{}).value)||1,days=Math.max(1,Math.floor(num(($('[data-cdays="'+ix+'"]')||{}).value))||7),pet=(($('[data-cpet="'+ix+'"]')||{}).value)||'';
+        list.push({id:'m'+Date.now().toString(36)+ix,name:it.n,note:it.note||'',perDay:per,days:days,start:start,pet:pet,rx:rx.code,ts:Date.now()});n++;
+      });
+      if(!n){toast('Marque ao menos um medicamento');return}
+      this.disabled=true;await medsSave(list);closeSheet();toast('Cronograma criado! Vamos te lembrar todo dia.');
+    };
+  }
+
   /* ----- Cliente: usar a receita ----- */
   var RXV=null;
   function rxSave(){try{if(state.rx)save('gc_rx',state.rx);else localStorage.removeItem('gc_rx')}catch(e){}}
@@ -4858,6 +4923,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     });
     if(!added){toast('Os itens da receita estão indisponíveis no momento');return}
     state.rx={code:rx.code,vetUid:rx.vetUid,vetName:rx.vetName||'',discPct:num(rx.discPct)||0,items:items};
+    try{if(X.uid&&X.db&&rx.clientUid!==X.uid)X.db.doc('rx/'+rx.code).update({clientUid:X.uid}).catch(function(){})}catch(e){}
     rxSave();persist();bumpCart();
     toast(miss?'Receita adicionada. '+miss+' item(ns) indisponível(is)':'Receita adicionada ao carrinho');
     openCart();
@@ -5998,11 +6064,10 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var h='<section class="phero"><h2>Cantinho do Pet</h2><p>'+(D.me&&(D.me.pets||[]).length?'Tudo de '+esc((D.me.pets||[]).map(function(x){return x.n}).slice(0,3).join(', ').replace(/, ([^,]*)$/,' e $1'))+' em um só lugar.':'Lembretes de banho, ração, vacinas e recompras em um só lugar.')+'</p>'+svg('paw','art')+'</section>';
     if(!X.uid){view.innerHTML=h+'<div class="empty-card"><h2>Entre na sua conta</h2><p class="muted">'+(window.GCFB?'Crie sua conta grátis para cadastrar seus pets, receber lembretes de ração, banho e vacina e acompanhar suas recompras.':'Abra o app na sua conta para cadastrar seus pets e receber lembretes.')+'</p>'+(window.GCFB?'<button class="primary" data-login="1">Entrar ou cadastrar</button>':'')+'</div>';return}
     if(isPartner())h+='<button class="rxentry" data-act="rxOpen">'+IC_RX+'<span><b>Área do parceiro</b>Monte uma receita e acompanhe as suas</span><i>Abrir ›</i></button>';
-    (D.rxForMe||[]).filter(function(r){return r.status!=='cancelada'&&r.status!=='usada'}).forEach(function(r){
-      h+='<button class="rxentry rxgreen" data-rxget="'+esc(r.code)+'">'+IC_RX+'<span><b>Receita do Dr(a). '+esc(r.vetName||'veterinário')+'</b>'+((r.items||[]).length)+' item(ns) com '+num(r.discPct)+'% de desconto</span><i>Usar ›</i></button>';
-    });
     if(!D.me)h+=profileHtml();
+    h+=medsHtml();
     h+=careAgendaHtml();
+    h+=rxMeusHtml();
     h+=petsHtml();
     h+=feedHtml();
     h+=recHtml();
@@ -6992,6 +7057,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       if(bd&&bd.d<=3)out.push({id:'bd_'+i+'_'+bd.day,title:(bd.d===0?'Hoje é aniversário '+de+' '+p.n+'!':'Aniversário '+de+' '+p.n+' em '+bd.d+' dia'+(bd.d===1?'':'s')),body:(bd.age>0?bd.age+(bd.age===1?' aninho':' anos')+'! ':'')+(function(){var cp=D.coupons.filter(function(c){return c.uid===X.uid&&c.auto==='niver'&&cpState(c)==='ativo'})[0];return cp?'Presente da Gatecão: cupom '+cp.code+' com '+num(cp.value)+'% de desconto até '+fmtDM(cp.end)+'.':'Que tal um mimo? Veja petiscos e brinquedos na loja.'})(),go:'cat:Petiscos',cta:'Ver petiscos'});
     });
     state.myAppts.forEach(function(a){if(apStatus(a)!=='Concluído'||!D.me||myRev('svc:'+a.id))return;var dd=dayDiff(a.day,t0);if(dd<0||dd>7)return;out.push({id:'rv_'+a.id,title:'Como foi o banho '+(a.pet?'do '+a.pet:'')+'?',body:'Sua avaliação ajuda a gente a cuidar cada vez melhor. Leva 10 segundos.',go:'rate:'+a.id,cta:'Avaliar'})});
+    myMeds().filter(medActive).forEach(function(m){var per=Math.max(1,Math.floor(num(m.perDay))||1),done=doseState(m).filter(Boolean).length;if(done>=per)return;out.push({id:'med_'+m.id+'_'+t0,title:'Remédio de hoje: '+m.name,body:(m.pet?m.pet+' · ':'')+(per-done)+' dose(s) para dar hoje. Toque para marcar.',go:'pet',cta:'Ver cronograma'})});
     myAllOrders().forEach(function(o){
       if(!D.me)return;var ost=(D.status[o.id]&&D.status[o.id].status)||'Novo';if(ost!=='Entregue')return;
       var dts=(D.status[o.id]&&D.status[o.id].ts)||o.ts||0,dd=dts?Math.floor((Date.now()-dts)/86400e3):99;if(dd<0||dd>7)return;
@@ -7228,6 +7294,9 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   view.addEventListener('click',function(e){
     var ca=e.target.closest('[data-act]');if(ca&&CACT[ca.getAttribute('data-act')]){e.preventDefault();CACT[ca.getAttribute('data-act')]();return}
     var rg=e.target.closest('[data-rxget]');if(rg){e.preventDefault();openRxRedeem(rg.getAttribute('data-rxget'));return}
+    var cr=e.target.closest('[data-cron]');if(cr){e.preventDefault();openCronograma(cr.getAttribute('data-cron'));return}
+    var ds=e.target.closest('[data-dose]');if(ds){e.preventDefault();var da=ds.getAttribute('data-dose').split('|'),dm=myMeds().filter(function(x){return x.id===da[0]})[0];if(dm)doseToggle(dm,+da[1]);return}
+    var me2=e.target.closest('[data-medend]');if(me2){e.preventDefault();var mid=me2.getAttribute('data-medend');if(me2.getAttribute('data-sure')!=='1'){me2.setAttribute('data-sure','1');me2.textContent='Confirmar';return}medsSave(myMeds().filter(function(x){return x.id!==mid}));return}
     var fv=e.target.closest('[data-fav]');if(fv){e.preventDefault();toggleFav(fv.getAttribute('data-fav'));return}
     if(e.target.closest('[data-login]')){if(window.GCFB&&GCFB.login)GCFB.login();return}
     var pq=e.target.closest('[data-planreq]');if(pq){planRequest(pq.getAttribute('data-planreq'));return}
