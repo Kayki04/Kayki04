@@ -4561,7 +4561,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       (X.assets?'<input type="file" id="pfile" accept="image/*"><input type="file" id="pcam" accept="image/*" capture="environment"><span class="hint" id="pmsg">Arraste a foto para cá ou cole com Ctrl+V. Ela é ajustada para carregar rápido no app.</span>'+(p.img?'<button class="mini" id="prm" type="button">Remover foto</button>':''):'<span class="hint">O envio de fotos não está disponível neste acesso.</span>')+'</div></div>';
     h+='<div class="fld"><span>Mais fotos (opcional)</span><div class="pvthumbs" id="pxList">'+(p.imgs||[]).map(function(id,k){return '<button type="button" data-pxrm="'+k+'" aria-label="Remover foto"><img class="pimg" src="/_blob/'+esc(id)+'" alt=""></button>'}).join('')+'</div>'+(X.assets?'<input type="file" id="pxfile" accept="image/*" multiple><span class="hint">Toque numa foto extra para remover. Até 6 fotos.</span>':'')+'</div>';
     h+='<label class="fld">Nome<input class="in" id="pn" value="'+esc(p.name)+'" placeholder="Ex.: Ração Premium Gatos"></label>';
-    h+='<label class="fld">Código (EAN ou SKU)<input class="in" id="pcode" value="'+esc(p.code||'')+'" placeholder="Ex.: 7891000100103"></label>';
+    h+='<label class="fld">Código (EAN ou SKU)<div style="position:relative"><input class="in" id="pcode" value="'+esc(p.code||'')+'" placeholder="Ex.: 7891000100103" inputmode="numeric" style="padding-right:46px"><button id="pscan" class="scanbtn" type="button" aria-label="Ler código de barras"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><path d="M6 8v8M9.5 8v8M13 8v8M18 8v8" stroke-width="1.6"/></svg></button></div></label>';
     h+='<label class="fld">Descrição curta<input class="in" id="pd" value="'+esc(p.desc||'')+'" placeholder="Ex.: Frango e arroz, 1 kg"></label>';
     h+='<div class="fld"><span>Categorias</span><div class="checks">'+CATS.slice(1).map(function(c){return '<label><input type="checkbox" value="'+c[0]+'"'+((p.t||[]).indexOf(c[0])>-1?' checked':'')+'>'+c[0]+'</label>'}).join('')+'</div></div>';
     h+='<div class="two"><label class="fld">Preço base (R$)<input class="in" id="pp" inputmode="decimal" value="'+esc(p.price===''?'':String(p.price).replace('.',','))+'" placeholder="0,00"></label><label class="fld">Estoque (unidades)<input class="in" id="ps" inputmode="numeric" value="'+esc(p.stock)+'"></label></div>';
@@ -4578,6 +4578,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(cur)h+='<button class="btn danger" id="pdel" type="button">Excluir produto</button>';
     $('#overlay').innerHTML=sheetHtml(h,'Produto');bindClose();
     var ov=$('#overlay');
+    var psc=$('#pscan');if(psc)psc.onclick=function(){openScanner(function(code){var el=$('#pcode');if(el)el.value=code;var other=prodByCode(code);if(other&&other.id!==id)toast('Atenção: já existe "'+pName(other)+'" com esse código');else toast('Código lido: '+code)})};
     $('#pa').onclick=function(){var on=this.getAttribute('aria-checked')!=='true';this.setAttribute('aria-checked',on);p.active=on};
     $('#pi').onchange=function(){p.i=this.value;if(!p.img)$('#pv').innerHTML=svg(p.i,'')};
     var f=$('#pfile');
