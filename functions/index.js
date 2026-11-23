@@ -105,6 +105,27 @@ exports.carrinhoAbandonado = onSchedule({ schedule: 'every 60 minutes', timeZone
   }
 });
 
+// Receita enviada direto para o cliente: acha o cliente pelo telefone, liga o uid e avisa.
+exports.avisoReceita = onDocumentWritten('rx/{id}', async ev => {
+  const before = ev.data.before.exists ? ev.data.before.data() : null;
+  const after = ev.data.after.exists ? ev.data.after.data() : null;
+  if (!after || before) return; // só na criação
+  if (!after.clientPhone || after.clientUid) return;
+  const phone = String(after.clientPhone).replace(/\D/g, '');
+  if (phone.length < 10) return;
+  const cands = [phone];
+  if (phone.length >= 12 && phone.startsWith('55')) cands.push(phone.slice(2));
+  else if (phone.length === 10 || phone.length === 11) cands.push('55' + phone);
+  let uid = null;
+  for (const c of cands) {
+    try { const q = await db.collection('customers').where('phone', '==', c).limit(1).get(); if (!q.empty) { uid = q.docs[0].id; break; } } catch (e) {}
+  }
+  if (!uid) return;
+  try { await ev.data.after.ref.update({ clientUid: uid }); } catch (e) {}
+  const note = { ts: Date.now(), title: 'Receita do veterinário', body: (after.vetName ? 'Dr(a). ' + after.vetName + ' ' : '') + 'enviou uma receita com ' + (Number(after.discPct) || 0) + '% de desconto pra você. Toque para usar no app.', kind: 'receita', go: 'rx/' + (after.code || ev.params.id) };
+  try { await db.doc('inbox/' + uid).set({ m: { ['rx' + ev.params.id]: note } }, { merge: true }); } catch (e) {}
+});
+
 
 /* ---------- Mercado Pago: pagamento online (Pix e cartão) ---------- */
 const { onRequest } = require('firebase-functions/v2/https');
