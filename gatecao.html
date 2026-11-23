@@ -208,6 +208,20 @@ body.adm::before{background:#F1F5FB}
 .kpis3>div{background:#F3F5F9;border-radius:10px;padding:8px;text-align:center}
 .kpis3>div span{display:block;font-size:11px;color:var(--muted)}
 .kpis3>div b{font-size:15px}
+.rxentry{display:flex;align-items:center;gap:12px;width:100%;background:linear-gradient(135deg,#0B2A5B,#1D4E9E);color:#fff;border:none;border-radius:var(--r);padding:14px;margin:0 0 14px;cursor:pointer;text-align:left}
+.rxentry svg{width:30px;height:30px;flex:none}
+.rxentry span{flex:1;display:flex;flex-direction:column;min-width:0}
+.rxentry b{font-size:15px}
+.rxentry span span,.rxentry>span>*:not(b){font-size:12.5px;opacity:.85}
+.rxentry i{font-style:normal;font-weight:800;font-size:13px;opacity:.9}
+.rxitem{border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:10px}
+.rxqrow{display:flex;align-items:center;justify-content:space-between;margin:6px 0}
+.rxsims{margin-top:8px}
+.rxchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.rxchip{background:#F1F3F7;border:1.5px solid var(--line);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;color:var(--ink)}
+.rxchip.on{background:#E6F0FF;border-color:var(--brand);color:var(--brand)}
+.rxcode{font-family:var(--font-display);font-size:30px;letter-spacing:3px;color:var(--accent);margin:4px 0}
+.rxentry.rxgreen{background:linear-gradient(135deg,#1D7F53,#2BA06C)}
 .delbar{display:flex;align-items:center;gap:11px;background:linear-gradient(135deg,#FFF3E6,#FFE2C2);border:1px solid #FFD2A1;border-radius:14px;padding:11px 13px;margin:14px 0 4px}
 .delbar svg{width:26px;height:26px;flex:none;color:var(--accent)}
 .delbar span{display:flex;flex-direction:column;font-size:12.5px;color:#7a4a12;line-height:1.3;min-width:0}
@@ -2303,7 +2317,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   var X={db:null,user:null,assets:null,uid:null,isAdmin:false,checked:false};
   var state={tab:'loja',cat:'Todos',q:'',cart:load('gc_cart',{}),cartRec:load('gc_cartrec',{}),myOrders:load('gc_orders',[]),myAppts:load('gc_appts',[]),
     ag:Object.assign({svc:'',extras:[],lt:'loja',ltAddr:'',ltBairro:'',ltComp:'',ltPhone:'',day:'',slot:'',pet:'',kind:'Cachorro',size:'',weight:'',coat:'',breed:'',tutor:'',obs:''},load('gc_ag',{})),co:{mode:'Retirada na loja',pay:'Pix',name:''},
-    adm:{tab:'resumo',q:'',ord:'pedidos',cq:'',cseg:'todos'},prof:null,f:{},fCat:'Todos',sort:'rel'};
+    adm:{tab:'resumo',q:'',ord:'pedidos',cq:'',cseg:'todos'},prof:null,f:{},fCat:'Todos',sort:'rel',rx:load('gc_rx',null)};
   var view=$('#view'),admEl=$('#admin');
   function S(k,d){var v=D.settings[k];return (v==null||v==='')?d:v}
   function byId(list,id){return list.find(function(x){return x.id===id})||null}
@@ -3025,15 +3039,17 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
         (ri?'<select class="in recsel" data-recsel="'+esc(l.p.id)+'" aria-label="Tipo de compra de '+esc(l.p.name)+'"><option value="0"'+(l.rec?'':' selected')+'>Compra única · '+brl(ri.normal)+'</option>'+recDays().map(function(d){return '<option value="'+d+'"'+(l.rec===d?' selected':'')+'>Recompra a cada '+d+' dias · '+brl(ri.price)+'</option>'}).join('')+'</select>':'')+'</div><div class="qty"><button data-dec="'+esc(l.p.id)+'" aria-label="Diminuir">-</button><b>'+l.q+'</b><button data-inc="'+esc(l.p.id)+'" aria-label="Aumentar" '+(l.q>=stockOf(l.p)?'disabled':'')+'>+</button></div></div>';
     });
     var sub=r2(lines.reduce(function(a,l){return a+l.price*l.q},0));
-    var cmb=comboApply(lines),prog=comboProgress()||[];
+    var cmb=comboApply(lines),prog=comboProgress()||[],rxv=rxApply(lines);
     prog.forEach(function(x){if(x.falta>0)h+='<div class="combobar">🎉 <span>Faltam <b>'+x.falta+'</b> para fechar o combo <b>'+esc(x.label)+'</b>.</span></div>'});
     cmb.combos.forEach(function(c){h+='<div class="combobar ok">✅ <span>Combo <b>'+esc(c.label)+'</b>'+(c.packs>1?' ('+c.packs+'x)':'')+' aplicado · você economiza <b>'+brl(c.saved)+'</b></span></div>'});
+    if(state.rx)h+='<div class="combobar ok">🩺 <span>Receita <b>'+esc(state.rx.code)+'</b>'+(state.rx.vetName?' · Dr(a). '+esc(state.rx.vetName):'')+' · '+num(state.rx.discPct)+'% off'+(rxv.saved>0?' (-'+brl(rxv.saved)+')':'')+'</span><button class="mini danger" id="rxrem">Remover</button></div>';
+    else h+='<button class="btn line" id="rxHave" style="margin-top:10px">🩺 Tenho uma receita do veterinário</button>';
     var freeMin=num(S('freeMin',99));
     if(freeMin>0){var falta=r2(freeMin-sub),pc=Math.min(100,Math.round(sub/freeMin*100));
       h+='<div class="shipbar'+(falta<=0?' ok':'')+'">'+(falta<=0?'Você ganhou entrega grátis!':'Falta '+brl(falta)+' para entrega grátis')+'<div class="fprog"><i style="width:'+pc+'%"></i></div></div>'}
-    var subC=r2(sub-cmb.saved);
-    h+='<div class="co-foot">'+(cmb.saved>0?'<div class="row"><span class="muted">Subtotal</span><span>'+brl(sub)+'</span></div><div class="row"><span class="muted">Combos</span><span class="cpok">- '+brl(cmb.saved)+'</span></div>':'')+
-      '<div class="row"><span class="co-ft">'+(cmb.saved>0?'Parcial':'Subtotal')+'</span><span class="total">'+brl(subC)+'</span></div>'+
+    var totOff=r2(cmb.saved+rxv.saved),subC=r2(sub-totOff);
+    h+='<div class="co-foot">'+(totOff>0?'<div class="row"><span class="muted">Subtotal</span><span>'+brl(sub)+'</span></div>'+(cmb.saved>0?'<div class="row"><span class="muted">Combos</span><span class="cpok">- '+brl(cmb.saved)+'</span></div>':'')+(rxv.saved>0?'<div class="row"><span class="muted">Receita</span><span class="cpok">- '+brl(rxv.saved)+'</span></div>':''):'')+
+      '<div class="row"><span class="co-ft">'+(totOff>0?'Parcial':'Subtotal')+'</span><span class="total">'+brl(subC)+'</span></div>'+
       '<p class="hint" style="margin:0;text-align:center">Frete, cupom e mais descontos na próxima etapa.</p>'+
       '<button class="primary" id="goPay">Pagar · '+brl(subC)+'</button></div>';
     $('#overlay').innerHTML=sheetHtml('<div class="co cocart">'+h+'</div>','Carrinho');bindClose();
@@ -3042,6 +3058,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     $$('[data-dec]',s).forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-dec');state.cart[k]=(state.cart[k]||1)-1;if(state.cart[k]<=0)delete state.cart[k];persist();openCart()}});
     $$('[data-recsel]',s).forEach(function(sel){sel.onchange=function(){var id=sel.getAttribute('data-recsel'),v=+sel.value;if(v)state.cartRec[id]=v;else delete state.cartRec[id];persist();openCart()}});
     var gp=$('#goPay');if(gp)gp.onclick=function(){openCheckout()};
+    var rh=$('#rxHave');if(rh)rh.onclick=function(){openRxRedeem('')};
+    var rr=$('#rxrem');if(rr)rr.onclick=function(){rxClear();openCart()};
   }
 
   function openCheckout(){
@@ -3050,15 +3068,16 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var h='<div class="row"><h2>Finalizar compra</h2><button class="ghost" id="backCart">‹ Carrinho</button></div>';
     var sub=r2(lines.reduce(function(a,l){return a+l.price*l.q},0));
     var cmb=comboApply(lines),comboOff=cmb.saved;
+    var rxv=rxApply(lines),rxOff=rxv.saved;
     var pixPct=num(S('pixOff',5)),freeMin=num(S('freeMin',99)),fee=num(S('fee',9.9));
     var cpc=state.co.coupon?cpFind(state.co.coupon):null;if(state.co.coupon&&!cpc)state.co.coupon='';
-    var cp=cpc?cpCheck(cpc,sub-comboOff,state.co.mode):null,cpOff=cp&&cp.ok?cp.off:0,cpShip=!!(cp&&cp.ok&&cp.ship&&state.co.mode==='Entrega');
+    var cp=cpc?cpCheck(cpc,sub-comboOff-rxOff,state.co.mode):null,cpOff=cp&&cp.ok?cp.off:0,cpShip=!!(cp&&cp.ok&&cp.ship&&state.co.mode==='Entrega');
     var zn=state.co.mode==='Entrega'?zoneOf(state.ag.ltBairro):null;if(zn&&zn.fee!==''&&zn.fee!=null)fee=num(zn.fee);
-    var pixOff=/pix/i.test(state.co.pay)?r2((sub-comboOff-cpOff)*pixPct/100):0,frete=(state.co.mode==='Entrega'&&sub<freeMin&&!cpShip)?fee:0;
+    var pixOff=/pix/i.test(state.co.pay)?r2((sub-comboOff-rxOff-cpOff)*pixPct/100):0,frete=(state.co.mode==='Entrega'&&sub<freeMin&&!cpShip)?fee:0;
     var wl=X.uid?wal(X.uid):null,cashUse=0;
-    var fc=window.FID?FID.conf(D.settings):{maxUsoPct:100,minCompraUso:0},cbBase=Math.max(0,sub-comboOff-cpOff-pixOff),cbOk=cbBase>=num(fc.minCompraUso);
+    var fc=window.FID?FID.conf(D.settings):{maxUsoPct:100,minCompraUso:0},cbBase=Math.max(0,sub-comboOff-rxOff-cpOff-pixOff),cbOk=cbBase>=num(fc.minCompraUso);
     if(wl&&wl.cash>0&&state.co.useCash&&cbOk)cashUse=r2(Math.min(wl.cash,cbBase*num(fc.maxUsoPct)/100));
-    var tot=r2(sub-comboOff-cpOff-pixOff+frete-cashUse);
+    var tot=r2(sub-comboOff-rxOff-cpOff-pixOff+frete-cashUse);
     if(freeMin>0){var falta=r2(freeMin-sub),pc=Math.min(100,Math.round(sub/freeMin*100));
       h+='<div class="shipbar'+(falta<=0?' ok':'')+'">'+(falta<=0?'Você ganhou entrega grátis!':'Falta '+brl(falta)+' para entrega grátis')+'<div class="fprog"><i style="width:'+pc+'%"></i></div></div>'}
     var inC=state.cart,sugg=[],seenS={};
@@ -3096,6 +3115,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     }
     h+='<div class="row"><span class="muted">Subtotal</span><span>'+brl(sub)+'</span></div>';
     cmb.combos.forEach(function(c){h+='<div class="row"><span class="muted">'+esc(c.label)+(c.packs>1?' ('+c.packs+'x)':'')+'</span><span class="cpok">- '+brl(c.saved)+'</span></div>'});
+    if(rxOff>0)h+='<div class="row"><span class="muted">Receita'+(state.rx&&state.rx.vetName?' (Dr(a). '+esc(state.rx.vetName)+')':'')+' · '+rxv.pct+'%</span><span class="cpok">- '+brl(rxOff)+'</span></div>';
     if(cpOff)h+='<div class="row"><span class="muted">Cupom '+esc(cpc.code)+'</span><span>- '+brl(cpOff)+'</span></div>';
     if(pixOff)h+='<div class="row"><span class="muted">Desconto Pix</span><span>- '+brl(pixOff)+'</span></div>';
     if(cpShip&&sub<freeMin)h+='<div class="row"><span class="muted">Entrega</span><span class="cpok">Grátis com cupom</span></div>';
@@ -3133,15 +3153,16 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
         var A=state.ag,miss=!A.ltAddr.trim()?['#caddr','o endereço']:!A.ltBairro.trim()?['#cbairro','o bairro']:String(A.ltPhone||'').replace(/\D/g,'').length<10?['#cphone','o telefone com DDD']:null;
         if(miss){toast('Informe '+miss[1]+' para a entrega');var el=$(miss[0]);if(el){el.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'});el.focus({preventScroll:true})}return}
       }
-      finishOrder(lines,sub,pixOff,frete,tot,cashUse,(cpOff||cpShip)?{code:cpc.code,off:cpOff,ship:cpShip}:null,cmb);
+      finishOrder(lines,sub,pixOff,frete,tot,cashUse,(cpOff||cpShip)?{code:cpc.code,off:cpOff,ship:cpShip}:null,cmb,rxv);
     };
   }
 
-  async function finishOrder(lines,sub,pixOff,fee,tot,cashUse,cpn,cmb){
+  async function finishOrder(lines,sub,pixOff,fee,tot,cashUse,cpn,cmb,rxv){
     var A=state.ag,o={id:'o'+Date.now(),ts:Date.now(),name:state.co.name.trim(),mode:state.co.mode,pay:state.co.pay,
       addr:state.co.mode==='Entrega'?{addr:A.ltAddr.trim().slice(0,160),bairro:A.ltBairro.trim().slice(0,80),comp:A.ltComp.trim().slice(0,120),ref:String(state.co.ref||'').trim().slice(0,160),phone:String(A.ltPhone).replace(/\D/g,'').slice(0,11)}:null,sub:sub,pixOff:pixOff,fee:fee,cashUse:cashUse||0,total:tot,
       items:lines.map(function(l){var it={id:l.p.id,n:pName(l.p),p:l.price,q:l.q};if(l.rec)it.rec=l.rec;return it})};
     if(cmb&&cmb.saved>0){o.comboOff=cmb.saved;o.combos=cmb.combos.map(function(c){return {label:c.label,saved:c.saved,packs:c.packs}})}
+    if(rxv&&rxv.saved>0&&state.rx){var paid=(rxv.lines||[]).reduce(function(a,l){return a+num(l.q)*num(l.unit)},0);o.rx={code:state.rx.code,vetUid:state.rx.vetUid,vetName:state.rx.vetName||'',discPct:rxv.pct,off:rxv.saved,items:rxv.lines,paid:r2(paid),comm:0,credited:false}}
     if(cpn)o.coupon=cpn;
     var _pm=/^Pix \(pague/.test(o.pay)?'pix':/^Cart[aã]o \(pague/.test(o.pay)?'card':null;if(_pm){o.payState='pendente';o.pm=_pm}
     var recs={};lines.filter(function(l){return l.rec}).forEach(function(l,k){var rid='r'+Date.now()+k;recs[rid]={id:rid,pid:l.p.id,n:l.p.name,q:l.q,every:l.rec,price:l.price,next:addDays(todayStr(),l.rec),active:true,ts:Date.now(),name:o.name,mode:o.mode,pay:o.pay,addr:o.addr,first:o.id}});
@@ -3156,7 +3177,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     }
     o.uid=X.uid||o.uid||'';state.myOrders.unshift(o);save('gc_orders',state.myOrders);
     try{feedFromOrder(o).catch(function(){})}catch(e){}
-    state.cart={};state.cartRec={};state.co.useCash=false;state.co.coupon='';persist();closeSheet();
+    state.cart={};state.cartRec={};state.co.useCash=false;state.co.coupon='';rxClear();persist();closeSheet();
     toast(synced?'Pedido enviado para a loja':'Pedido salvo neste aparelho');
     if(_pm&&synced&&window.GCFB&&GCFB.idToken){if(_pm==='card')mpCardStart(o);else mpStart(o,'pix');return}
     go('pedidos');
@@ -4684,6 +4705,143 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     };
   }
 
+  /* ----- Área do veterinário parceiro: montar receita ----- */
+  var IC_RX='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3V2h6v1M8 8h5a2 2 0 010 4H8V8m0 0v8m4-4l4 5"/></svg>';
+  var RXD=null;
+  function openRxBuilder(reset){if(reset||!RXD)RXD={items:{},order:[],forClient:false,clientName:'',clientPhone:'',q:''};renderRxBuilder()}
+  function rxSearch(q){var qs=null;try{qs=searchScores(q)}catch(e){}if(!qs||!qs.s)return [];return Object.keys(qs.s).sort(function(a,b){return qs.s[b]-qs.s[a]}).map(function(id){return byId(D.products,id)}).filter(function(p){return p&&p.active!==false}).slice(0,8)}
+  function rxSimilars(p){var g=varOf(p),out=[];if(g)g.items.forEach(function(it){if(it.p.id!==p.id&&stockOf(it.p)>0)out.push(it.p)});relatedOf(p,8).forEach(function(x){if(out.length<6&&out.indexOf(x)<0&&(x.t||[]).some(function(c){return (p.t||[]).indexOf(c)>-1}))out.push(x)});return out.slice(0,6)}
+  function renderRxBuilder(){
+    var h='<div class="row"><h2>Montar receita</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
+    h+='<p class="hint" style="margin-top:0">Escolha os produtos, ajuste quantidade e orientação, e marque similares que o cliente pode trocar. O cliente recebe com <b>'+rxDiscPct()+'%</b> de desconto.</p>';
+    h+='<div class="acard"><div class="rowtight"><b>Para um cliente específico</b><button class="sw" id="rxfc" role="switch" aria-checked="'+(RXD.forClient?'true':'false')+'"></button></div>'+
+      (RXD.forClient?'<label class="fld">Nome do cliente<input class="in" id="rxcn" value="'+esc(RXD.clientName)+'" placeholder="Nome do tutor"></label><label class="fld">WhatsApp do cliente<input class="in" id="rxcp" inputmode="tel" value="'+esc(RXD.clientPhone)+'" placeholder="(21) 90000-0000"></label><p class="hint">A receita aparece no app dele (quando ele usa o mesmo telefone) e você também recebe o código.</p>':'<p class="hint">Sem cliente: gera um código que você passa pra qualquer pessoa usar no app.</p>')+'</div>';
+    h+='<div class="acard"><b>Produtos da receita</b><input class="in" id="rxq" value="'+esc(RXD.q||'')+'" placeholder="Buscar produto" autocomplete="off"><div id="rxres" class="picklist" hidden></div>';
+    if(!RXD.order.length)h+='<p class="hint">Nenhum produto ainda. Busque e toque para adicionar.</p>';
+    RXD.order.forEach(function(pid){
+      var p=byId(D.products,pid);if(!p)return;var it=RXD.items[pid],sims=rxSimilars(p);
+      h+='<div class="rxitem"><div class="rowtight"><b>'+esc(pName(p))+'</b><button class="mini danger" data-rxdel="'+esc(pid)+'">Remover</button></div>'+
+        '<div class="muted" style="font-size:12px;margin:-2px 0 6px">'+brl(priced(p).price)+' · '+stockBadge(p)+'</div>'+
+        '<div class="rxqrow"><span class="muted">Quantidade</span><div class="qty"><button data-rxdec="'+esc(pid)+'">-</button><b>'+it.q+'</b><button data-rxinc="'+esc(pid)+'">+</button></div></div>'+
+        '<input class="in" data-rxnote="'+esc(pid)+'" value="'+esc(it.note||'')+'" placeholder="Orientação (ex.: 1 comp. 12/12h por 7 dias)" maxlength="160">'+
+        (sims.length?'<div class="rxsims"><span class="muted">Opções similares que o cliente pode escolher:</span><div class="rxchips">'+sims.map(function(s){var on=!!(it.alts&&it.alts[s.id]);return '<button class="rxchip'+(on?' on':'')+'" data-rxalt="'+esc(pid)+'|'+esc(s.id)+'">'+(on?'✓ ':'')+esc(pName(s))+' · '+brl(priced(s).price)+'</button>'}).join('')+'</div></div>':'')+'</div>';
+    });
+    h+='</div>';
+    h+='<button class="primary" id="rxgen"'+(RXD.order.length?'':' disabled')+'>Gerar receita'+(RXD.order.length?' · '+RXD.order.length+' ite'+(RXD.order.length>1?'ns':'m'):'')+'</button>';
+    if((D.myRx||[]).length){
+      h+='<div class="sec"><h2>Minhas receitas</h2><span>'+D.myRx.length+'</span></div>';
+      D.myRx.slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)}).slice(0,10).forEach(function(r){
+        h+='<div class="acard"><div class="rowtight"><b>'+esc(r.code)+'</b><span class="st '+(r.status==='usada'?'ok':r.status==='cancelada'?'off':'info')+'">'+(r.status==='usada'?'Usada':r.status==='cancelada'?'Cancelada':'Aberta')+'</span></div><span class="muted">'+(r.items||[]).length+' ite'+((r.items||[]).length>1?'ns':'m')+(r.clientName?' · '+esc(r.clientName):'')+' · '+fmtTs(r.ts)+'</span><div class="rowtight"><button class="mini" data-rxshare="'+esc(r.code)+'">Compartilhar</button></div></div>';
+      });
+    }
+    $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Montar receita');bindClose();
+    var fc=$('#rxfc');if(fc)fc.onclick=function(){RXD.forClient=!RXD.forClient;renderRxBuilder()};
+    var cn=$('#rxcn');if(cn)cn.oninput=function(){RXD.clientName=cn.value};
+    var cp=$('#rxcp');if(cp)cp.oninput=function(){RXD.clientPhone=cp.value};
+    var q=$('#rxq'),res=$('#rxres');
+    if(q)q.oninput=function(){RXD.q=q.value;var r=(q.value.trim().length>=2)?rxSearch(q.value):[];if(!r.length){res.hidden=true;res.innerHTML='';return}res.hidden=false;res.innerHTML=r.map(function(p){return '<button class="pickrow2" data-rxadd="'+esc(p.id)+'"'+(RXD.items[p.id]?' disabled':'')+'>'+esc(pName(p))+' · '+brl(priced(p).price)+' · '+(stockOf(p)>0?stockOf(p)+' em estoque':'sem estoque')+'</button>'}).join('')};
+    var s=$('#overlay');
+    $$('[data-rxnote]',s).forEach(function(i){i.oninput=function(){var pid=i.getAttribute('data-rxnote');if(RXD.items[pid])RXD.items[pid].note=i.value}});
+    s.onclick=function(e){
+      var a;
+      if((a=e.target.closest('[data-rxadd]'))){if(a.disabled)return;var pid=a.getAttribute('data-rxadd');if(!RXD.items[pid]){RXD.items[pid]={q:1,note:'',alts:{}};RXD.order.push(pid)}RXD.q='';renderRxBuilder();return}
+      if((a=e.target.closest('[data-rxdel]'))){var p1=a.getAttribute('data-rxdel');delete RXD.items[p1];RXD.order=RXD.order.filter(function(x){return x!==p1});renderRxBuilder();return}
+      if((a=e.target.closest('[data-rxinc]'))){var p2=a.getAttribute('data-rxinc');if(RXD.items[p2])RXD.items[p2].q++;renderRxBuilder();return}
+      if((a=e.target.closest('[data-rxdec]'))){var p3=a.getAttribute('data-rxdec');if(RXD.items[p3]&&RXD.items[p3].q>1)RXD.items[p3].q--;renderRxBuilder();return}
+      if((a=e.target.closest('[data-rxalt]'))){var pr=a.getAttribute('data-rxalt').split('|'),it=RXD.items[pr[0]];if(it){it.alts=it.alts||{};if(it.alts[pr[1]])delete it.alts[pr[1]];else it.alts[pr[1]]=1}renderRxBuilder();return}
+      if((a=e.target.closest('[data-rxshare]'))){var rr=(D.myRx||[]).filter(function(x){return x.code===a.getAttribute('data-rxshare')})[0];if(rr)rxShareView(rr);return}
+      if(e.target.closest('#rxgen')){rxGenerate();return}
+    };
+  }
+  async function rxGenerate(){
+    var items=RXD.order.map(function(pid){var it=RXD.items[pid],p=byId(D.products,pid);if(!p)return null;return {id:pid,n:pName(p),q:Math.max(1,Math.floor(num(it.q))||1),note:(it.note||'').slice(0,160),alts:Object.keys(it.alts||{}).filter(function(a){return it.alts[a]}).slice(0,6)}}).filter(Boolean);
+    if(!items.length){toast('Adicione ao menos um produto');return}
+    if(RXD.forClient&&!RXD.clientName.trim()){toast('Informe o nome do cliente');return}
+    var code='RX'+Math.random().toString(36).slice(2,4).toUpperCase()+Date.now().toString(36).slice(-4).toUpperCase();
+    var vetName=(D.partner&&D.partner.name)||(D.me&&D.me.name)||'Veterinário parceiro';
+    var rx={code:code,vetUid:X.uid,vetName:vetName,vetCrmv:(D.partner&&D.partner.crmv)||'',clientName:RXD.forClient?RXD.clientName.trim().slice(0,80):'',clientPhone:RXD.forClient?String(RXD.clientPhone).replace(/\D/g,'').slice(0,13):'',clientUid:'',items:items,discPct:rxDiscPct(),status:'aberta',ts:Date.now()};
+    var g=$('#rxgen');if(g)g.disabled=true;
+    try{await X.db.doc('rx/'+code).set(rx);toast('Receita gerada!');rxShareView(rx)}catch(e){if(g)g.disabled=false;wfail(e)}
+  }
+  function rxShareView(rx){
+    var url='https://gatecao.com.br/#rx/'+rx.code;
+    var msg='Receita da Gatecão Pet Shop'+(rx.vetName?' (Dr(a). '+rx.vetName+')':'')+':\n'+(rx.items||[]).map(function(i){return '• '+i.q+'x '+i.n+(i.note?' — '+i.note:'')}).join('\n')+'\n\nUse o código '+rx.code+' no app e ganhe '+rx.discPct+'% de desconto:\n'+url;
+    var wa='https://wa.me/'+(rx.clientPhone?('55'+rx.clientPhone):'')+'?text='+encodeURIComponent(msg);
+    var h='<div class="row"><h2>Receita gerada</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
+    h+='<div class="acard" style="text-align:center"><span class="muted">Código da receita</span><div class="rxcode">'+esc(rx.code)+'</div><p class="hint" style="margin:6px 0 0">O cliente digita este código no app (ou abre o link) e os itens entram no carrinho com '+rx.discPct+'% de desconto.</p></div>';
+    h+='<a class="walink" href="'+wa+'" target="_blank" rel="noopener">'+IC_WA+'Enviar no WhatsApp</a>';
+    h+='<button class="btn line" id="rxcopy">Copiar código</button><button class="ghost" id="rxnew">Montar outra receita</button>';
+    $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Receita');bindClose();
+    var cpb=$('#rxcopy');if(cpb)cpb.onclick=function(){try{navigator.clipboard.writeText(rx.code)}catch(e){}toast('Código copiado')};
+    var nb=$('#rxnew');if(nb)nb.onclick=function(){openRxBuilder(true)};
+  }
+
+  /* ----- Cliente: usar a receita ----- */
+  var RXV=null;
+  function rxSave(){try{if(state.rx)save('gc_rx',state.rx);else localStorage.removeItem('gc_rx')}catch(e){}}
+  function rxClear(){state.rx=null;rxSave()}
+  function rxApply(lines){
+    var rx=state.rx;if(!rx||!rx.qty)return {saved:0,lines:[],pct:0};
+    var pct=num(rx.discPct)||0;if(pct<=0)return {saved:0,lines:[],pct:0};
+    var saved=0,det=[];
+    lines.forEach(function(l){if(l.rec)return;var maxq=num(rx.qty[l.p.id]);if(!maxq)return;var dq=Math.min(l.q,maxq);var sv=r2(dq*l.price*pct/100);if(sv>0){saved+=sv;det.push({id:l.p.id,n:pName(l.p),q:dq,unit:r2(l.price*(1-pct/100))})}});
+    return {saved:r2(saved),lines:det,pct:pct};
+  }
+  function openRxRedeem(code){
+    code=String(code||'').trim().toUpperCase();
+    var h='<div class="row"><h2>Receita do veterinário</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
+    h+='<p class="hint" style="margin-top:0">Digite o código que o veterinário passou. Os itens entram no carrinho já com desconto.</p>';
+    h+='<div class="cprow"><input class="in" id="rxrin" placeholder="Código (ex.: RXAB12)" value="'+esc(code)+'" autocapitalize="characters" autocomplete="off" maxlength="20"><button class="btn alt" id="rxrgo">Buscar</button></div><div id="rxrview"></div>';
+    $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Receita');bindClose();
+    var inp=$('#rxrin');
+    function go(){var c=String(inp.value||'').trim().toUpperCase();if(!c){toast('Digite o código');return}rxPreview(c)}
+    $('#rxrgo').onclick=go;inp.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();go()}};
+    if(code)rxPreview(code);
+  }
+  async function rxPreview(code){
+    var box=$('#rxrview');if(box)box.innerHTML='<div class="mpwait"><div class="mpspin"></div><span>Buscando…</span></div>';
+    var rx=null;try{var s=await X.db.doc('rx/'+code).get();if(s&&s.exists)rx=Object.assign({code:code},s.data())}catch(e){}
+    box=$('#rxrview');if(!box)return;
+    if(!rx){box.innerHTML='<p class="cperr">Receita não encontrada. Confira o código com o veterinário.</p>';return}
+    if(rx.status==='cancelada'){box.innerHTML='<p class="cperr">Esta receita foi cancelada.</p>';return}
+    RXV={rx:rx,choice:{}};(rx.items||[]).forEach(function(i){RXV.choice[i.id]=i.id});
+    renderRxPreview();
+  }
+  function rxOptList(item){
+    var ids=[item.id].concat((item.alts||[]).filter(function(a){return byId(D.products,a)}));
+    return ids.filter(function(x,i,a){return a.indexOf(x)===i}).map(function(id){return byId(D.products,id)}).filter(Boolean);
+  }
+  function renderRxPreview(){
+    var box=$('#rxrview');if(!box||!RXV)return;var rx=RXV.rx;
+    var h='<div class="acard"><div class="rowtight"><b>Receita '+esc(rx.code)+'</b><span class="st info">'+rx.discPct+'% off</span></div><span class="muted">'+(rx.vetName?'Dr(a). '+esc(rx.vetName):'Veterinário parceiro')+(rx.vetCrmv?' · CRMV '+esc(rx.vetCrmv):'')+'</span></div>';
+    (rx.items||[]).forEach(function(it){
+      var opts=rxOptList(it),chosen=RXV.choice[it.id];
+      h+='<div class="rxitem"><div class="rowtight"><b>'+it.q+'x '+esc(it.n)+'</b></div>'+(it.note?'<div class="muted" style="font-size:12px">'+esc(it.note)+'</div>':'');
+      if(opts.length>1){h+='<div class="rxsims"><span class="muted">Escolha a opção:</span><div class="rxchips">'+opts.map(function(p){var out=stockOf(p)<=0,on=chosen===p.id;return '<button class="rxchip'+(on?' on':'')+'" data-rxpick="'+esc(it.id)+'|'+esc(p.id)+'"'+(out?' disabled':'')+'>'+(on?'✓ ':'')+esc(pName(p))+' · '+brl(priced(p).price)+(out?' · esgotado':'')+'</button>'}).join('')+'</div></div>';}
+      else{var p0=opts[0];h+='<div class="muted" style="font-size:12px">'+(p0?brl(priced(p0).price)+(stockOf(p0)<=0?' · esgotado':''):'produto indisponível')+'</div>'}
+      h+='</div>';
+    });
+    h+='<button class="primary" id="rxuse" style="margin-top:12px">Adicionar ao carrinho com '+rx.discPct+'% off</button>';
+    box.innerHTML=h;
+    box.querySelectorAll('[data-rxpick]').forEach(function(b){b.onclick=function(){if(b.disabled)return;var a=b.getAttribute('data-rxpick').split('|');RXV.choice[a[0]]=a[1];renderRxPreview()}});
+    var u=$('#rxuse');if(u)u.onclick=rxUse;
+  }
+  function rxUse(){
+    var rx=RXV&&RXV.rx;if(!rx)return;
+    var qty={},added=0,miss=0;
+    (rx.items||[]).forEach(function(it){
+      var pid=RXV.choice[it.id]||it.id,p=byId(D.products,pid);
+      if(!p||p.active===false||stockOf(p)<=0){miss++;return}
+      var cur=state.cart[pid]||0,want=Math.max(1,num(it.q)||1),n=Math.max(0,Math.min(want,stockOf(p)-cur));
+      if(n){state.cart[pid]=cur+n;qty[pid]=(qty[pid]||0)+n;added+=n}else miss++;
+    });
+    if(!added){toast('Os itens da receita estão indisponíveis no momento');return}
+    state.rx={code:rx.code,vetUid:rx.vetUid,vetName:rx.vetName||'',discPct:num(rx.discPct)||0,qty:qty};
+    rxSave();persist();bumpCart();
+    toast(miss?'Receita adicionada. '+miss+' item(ns) indisponível(is)':'Receita adicionada ao carrinho');
+    openCart();
+  }
+
   /* ----- Parceiros (veterinários) ----- */
   function rxCommPct(){return Math.max(0,Math.min(90,num(S('rxCommPct',10))))}
   function rxDiscPct(){return Math.max(0,Math.min(50,num(S('rxDiscPct',5))))}
@@ -5779,6 +5937,10 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(!X.checked||(X.uid&&!D.ready.me&&!D.slow)){view.innerHTML=loadingBox();return}
     var h='<section class="phero"><h2>Cantinho do Pet</h2><p>'+(D.me&&(D.me.pets||[]).length?'Tudo de '+esc((D.me.pets||[]).map(function(x){return x.n}).slice(0,3).join(', ').replace(/, ([^,]*)$/,' e $1'))+' em um só lugar.':'Lembretes de banho, ração, vacinas e recompras em um só lugar.')+'</p>'+svg('paw','art')+'</section>';
     if(!X.uid){view.innerHTML=h+'<div class="empty-card"><h2>Entre na sua conta</h2><p class="muted">'+(window.GCFB?'Crie sua conta grátis para cadastrar seus pets, receber lembretes de ração, banho e vacina e acompanhar suas recompras.':'Abra o app na sua conta para cadastrar seus pets e receber lembretes.')+'</p>'+(window.GCFB?'<button class="primary" data-login="1">Entrar ou cadastrar</button>':'')+'</div>';return}
+    if(isPartner())h+='<button class="rxentry" data-act="rxOpen">'+IC_RX+'<span><b>Área do parceiro</b>Monte uma receita e acompanhe as suas</span><i>Abrir ›</i></button>';
+    (D.rxForMe||[]).filter(function(r){return r.status!=='cancelada'&&r.status!=='usada'}).forEach(function(r){
+      h+='<button class="rxentry rxgreen" data-rxget="'+esc(r.code)+'">'+IC_RX+'<span><b>Receita do Dr(a). '+esc(r.vetName||'veterinário')+'</b>'+((r.items||[]).length)+' item(ns) com '+num(r.discPct)+'% de desconto</span><i>Usar ›</i></button>';
+    });
     if(!D.me)h+=profileHtml();
     h+=careAgendaHtml();
     h+=petsHtml();
@@ -6968,6 +7130,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     else if(h.indexOf('caixa')===0)state.tab='caixa';
     else if(h.indexOf('produto/')===0){state.tab='loja';PV.pending=decodeURIComponent(h.slice(8))}
     else if(h==='cart'){state.tab='loja';setTimeout(function(){try{if(cartCount())openCart()}catch(e){}},400)}
+    else if(h.indexOf('rx/')===0){state.tab='loja';var _rxc=decodeURIComponent(h.slice(3));setTimeout(function(){try{openRxRedeem(_rxc)}catch(e){}},700)}
     renderCats();persist();render();
     try{
       if(!window.claude||!window.claude.use)throw new Error('sem runtime');
@@ -7001,9 +7164,10 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var ab=nc.querySelector('[data-add]');if(ab)ab.onclick=function(){addToCart(ab.getAttribute('data-add'))};
     return true;
   }
-  var CACT={installApp:installApp,legalPriv:function(){openLegal('priv')},legalTermos:function(){openLegal('termos')},lojaInfo:openLoja};
+  var CACT={installApp:installApp,legalPriv:function(){openLegal('priv')},legalTermos:function(){openLegal('termos')},lojaInfo:openLoja,rxOpen:function(){openRxBuilder(true)},rxRedeem:function(){openRxRedeem('')}};
   view.addEventListener('click',function(e){
     var ca=e.target.closest('[data-act]');if(ca&&CACT[ca.getAttribute('data-act')]){e.preventDefault();CACT[ca.getAttribute('data-act')]();return}
+    var rg=e.target.closest('[data-rxget]');if(rg){e.preventDefault();openRxRedeem(rg.getAttribute('data-rxget'));return}
     var fv=e.target.closest('[data-fav]');if(fv){e.preventDefault();toggleFav(fv.getAttribute('data-fav'));return}
     if(e.target.closest('[data-login]')){if(window.GCFB&&GCFB.login)GCFB.login();return}
     var pq=e.target.closest('[data-planreq]');if(pq){planRequest(pq.getAttribute('data-planreq'));return}
@@ -7070,6 +7234,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   window.addEventListener('hashchange',function(){
     var t=location.hash.slice(1);
     if(t.indexOf('produto/')===0){var pid=decodeURIComponent(t.slice(8));if(pid!==PV.id){if(D.ready.products)showProduct(pid,true);else PV.pending=pid}return}
+    if(t.indexOf('rx/')===0){openRxRedeem(decodeURIComponent(t.slice(3)));return}
     if(t==='balcao'||t==='balcao-banho'){if(PV.id)hidePview();MB.fromCaixa=true;MB.tab=(t==='balcao-banho'?'banho':'venda');state.tab='gestao';state.adm.tab='balcao';render();return}
     if(t.indexOf('caixa')===0){if(PV.id)hidePview();if(state.tab!=='caixa'){state.tab='caixa';render()}return}
     if(PV.id){hidePview();var a=PV.after;PV.after=null;if(a){a();return}}
