@@ -73,7 +73,16 @@ service cloud.firestore {
         && request.resource.data.approved == false
         && request.resource.data.selfReg == true
         && request.resource.data.saldo == 0);
-      allow update, delete: if isAdmin();
+      // O vet pode editar os próprios dados (clínica, logo), mas não o que é dinheiro.
+      allow update: if isAdmin() || (own(uid)
+        && request.resource.data.active == resource.data.active
+        && request.resource.data.approved == resource.data.approved
+        && request.resource.data.selfReg == resource.data.selfReg
+        && request.resource.data.pct == resource.data.pct
+        && request.resource.data.saldo == resource.data.saldo
+        && request.resource.data.mov == resource.data.mov
+        && request.resource.data.pays == resource.data.pays);
+      allow delete: if isAdmin();
     }
 
     // Receitas: o vet cria/edita as suas; a loja vê tudo; o cliente lê a dele ou pelo código.
