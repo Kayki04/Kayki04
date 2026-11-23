@@ -4853,14 +4853,21 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       try{await X.db.doc('partners/'+X.uid).set(data);D.partner=data;mpClose();toast('Dados da clínica salvos');if(RXD&&document.getElementById('rxpet'))renderRxBuilder()}catch(e){this.disabled=false;wfail(e)}
     };
   }
-  function loadJsPdf(){return new Promise(function(res,rej){if(window.jspdf&&window.jspdf.jsPDF)return res();var s=document.getElementById('jspdfsdk');if(s){s.addEventListener('load',function(){res()});s.addEventListener('error',function(){rej()});return}s=document.createElement('script');s.id='jspdfsdk';s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js';s.onload=function(){res()};s.onerror=function(){rej()};document.head.appendChild(s)})}
+  function loadJsPdf(){
+    if(window.jspdf&&window.jspdf.jsPDF)return Promise.resolve();
+    var urls=['https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js','https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js','https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js'];
+    return new Promise(function(res,rej){var i=0;(function go(){if(window.jspdf&&window.jspdf.jsPDF)return res();if(i>=urls.length)return rej(new Error('Falha ao baixar o gerador de PDF'));var s=document.createElement('script');s.src=urls[i++];s.onload=function(){(window.jspdf&&window.jspdf.jsPDF)?res():go()};s.onerror=function(){go()};document.head.appendChild(s)})()});
+  }
   async function sharePdf(blob,fname,rx){
     try{var file=new File([blob],fname,{type:'application/pdf'});if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Receita veterinária',text:'Receita'+(rx&&rx.petName?' de '+rx.petName:'')});return}}catch(e){if(e&&e.name==='AbortError')return}
     var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},5000);toast('PDF baixado');
   }
   async function rxPdf(rx){
     toast('Gerando PDF…');
-    try{await loadJsPdf()}catch(e){toast('Não foi possível carregar o gerador de PDF');return}
+    try{await loadJsPdf()}catch(e){toast('Não foi possível baixar o gerador de PDF. Confira sua internet e tente de novo.');return}
+    try{ await rxPdfBuild(rx); }catch(e){ toast('Erro ao gerar o PDF: '+((e&&e.message)||e)); }
+  }
+  async function rxPdfBuild(rx){
     var JS=window.jspdf.jsPDF,doc=new JS({unit:'mm',format:'a4'}),W=210,M=16,y=18;
     var part=D.partner||{},logo=rx.vetLogo||part.logo||'',clin=rx.vetClinica||part.clinica||'',prof=rx.vetName||part.name||'',crmv=rx.vetCrmv||part.crmv||'',espec=rx.vetEspec||part.especialidade||'';
     if(logo){try{doc.addImage(logo,'PNG',M,y-3,22,22)}catch(e){}}
@@ -4989,7 +4996,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
   function rxShareView(rx){
     var url='https://gatecao.com.br/#rx/'+rx.code;
-    var msg='Receita da Gatecão Pet Shop'+(rx.vetName?' (Dr(a). '+rx.vetName+')':'')+(rx.petName?'\nPaciente: '+rx.petName+(rx.petKind?' ('+rx.petKind+')':''):'')+':\n'+(rx.items||[]).map(function(i){return '• '+i.q+'x '+i.n+(i.note?' — '+i.note:'')+((i.custom||!i.id)?' (sob encomenda)':'')}).join('\n')+(rx.obs?'\n\nObs.: '+rx.obs:'')+'\n\nUse o código '+rx.code+' no app'+(num(rx.discPct)>0?' e ganhe até '+rx.discPct+'% de desconto':'')+':\n'+url;
+    var msg='Receita da Gatecão Pet Shop'+(rx.vetName?' (Dr(a). '+rx.vetName+')':'')+(rx.petName?'\nPaciente: '+rx.petName+(rx.petKind?' ('+rx.petKind+')':''):'')+':\n'+(rx.items||[]).map(function(i){return '• '+i.q+'x '+i.n+(i.note?' — '+i.note:'')+((i.custom||!i.id)?' (sob encomenda)':'')}).join('\n')+(rx.obs?'\n\nObs.: '+rx.obs:'')+'\n\nUse o código '+rx.code+' no app e garanta os produtos do seu pet com super descontos:\n'+url;
     var wa='https://wa.me/'+(rx.clientPhone?('55'+rx.clientPhone):'')+'?text='+encodeURIComponent(msg);
     var h='<div class="row"><h2>Receita gerada</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
     h+='<button class="primary" id="rxpdf" style="display:flex;gap:8px;align-items:center;justify-content:center">📄 Enviar receita em PDF</button>';
