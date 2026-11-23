@@ -64,8 +64,17 @@ service cloud.firestore {
     // Carrinho salvo de cada cliente (para o lembrete de carrinho abandonado).
     match /carts/{uid} { allow read, write: if own(uid) || isAdmin(); }
 
-    // Veterinários parceiros: cada vet vê a sua ficha; só a loja cria/edita (comissão, saldo).
-    match /partners/{uid} { allow read: if own(uid) || isAdmin(); allow write: if isAdmin(); }
+    // Veterinários parceiros: cada vet vê a sua ficha e pode se cadastrar (sempre inativo,
+    // sem saldo, aguardando aprovação). Só a loja aprova, edita comissão e paga.
+    match /partners/{uid} {
+      allow read: if own(uid) || isAdmin();
+      allow create: if isAdmin() || (own(uid)
+        && request.resource.data.active == false
+        && request.resource.data.approved == false
+        && request.resource.data.selfReg == true
+        && request.resource.data.saldo == 0);
+      allow update, delete: if isAdmin();
+    }
 
     // Receitas: o vet cria/edita as suas; a loja vê tudo; o cliente lê a dele ou pelo código.
     match /rx/{id} {
