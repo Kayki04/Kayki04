@@ -2306,7 +2306,15 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function fmtTs(ts){return new Date(ts).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}
   function toast(t){var el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){el.hidden=true},2800)}
 
-  var CATS=[['Todos','all'],['Cães','paw'],['Gatos','cat'],['Rações','bag'],['Petiscos','bone'],['Antipulgas','shield'],['Farmácia','pill'],['Higiene','drop'],['Brinquedos','ball'],['Acessórios','tag']];
+  var CATS=[['Todos','all'],['Cães','paw'],['Gatos','cat'],['Rações','bag'],['Petiscos','bone'],['Antiparasitários','shield'],['Farmácia','pill'],['Higiene','drop'],['Brinquedos','ball'],['Acessórios','tag']];
+  var VERM_RE=/vermifug|verm[íi]fugo|endogard|drontal|\bendal\b|helmex|praziquantel|pamoato|febendazol|fembendazol|milbem|\bvermic|vermivet|\bcanex\b|giardicid|panacur|prazitel|endoshield|vermplex|vermpet|nemato|anti-?helmint|helmint/i;
+  function normProdCats(p){
+    var orig=(p.t||[]).slice();
+    var t=orig.map(function(c){return c==='Antipulgas'?'Antiparasitários':c}).filter(function(c,i,a){return a.indexOf(c)===i});
+    if(p.name&&VERM_RE.test(p.name)&&t.indexOf('Antiparasitários')<0){t=t.filter(function(c){return c!=='Farmácia'});t.push('Antiparasitários')}
+    p._traw=orig;p.t=t;return p;
+  }
+  function antiparDirty(){return (D.products||[]).filter(function(p){return JSON.stringify(p.t||[])!==JSON.stringify(p._traw||[])})}
   var ICON_OPTS=[['bag','Saco de ração'],['shield','Escudo (antipulgas)'],['pill','Remédio'],['bone','Osso ou petisco'],['drop','Gota ou higiene'],['ball','Bola ou brinquedo'],['tag','Etiqueta ou acessório'],['bowl','Comedouro'],['bed','Cama'],['cat','Gato'],['paw','Patinha']];
   var SLOTS=['09:00','10:00','11:00','13:00','14:00','15:00','16:00','17:00'];
   var ORDER_ST=['Novo','Confirmado','Em separação','Saiu para entrega','Pronto para retirada','Entregue','Cancelado'];
@@ -2701,7 +2709,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       has('Gatos')?['cat:Gatos','Gatos','cat']:null,
       has('Rações')?['cat:Rações','Rações','bag']:null,
       D.services.some(function(s){return s.active!==false})?['banho','Banho e tosa','drop']:null,
-      has('Antipulgas')?['cat:Antipulgas','Antipulgas','shield']:null,
+      has('Antiparasitários')?['cat:Antiparasitários','Antiparasitários','shield']:null,
       has('Petiscos')?['cat:Petiscos','Petiscos','bone']:null,
       has('Higiene')?['cat:Higiene','Higiene','drop']:null,
       has('Farmácia')?['cat:Farmácia','Farmácia','pill']:null,
@@ -2767,7 +2775,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='<div class="grid" id="grid">';
     if(!list.length){
       if(q&&!base.length){
-        h+='<div class="empty-card" style="grid-column:1/-1"><h2>Nada encontrado para “'+esc(q)+'”</h2><p class="muted">Confira a escrita ou tente uma palavra mais simples, como a marca ou o tipo de produto.</p><div class="sugg">'+['Ração','Antipulgas','Petiscos','Areia','Shampoo','Vermífugo'].map(function(x){return '<button class="chip" data-sugg="'+x+'">'+x+'</button>'}).join('')+'</div>'+waBtn('Olá! Procurei por "'+q+'" no app e não encontrei. Vocês têm?','Perguntar no WhatsApp')+'</div>';
+        h+='<div class="empty-card" style="grid-column:1/-1"><h2>Nada encontrado para “'+esc(q)+'”</h2><p class="muted">Confira a escrita ou tente uma palavra mais simples, como a marca ou o tipo de produto.</p><div class="sugg">'+['Ração','Antiparasitários','Petiscos','Areia','Shampoo','Vermífugo'].map(function(x){return '<button class="chip" data-sugg="'+x+'">'+x+'</button>'}).join('')+'</div>'+waBtn('Olá! Procurei por "'+q+'" no app e não encontrei. Vocês têm?','Perguntar no WhatsApp')+'</div>';
       }else h+='<div class="empty-card" style="grid-column:1/-1"><h2>Nenhum produto com esses filtros</h2><button class="btn" data-fclr="*">Limpar filtros</button></div>';
     }
     list.forEach(function(p,n){h+=prodCard(p,n)});
@@ -2829,7 +2837,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var G={};
     D.products.forEach(function(p){
       if(p.active===false)return;
-      var t=p.t||[],med=t.indexOf('Antipulgas')>-1||t.indexOf('Farmácia')>-1;
+      var t=p.t||[],med=t.indexOf('Antiparasitários')>-1||t.indexOf('Farmácia')>-1;
       var w=wParse(p.name,med);if(!w||!w.key)return;
       var g=(G[w.key]=G[w.key]||{key:w.key,name:'',items:[]});
       if(w.base.length>g.name.length)g.name=w.base;
@@ -2889,7 +2897,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       (ri?'<div class="recnote">Recompra: '+brl(ri.price)+'</div>':'')+
       '<button class="add" data-add="'+esc(p.id)+'" '+(out?'disabled':'')+'>'+(out?'Esgotado':'+ Adicionar')+'</button></div></article>';
   }
-  var HOME_CATS=['Rações','Antipulgas','Petiscos','Higiene','Farmácia','Brinquedos','Acessórios'];
+  var HOME_CATS=['Rações','Antiparasitários','Petiscos','Higiene','Farmácia','Brinquedos','Acessórios'];
   function homeRows(list){
     var used={},h='',rows=0,PER=10;
     function score(p){var pr=priced(p);return (p.img?100:0)+(pr.off?50:0)+(p.badge?20:0)+(stockOf(p)>0?10:0)}
@@ -2905,7 +2913,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     ((D.me&&D.me.pets)||[]).slice(0,2).forEach(function(pt,pi){
       var sp=pt.k==='Gato'?'Gatos':pt.k==='Cachorro'?'Cães':'';if(!sp)return;
       var am=petAgeM(pt.bd),age=am==null?'':am<12?'Filhote':am>=84?'Sênior':'Adulto',w=num(pt.w),po=sp==='Cães'&&w?(w<=10?'Pequeno':w<=25?'Médio':'Grande'):'';
-      var CT=['Rações','Petiscos','Antipulgas','Higiene','Brinquedos','Acessórios'];
+      var CT=['Rações','Petiscos','Antiparasitários','Higiene','Brinquedos','Acessórios'];
       var it=list.filter(function(p){var t=p.t||[];if(t.indexOf(sp)<0||stockOf(p)<=0||!CT.some(function(c){return t.indexOf(c)>-1}))return false;var m=pMeta(p);if(age&&m.ag.length&&m.ag.indexOf(age)<0)return false;if(po&&m.po.length&&m.po.indexOf(po)<0)return false;return true});
       var sc=function(p){var m=pMeta(p),v=0;if(age&&m.ag.indexOf(age)>-1)v+=3;if(po&&m.po.indexOf(po)>-1)v+=3;if(priced(p).off)v+=2;if((p.t||[]).indexOf('Rações')>-1)v+=1;if(p.img)v+=1;return v};
       it.sort(function(a,b){return sc(b)-sc(a)||rankOf(a,bestRank())-rankOf(b,bestRank())});
@@ -4399,6 +4407,9 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var bad=D.products.filter(function(p){return p.name&&niceName(p.name)!==p.name});
     h+='<div class="acard"><div class="rowtight"><b>Nomes para padronizar</b><span class="st '+(bad.length?'warn':'ok')+'">'+bad.length+'</span></div><p class="hint">O app já mostra os nomes arrumados (sem CAIXA ALTA, "Quatree" escrito certo, "15 kg" com espaço). Este botão grava a versão arrumada no cadastro.</p>'+
       bad.slice(0,5).map(function(p){return '<span class="muted">'+esc(p.name)+' → <b>'+esc(niceName(p.name))+'</b></span>'}).join('')+(bad.length?'<button class="btn" data-act="fixNames">Padronizar '+bad.length+' nomes</button>':'')+'</div>';
+    var apd=antiparDirty();
+    h+='<div class="acard"><div class="rowtight"><b>Categoria Antiparasitários</b><span class="st '+(apd.length?'warn':'ok')+'">'+apd.length+'</span></div><p class="hint">A antiga categoria Antipulgas virou <b>Antiparasitários</b> e os vermífugos entram nela. O app já mostra assim; este botão grava a mudança no cadastro dos produtos (bom antes de exportar ou fazer backup).</p>'+
+      apd.slice(0,6).map(function(p){return '<span class="muted">'+esc(pName(p))+' → '+esc((p.t||[]).join(', '))+'</span>'}).join('')+(apd.length?'<button class="btn" data-act="migAntipar">Gravar '+apd.length+' produto'+(apd.length>1?'s':'')+'</button>':'<p class="hint" style="margin:0">Tudo gravado.</p>')+'</div>';
     m.innerHTML=h;
   }
   function buyText(){var lb='',t='Pedido de compra - Gatecão\n';buySuggest().forEach(function(x){if(x.b!==lb){t+='\n'+x.b+'\n';lb=x.b}t+='- '+x.need+' x '+pName(x.p)+(x.p.code?' ('+x.p.code+')':'')+'\n'});return t}
@@ -5432,7 +5443,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       saveFile('pedidos-gatecao-'+days+'dias.csv',L.join('\r\n'))},
     buyCopy:function(){var t=buyText();try{navigator.clipboard.writeText(t).then(function(){toast('Lista copiada. Cole no WhatsApp do fornecedor.')},function(){toast('Não foi possível copiar')})}catch(e){toast('Não foi possível copiar')}},
     buyCsv:function(){var L=[csvLine(['Marca','Código','Produto','Vendeu (30 dias)','Estoque','Pedir'])];buySuggest().forEach(function(x){L.push(csvLine([x.b,x.p.code||'',pName(x.p),x.q,x.st,x.need]))});saveFile('sugestao-compra-gatecao.csv',L.join('\r\n'))},
-    fixNames:async function(){var bad=D.products.filter(function(p){return p.name&&niceName(p.name)!==p.name});if(!state.adm.fixSure||Date.now()-state.adm.fixSure>8000){state.adm.fixSure=Date.now();toast('Toque de novo para gravar '+bad.length+' nomes');return}state.adm.fixSure=0;toast('Gravando nomes...');var n=0;for(var i=0;i<bad.length;i++){try{await X.db.doc('products/'+bad[i].id).update({name:niceName(bad[i].name)});n++}catch(e){}}toast(n+' nomes padronizados')}
+    fixNames:async function(){var bad=D.products.filter(function(p){return p.name&&niceName(p.name)!==p.name});if(!state.adm.fixSure||Date.now()-state.adm.fixSure>8000){state.adm.fixSure=Date.now();toast('Toque de novo para gravar '+bad.length+' nomes');return}state.adm.fixSure=0;toast('Gravando nomes...');var n=0;for(var i=0;i<bad.length;i++){try{await X.db.doc('products/'+bad[i].id).update({name:niceName(bad[i].name)});n++}catch(e){}}toast(n+' nomes padronizados')},
+    migAntipar:async function(){var apd=antiparDirty();if(!apd.length)return;if(!state.adm.migSure||Date.now()-state.adm.migSure>8000){state.adm.migSure=Date.now();toast('Toque de novo para gravar '+apd.length+' produtos');return}state.adm.migSure=0;toast('Gravando categorias...');var n=0;for(var i=0;i<apd.length;i++){try{await X.db.doc('products/'+apd[i].id).update({t:apd[i].t});n++}catch(e){}}toast(n+' produtos atualizados para Antiparasitários')}
   };
   var CHG={
     px:async function(id,el){
@@ -5625,7 +5637,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
 
   /* ---------- meus pets: saúde e lembretes ---------- */
-  var PET_CARE=[['vac','Vacina',365,'a'],['verm','Vermífugo',90,'o'],['pul','Antipulgas',30,'o']];
+  var PET_CARE=[['vac','Vacina',365,'a'],['verm','Vermífugo',90,'o'],['pul','Antiparasitários',30,'o']];
   var CARE_EV={vac:[[365,'1 ano'],[180,'6 meses']],verm:[[30,'1 mês'],[60,'2 meses'],[90,'3 meses'],[120,'4 meses'],[180,'6 meses']],pul:[[30,'1 mês'],[35,'5 semanas'],[60,'2 meses'],[84,'12 semanas'],[90,'3 meses']]};
   function dayDiff(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/864e5)}
   function fmtDM(d){return d?d.slice(8,10)+'/'+d.slice(5,7):''}
@@ -6414,8 +6426,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(has(/biscoito|petisco|bifinho|\bosso\b|snack|cookie/)){out.push('Petiscos');food=false}
     if(has(/areia|tapete|granulado sanitario/)){out.push('Higiene');if(!has(/combo/))food=false}
     if(food)out.push('Rações');
-    if(has(/endogard|vermifug/))out.push('Farmácia');
-    else if(has(/antipulga|carrapato|nexgard|simparic|frontline|capstar|seresto|ectofend|leevre|vaponex|wellpet|antiparasitari|bravecto|credeli|revolution|advocate/)){out.push('Antipulgas');pulga=true}
+    if(has(/antipulga|carrapato|nexgard|simparic|frontline|capstar|seresto|ectofend|leevre|vaponex|wellpet|antiparasitari|bravecto|credeli|revolution|advocate|endogard|vermifug|verm[íi]fugo|drontal|endal|endogard|helmex|praziquantel|pamoato|febendazol|fembendazol|milbem|vermic|vermivet|canex|giardicid|panacur|prazitel|endoshield|vermplex|vermpet/)){out.push('Antiparasitários');pulga=true}
     else if(!food&&has(/comprimid|capsula|\bcmp\b|\d\s?mg\b|suplement|probiotic|antibiot|anti-?inflamat|antimicrob|antibacter|otolog|auricular|orelha|ocular|homeopat|antiemet|ograx|condroplex|apoquel|predniso|vitamin|\bflora\b|omega/))out.push('Farmácia');
     if(has(/shampoo|condicionador|sabonete|perfume|colonia|escova|cortador/)&&out.indexOf('Higiene')<0)out.push('Higiene');
     if(has(/brinquedo|bolinha|\bbola\b|mordedor|arranhador|pelucia/))out.push('Brinquedos');
@@ -6423,8 +6434,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     return out;
   }
   function inferIcon(cats){
-    var m={'Rações':'bag','Petiscos':'bone','Antipulgas':'shield','Farmácia':'pill','Higiene':'drop','Brinquedos':'ball','Acessórios':'tag','Gatos':'cat'};
-    var order=['Rações','Petiscos','Antipulgas','Farmácia','Higiene','Brinquedos','Acessórios','Gatos'];
+    var m={'Rações':'bag','Petiscos':'bone','Antiparasitários':'shield','Farmácia':'pill','Higiene':'drop','Brinquedos':'ball','Acessórios':'tag','Gatos':'cat'};
+    var order=['Rações','Petiscos','Antiparasitários','Farmácia','Higiene','Brinquedos','Acessórios','Gatos'];
     for(var i=0;i<order.length;i++)if(cats.indexOf(order[i])>-1)return m[order[i]];
     return 'paw';
   }
@@ -6754,7 +6765,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     L.push({key:'hero',name:'Banner principal (texto em Loja)',tag:S('heroTag','Semana do Gatecão'),title:S('heroTitle','Ofertas para o seu pet'),text:S('heroText','Confira os preços especiais desta semana.'),cta:'Ver ofertas',dest:'ofertas',theme:'laranja',art:'dog'});
     D.promos.filter(function(x){return promoState(x)==='ativa'}).slice(0,4).forEach(function(pr){
       var svc=String(pr.scope).indexOf('svc')===0;
-      var catIc={'Rações':'bag','Petiscos':'bone','Antipulgas':'shield','Farmácia':'pill','Higiene':'drop','Brinquedos':'ball','Acessórios':'tag','Gatos':'cat','Cães':'paw'};
+      var catIc={'Rações':'bag','Petiscos':'bone','Antiparasitários':'shield','Farmácia':'pill','Higiene':'drop','Brinquedos':'ball','Acessórios':'tag','Gatos':'cat','Cães':'paw'};
       L.push({key:'promo_'+pr.id,name:'Promoção: '+pr.name,tag:pr.name||'Promoção',title:promoTitle(pr),text:(pr.end?'Válido até '+fmtDayLong(pr.end)+'.':'Por tempo limitado.')+(svc&&pr.when==='extra'?' Contratando junto com outro serviço.':''),
         cta:svc?'Agendar':'Aproveitar',dest:svc?'banho':pr.scope==='cat'?'cat:'+pr.target:pr.scope==='product'?'produto:'+pr.target:'ofertas',theme:svc?'azul':'laranja',art:svc?'drop':(pr.scope==='cat'&&catIc[pr.target])||'tag'});
     });
@@ -6948,7 +6959,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
         if(c.none||c.d>7||c.d<-90)return;
         var when=c.d<0?'está atrasad'+c.g:c.d===0?'vence hoje':'vence em '+c.d+' dia'+(c.d===1?'':'s');
         var body=(c.k==='vac'?'A última foi em ':'O último foi em ')+c.last.split('-').reverse().join('/')+'. '+(c.k==='vac'?'Fale com a loja ou com o veterinário.':'Veja as opções na loja.');
-        out.push({id:'pc_'+i+'_'+c.k+'_'+c.next,title:c.l+' '+de+' '+p.n+' '+when,body:body,go:c.k==='pul'?'cat:Antipulgas':c.k==='verm'?(vermQ?'q:vermifugo':'cat:Farmácia'):'',cta:c.k==='pul'?'Ver antipulgas':vermQ?'Ver vermífugos':'Ver farmácia',done:i+'|'+c.k});
+        out.push({id:'pc_'+i+'_'+c.k+'_'+c.next,title:c.l+' '+de+' '+p.n+' '+when,body:body,go:c.k==='pul'?'cat:Antiparasitários':c.k==='verm'?'cat:Antiparasitários':'',cta:c.k==='pul'?'Ver antiparasitários':'Ver vermífugos',done:i+'|'+c.k});
       });
       var bd=nextBday(p.bd);
       if(bd&&bd.d<=3)out.push({id:'bd_'+i+'_'+bd.day,title:(bd.d===0?'Hoje é aniversário '+de+' '+p.n+'!':'Aniversário '+de+' '+p.n+' em '+bd.d+' dia'+(bd.d===1?'':'s')),body:(bd.age>0?bd.age+(bd.age===1?' aninho':' anos')+'! ':'')+(function(){var cp=D.coupons.filter(function(c){return c.uid===X.uid&&c.auto==='niver'&&cpState(c)==='ativo'})[0];return cp?'Presente da Gatecão: cupom '+cp.code+' com '+num(cp.value)+'% de desconto até '+fmtDM(cp.end)+'.':'Que tal um mimo? Veja petiscos e brinquedos na loja.'})(),go:'cat:Petiscos',cta:'Ver petiscos'});
@@ -7104,7 +7115,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       X.db.collection(name).onSnapshot(function(s){fn(s);D.ready[key]=true;schedule()},function(e){D.ready[key]=true;D.err=e&&e.code;schedule()});
     }
     function plain(key){return function(s){D[key]=s.docs.map(function(d){return Object.assign({id:d.id},d.data())})}}
-    col('products','products',plain('products'));
+    col('products','products',function(s){D.products=s.docs.map(function(d){return normProdCats(Object.assign({id:d.id},d.data()))})});
     col('promos','promos',plain('promos'));
     col('tables','tables',plain('tables'));
     col('services','services',plain('services'));
