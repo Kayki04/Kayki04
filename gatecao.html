@@ -4792,6 +4792,13 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function openRxBuilder(reset){if(reset||!RXD)RXD={items:{},order:[],forClient:false,clientName:'',clientPhone:'',petName:'',petKind:'Cão',obs:'',q:''};renderRxBuilder()}
   function rxSearch(q){var qs=null;try{qs=searchScores(q)}catch(e){}if(!qs||!qs.s)return [];return Object.keys(qs.s).sort(function(a,b){return qs.s[b]-qs.s[a]}).map(function(id){return byId(D.products,id)}).filter(function(p){return p&&p.active!==false}).slice(0,8)}
   function rxSimilars(p){var g=varOf(p),out=[];if(g)g.items.forEach(function(it){if(it.p.id!==p.id&&stockOf(it.p)>0)out.push(it.p)});relatedOf(p,8).forEach(function(x){if(out.length<6&&out.indexOf(x)<0&&(x.t||[]).some(function(c){return (p.t||[]).indexOf(c)>-1}))out.push(x)});return out.slice(0,6)}
+  function rxAddManual(){
+    var h='<div class="mpcard"><div class="mphd"><b>Medicamento manual</b><button class="ghost" id="mpX">Fechar</button></div><p class="hint" style="margin:0">Para medicamentos que a loja não tem. Entra na receita como orientação; o cliente não compra pelo app.</p><input class="in" id="rxmname" placeholder="Nome do medicamento" style="font-size:16px"><button class="primary" id="rxmadd">Adicionar à receita</button></div>';
+    mpBox(h);bindBox();
+    var add=function(){var nm=(($('#rxmname')||{}).value||'').trim();if(!nm){toast('Digite o nome do medicamento');return}var ck='cst_'+Date.now().toString(36);RXD.items[ck]={custom:true,name:nm.slice(0,80),q:1,note:'',alts:{}};RXD.order.push(ck);mpClose();renderRxBuilder();};
+    var btn=$('#rxmadd');if(btn)btn.onclick=add;
+    var inp=$('#rxmname');if(inp){try{inp.focus()}catch(e){}inp.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();add()}}}
+  }
   function rxGrabFields(){var g=function(id){var e=document.getElementById(id);return e?e.value:undefined},v;
     if((v=g('rxpet'))!==undefined)RXD.petName=v;if((v=g('rxpk'))!==undefined)RXD.petKind=v;if((v=g('rxobs'))!==undefined)RXD.obs=v;
     if((v=g('rxcn'))!==undefined)RXD.clientName=v;if((v=g('rxcp'))!==undefined)RXD.clientPhone=v;if((v=g('rxq'))!==undefined)RXD.q=v;}
@@ -4804,14 +4811,16 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='<div class="acard"><b>Paciente</b><div class="two"><label class="fld">Nome do pet<input class="in" id="rxpet" value="'+esc(RXD.petName||'')+'" placeholder="Ex.: Rex"></label><label class="fld">Espécie<select class="in" id="rxpk">'+['Cão','Gato','Outro'].map(function(k){return '<option'+(RXD.petKind===k?' selected':'')+'>'+k+'</option>'}).join('')+'</select></label></div></div>';
     h+='<div class="acard"><div class="rowtight"><b>Para um cliente específico</b><button class="sw" id="rxfc" role="switch" aria-checked="'+(RXD.forClient?'true':'false')+'"></button></div>'+
       (RXD.forClient?'<label class="fld">Nome do cliente<input class="in" id="rxcn" value="'+esc(RXD.clientName)+'" placeholder="Nome do tutor"></label><label class="fld">WhatsApp do cliente<input class="in" id="rxcp" inputmode="tel" value="'+esc(RXD.clientPhone)+'" placeholder="(21) 90000-0000"></label><p class="hint">A receita aparece no app dele (quando ele usa o mesmo telefone) e você também recebe o código.</p>':'<p class="hint">Sem cliente: gera um código que você passa pra qualquer pessoa usar no app.</p>')+'</div>';
-    h+='<div class="acard"><b>Medicamentos</b><input class="in" id="rxq" value="'+esc(RXD.q||'')+'" placeholder="Buscar medicamento/produto" autocomplete="off"><div id="rxres" class="picklist" hidden></div>';
-    if(!RXD.order.length)h+='<p class="hint">Nenhum item ainda. Busque e toque para adicionar.</p>';
-    RXD.order.forEach(function(pid){
-      var p=byId(D.products,pid);if(!p)return;var it=RXD.items[pid],sims=rxSimilars(p);
-      h+='<div class="rxitem"><div class="rowtight"><b>'+esc(pName(p))+'</b><button class="mini danger" data-rxdel="'+esc(pid)+'">Remover</button></div>'+
-        '<div class="rxqrow"><span class="muted">Quantidade</span><div class="qty"><button data-rxdec="'+esc(pid)+'">-</button><b>'+it.q+'</b><button data-rxinc="'+esc(pid)+'">+</button></div></div>'+
-        '<input class="in" data-rxnote="'+esc(pid)+'" value="'+esc(it.note||'')+'" placeholder="Orientação (ex.: 1 comp. 12/12h por 7 dias)" maxlength="200">'+
-        (sims.length?'<div class="rxsims"><span class="muted">Opções similares que o cliente pode escolher:</span><div class="rxchips">'+sims.map(function(s){var on=!!(it.alts&&it.alts[s.id]);return '<button class="rxchip'+(on?' on':'')+'" data-rxalt="'+esc(pid)+'|'+esc(s.id)+'">'+(on?'✓ ':'')+esc(pName(s))+'</button>'}).join('')+'</div></div>':'')+'</div>';
+    h+='<div class="acard"><b>Medicamentos</b><input class="in" id="rxq" value="'+esc(RXD.q||'')+'" placeholder="Buscar medicamento/produto" autocomplete="off"><div id="rxres" class="picklist" hidden></div><button class="btn line" id="rxmanual" style="margin-top:8px">➕ Prescrever um que não temos</button>';
+    if(!RXD.order.length)h+='<p class="hint">Nenhum item ainda. Busque e toque para adicionar, ou prescreva um manual.</p>';
+    RXD.order.forEach(function(key){
+      var it=RXD.items[key];if(!it)return;var p=it.custom?null:byId(D.products,key);if(!it.custom&&!p)return;
+      var nm=it.custom?(it.name||'Medicamento'):pName(p),sims=it.custom?[]:rxSimilars(p);
+      h+='<div class="rxitem"><div class="rowtight"><b>'+esc(nm)+(it.custom?' <span class="st warn" style="font-size:10px">não temos</span>':'')+'</b><button class="mini danger" data-rxdel="'+esc(key)+'">Remover</button></div>'+
+        (it.custom?'<div class="muted" style="font-size:12px;margin:-2px 0 6px">Fora da nossa lista — vai como orientação na receita (o cliente não compra pelo app).</div>':'')+
+        '<div class="rxqrow"><span class="muted">Quantidade</span><div class="qty"><button data-rxdec="'+esc(key)+'">-</button><b>'+it.q+'</b><button data-rxinc="'+esc(key)+'">+</button></div></div>'+
+        '<input class="in" data-rxnote="'+esc(key)+'" value="'+esc(it.note||'')+'" placeholder="Orientação (ex.: 1 comp. 12/12h por 7 dias)" maxlength="200">'+
+        (sims.length?'<div class="rxsims"><span class="muted">Opções similares que o cliente pode escolher:</span><div class="rxchips">'+sims.map(function(s){var on=!!(it.alts&&it.alts[s.id]);return '<button class="rxchip'+(on?' on':'')+'" data-rxalt="'+esc(key)+'|'+esc(s.id)+'">'+(on?'✓ ':'')+esc(pName(s))+'</button>'}).join('')+'</div></div>':'')+'</div>';
     });
     h+='</div>';
     h+='<div class="acard"><b>Observação geral</b><textarea class="in" id="rxobs" rows="3" maxlength="500" placeholder="Observação avulsa para o tutor (ex.: retornar em 15 dias, jejum antes do exame...)">'+esc(RXD.obs||'')+'</textarea></div>';
@@ -4830,12 +4839,14 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var pk=$('#rxpk');if(pk)pk.onchange=function(){RXD.petKind=pk.value};
     var obs=$('#rxobs');if(obs)obs.oninput=function(){RXD.obs=obs.value};
     var q=$('#rxq'),res=$('#rxres');
-    if(q)q.oninput=function(){RXD.q=q.value;var r=(q.value.trim().length>=2)?rxSearch(q.value):[];if(!r.length){res.hidden=true;res.innerHTML='';return}res.hidden=false;res.innerHTML=r.map(function(p){return '<button class="pickrow2" data-rxadd="'+esc(p.id)+'"'+(RXD.items[p.id]?' disabled':'')+'>'+esc(pName(p))+' · '+(stockOf(p)>0?'em estoque':'sob encomenda')+'</button>'}).join('')};
+    if(q)q.oninput=function(){var qv=q.value.trim();RXD.q=q.value;var r=(qv.length>=2)?rxSearch(q.value):[];if(qv.length<2){res.hidden=true;res.innerHTML='';return}res.hidden=false;res.innerHTML=r.map(function(p){return '<button class="pickrow2" data-rxadd="'+esc(p.id)+'"'+(RXD.items[p.id]?' disabled':'')+'>'+esc(pName(p))+' · '+(stockOf(p)>0?'em estoque':'sob encomenda')+'</button>'}).join('')+'<button class="pickrow2" data-rxcustom="'+esc(qv)+'">➕ Prescrever "'+esc(qv)+'" (não temos — vai como orientação)</button>'};
     var s=$('#overlay');
     $$('[data-rxnote]',s).forEach(function(i){i.oninput=function(){var pid=i.getAttribute('data-rxnote');if(RXD.items[pid])RXD.items[pid].note=i.value}});
     s.onclick=function(e){
       var a;
-      if(e.target.closest('[data-rxadd],[data-rxdel],[data-rxinc],[data-rxdec],[data-rxalt]'))rxGrabFields();
+      if(e.target.closest('#rxmanual')){rxGrabFields();rxAddManual();return}
+      if(e.target.closest('[data-rxadd],[data-rxdel],[data-rxinc],[data-rxdec],[data-rxalt],[data-rxcustom]'))rxGrabFields();
+      if((a=e.target.closest('[data-rxcustom]'))){var cn=a.getAttribute('data-rxcustom').trim();if(cn){var ck='cst_'+Date.now().toString(36);RXD.items[ck]={custom:true,name:cn.slice(0,80),q:1,note:'',alts:{}};RXD.order.push(ck);RXD.q='';}renderRxBuilder();return}
       if((a=e.target.closest('[data-rxadd]'))){if(a.disabled)return;var pid=a.getAttribute('data-rxadd');if(!RXD.items[pid]){RXD.items[pid]={q:1,note:'',alts:{}};RXD.order.push(pid)}RXD.q='';renderRxBuilder();return}
       if((a=e.target.closest('[data-rxdel]'))){var p1=a.getAttribute('data-rxdel');delete RXD.items[p1];RXD.order=RXD.order.filter(function(x){return x!==p1});renderRxBuilder();return}
       if((a=e.target.closest('[data-rxinc]'))){var p2=a.getAttribute('data-rxinc');if(RXD.items[p2])RXD.items[p2].q++;renderRxBuilder();return}
@@ -4848,7 +4859,9 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   async function rxGenerate(){
     rxGrabFields();
     var approved=vetApproved();
-    var items=RXD.order.map(function(pid){var it=RXD.items[pid],p=byId(D.products,pid);if(!p)return null;return {id:pid,n:pName(p),q:Math.max(1,Math.floor(num(it.q))||1),note:(it.note||'').slice(0,200),alts:Object.keys(it.alts||{}).filter(function(a){return it.alts[a]}).slice(0,6),disc:approved?rxDiscForProd(p):0}}).filter(Boolean);
+    var items=RXD.order.map(function(key){var it=RXD.items[key];if(!it)return null;
+      if(it.custom)return {custom:true,id:'',n:(it.name||'').slice(0,80),q:Math.max(1,Math.floor(num(it.q))||1),note:(it.note||'').slice(0,200),alts:[],disc:0};
+      var p=byId(D.products,key);if(!p)return null;return {id:key,n:pName(p),q:Math.max(1,Math.floor(num(it.q))||1),note:(it.note||'').slice(0,200),alts:Object.keys(it.alts||{}).filter(function(a){return it.alts[a]}).slice(0,6),disc:approved?rxDiscForProd(p):0}}).filter(function(x){return x&&(x.custom?x.n:true)});
     if(!items.length){toast('Adicione ao menos um medicamento');return}
     if(RXD.forClient&&!RXD.clientName.trim()){toast('Informe o nome do cliente');return}
     var code='RX'+Math.random().toString(36).slice(2,4).toUpperCase()+Date.now().toString(36).slice(-4).toUpperCase();
@@ -4860,7 +4873,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
   function rxShareView(rx){
     var url='https://gatecao.com.br/#rx/'+rx.code;
-    var msg='Receita da Gatecão Pet Shop'+(rx.vetName?' (Dr(a). '+rx.vetName+')':'')+(rx.petName?'\nPaciente: '+rx.petName+(rx.petKind?' ('+rx.petKind+')':''):'')+':\n'+(rx.items||[]).map(function(i){return '• '+i.q+'x '+i.n+(i.note?' — '+i.note:'')}).join('\n')+(rx.obs?'\n\nObs.: '+rx.obs:'')+'\n\nUse o código '+rx.code+' no app'+(num(rx.discPct)>0?' e ganhe até '+rx.discPct+'% de desconto':'')+':\n'+url;
+    var msg='Receita da Gatecão Pet Shop'+(rx.vetName?' (Dr(a). '+rx.vetName+')':'')+(rx.petName?'\nPaciente: '+rx.petName+(rx.petKind?' ('+rx.petKind+')':''):'')+':\n'+(rx.items||[]).map(function(i){return '• '+i.q+'x '+i.n+(i.note?' — '+i.note:'')+((i.custom||!i.id)?' (sob encomenda)':'')}).join('\n')+(rx.obs?'\n\nObs.: '+rx.obs:'')+'\n\nUse o código '+rx.code+' no app'+(num(rx.discPct)>0?' e ganhe até '+rx.discPct+'% de desconto':'')+':\n'+url;
     var wa='https://wa.me/'+(rx.clientPhone?('55'+rx.clientPhone):'')+'?text='+encodeURIComponent(msg);
     var h='<div class="row"><h2>Receita gerada</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
     h+='<div class="acard" style="text-align:center"><span class="muted">Código da receita</span><div class="rxcode">'+esc(rx.code)+'</div><p class="hint" style="margin:6px 0 0">O cliente digita este código no app (ou abre o link) e os itens entram no carrinho'+(num(rx.discPct)>0?' com até '+rx.discPct+'% de desconto':'')+'.</p>'+(rx.pendingVet?'<p class="hint" style="margin:4px 0 0;color:#B4232A">Seu cadastro ainda está em análise, então esta receita sai sem desconto. Depois da aprovação, as próximas já saem com desconto.</p>':'')+'</div>';
@@ -4972,14 +4985,20 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var box=$('#rxrview');if(!box||!RXV)return;var rx=RXV.rx;
     var h='<div class="acard"><div class="rowtight"><b>Receita '+esc(rx.code)+'</b>'+(num(rx.discPct)>0?'<span class="st info">até '+rx.discPct+'% off</span>':'')+'</div><span class="muted">'+(rx.vetName?'Dr(a). '+esc(rx.vetName):'Veterinário parceiro')+(rx.vetCrmv?' · CRMV '+esc(rx.vetCrmv):'')+(rx.vetEspec?' · '+esc(rx.vetEspec):'')+'</span>'+(rx.petName?'<div class="muted" style="font-size:13px;margin-top:3px">Paciente: <b>'+esc(rx.petName)+'</b>'+(rx.petKind?' ('+esc(rx.petKind)+')':'')+'</div>':'')+'</div>';
     if(rx.obs)h+='<div class="acard" style="background:#FFF9ED;border:1px solid #F0D9A8"><b>Observação do veterinário</b><p style="margin:4px 0 0;font-size:14px;line-height:1.45">'+esc(rx.obs)+'</p></div>';
+    var nBuy=0;
     (rx.items||[]).forEach(function(it){
+      if(it.custom||!it.id){
+        h+='<div class="rxitem"><div class="rowtight"><b>'+it.q+'x '+esc(it.n)+'</b><span class="st warn">sob encomenda</span></div>'+(it.note?'<div class="muted" style="font-size:12px">'+esc(it.note)+'</div>':'')+'<div class="muted" style="font-size:12px">Não temos este item em estoque — vai como orientação da receita. Fale com a loja para conseguir.</div></div>';
+        return;
+      }
+      nBuy++;
       var opts=rxOptList(it),chosen=RXV.choice[it.id],idisc=it.disc!=null?num(it.disc):(num(rx.discPct)||0);
       h+='<div class="rxitem"><div class="rowtight"><b>'+it.q+'x '+esc(it.n)+'</b>'+(idisc>0?'<span class="st ok">'+idisc+'% off</span>':'')+'</div>'+(it.note?'<div class="muted" style="font-size:12px">'+esc(it.note)+'</div>':'');
       if(opts.length>1){h+='<div class="rxsims"><span class="muted">Escolha a opção:</span><div class="rxchips">'+opts.map(function(p){var out=stockOf(p)<=0,on=chosen===p.id;return '<button class="rxchip'+(on?' on':'')+'" data-rxpick="'+esc(it.id)+'|'+esc(p.id)+'"'+(out?' disabled':'')+'>'+(on?'✓ ':'')+esc(pName(p))+' · '+brl(priced(p).price)+(out?' · esgotado':'')+'</button>'}).join('')+'</div></div>';}
       else{var p0=opts[0];h+='<div class="muted" style="font-size:12px">'+(p0?brl(priced(p0).price)+(stockOf(p0)<=0?' · esgotado':''):'produto indisponível')+'</div>'}
       h+='</div>';
     });
-    h+='<button class="primary" id="rxuse" style="margin-top:12px">Adicionar ao carrinho com desconto</button>';
+    h+=nBuy?'<button class="primary" id="rxuse" style="margin-top:12px">Adicionar ao carrinho'+(num(rx.discPct)>0?' com desconto':'')+'</button>':'<p class="hint" style="text-align:center;margin-top:12px">Esta receita é só de orientação — os itens não estão à venda no app. Fale com a loja pelo WhatsApp.</p>';
     box.innerHTML=h;
     box.querySelectorAll('[data-rxpick]').forEach(function(b){b.onclick=function(){if(b.disabled)return;var a=b.getAttribute('data-rxpick').split('|');RXV.choice[a[0]]=a[1];renderRxPreview()}});
     var u=$('#rxuse');if(u)u.onclick=rxUse;
@@ -4988,12 +5007,13 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var rx=RXV&&RXV.rx;if(!rx)return;
     var items=[],added=0,miss=0;
     (rx.items||[]).forEach(function(it){
+      if(it.custom||!it.id)return;
       var pid=RXV.choice[it.id]||it.id,p=byId(D.products,pid);
       if(!p||p.active===false||stockOf(p)<=0){miss++;return}
       var cur=state.cart[pid]||0,want=Math.max(1,num(it.q)||1),n=Math.max(0,Math.min(want,stockOf(p)-cur));
       if(n){state.cart[pid]=cur+n;var disc=it.disc!=null?num(it.disc):(num(rx.discPct)||rxDiscForProd(byId(D.products,it.id)));items.push({pid:pid,q:n,disc:disc});added+=n}else miss++;
     });
-    if(!added){toast('Os itens da receita estão indisponíveis no momento');return}
+    if(!added){toast('Os itens vendidos aqui estão indisponíveis no momento');return}
     state.rx={code:rx.code,vetUid:rx.vetUid,vetName:rx.vetName||'',discPct:num(rx.discPct)||0,items:items};
     try{if(X.uid&&X.db&&rx.clientUid!==X.uid)X.db.doc('rx/'+rx.code).update({clientUid:X.uid}).catch(function(){})}catch(e){}
     rxSave();persist();bumpCart();
