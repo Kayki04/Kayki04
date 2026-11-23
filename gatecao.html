@@ -4308,7 +4308,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var h='<div class="seg"><button data-act="mbTab" data-id="venda" aria-pressed="'+(MB.tab==='venda')+'">Venda manual</button><button data-act="mbTab" data-id="banho" aria-pressed="'+(MB.tab==='banho')+'">Agendar banho e tosa</button></div>';
     if(MB.tab==='banho'){m.innerHTML=h+mbBanhoHtml();mbBanhoBind();return}
     h+='<div class="acard"><b>Nova venda no balcão</b><p class="hint">Retaguarda: você vê o custo, o preço de venda e o lucro de cada item. Ao registrar, o estoque é baixado e a venda entra nos relatórios.</p>'+
-      '<label class="fld">Buscar produto<input class="in" id="mbQ" placeholder="Nome ou código do produto" autocomplete="off"></label><div class="mbres" id="mbRes" hidden></div></div>';
+      '<label class="fld">Buscar produto<div style="position:relative"><input class="in" id="mbQ" placeholder="Nome ou código do produto" autocomplete="off" style="padding-right:46px"><button id="mbScan" class="scanbtn" type="button" aria-label="Ler código de barras"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><path d="M6 8v8M9.5 8v8M13 8v8M18 8v8" stroke-width="1.6"/></svg></button></div></label><div class="mbres" id="mbRes" hidden></div></div>';
     h+='<div class="acard"><b>Itens da venda</b><div class="gridwrap" id="mbCart" style="border:0"></div><div id="mbTot"></div></div>';
     h+='<div class="acard"><b>Cliente</b><p class="hint" style="margin:0">Busque um cliente cadastrado ou cadastre na hora. Sem cliente, a venda é avulsa.</p><div id="mbCustBox"></div></div>';
     h+='<div class="acard"><div class="two"><label class="fld">Pagamento<select class="in" id="mbPay">'+opts(['Dinheiro','Pix','Cartão de débito','Cartão de crédito'],MB.pay)+'</select></label>'+
@@ -4323,6 +4323,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       res.hidden=false;res.innerHTML=list.length?list.map(function(p){return '<button data-mbadd="'+esc(p.id)+'"><span>'+esc(pName(p))+'<br><span class="muted" style="font-size:12px">estoque '+stockOf(p)+(num(p.cost)>0?' · custo '+brl(p.cost):' · sem custo')+'</span></span><span class="pz">'+brl(priced(p).price)+'</span></button>'}).join(''):'<button disabled style="color:var(--muted)">Nenhum produto</button>';
     };
     res.onclick=function(e){var b=e.target.closest('[data-mbadd]');if(!b)return;var id=b.getAttribute('data-mbadd');MB.items[id]=(MB.items[id]||0)+1;$('#mbQ').value='';res.hidden=true;mbRender()};
+    var mbsc=$('#mbScan');if(mbsc)mbsc.onclick=function(){openScanner(function(code){var pp=prodByCode(code);if(pp){MB.items[pp.id]=(MB.items[pp.id]||0)+1;mbRender();toast('Adicionado: '+pName(pp))}else{var el=$('#mbQ');if(el){el.value=code;el.dispatchEvent(new Event('input'))}toast('Nenhum produto com esse código')}})};
     var cart=$('#mbCart');
     cart.onclick=function(e){var b=e.target.closest('[data-mbinc],[data-mbdec],[data-mbdel]');if(!b)return;var id=b.getAttribute('data-mbinc')||b.getAttribute('data-mbdec')||b.getAttribute('data-mbdel');
       if(b.hasAttribute('data-mbinc'))MB.items[id]=(MB.items[id]||0)+1;
