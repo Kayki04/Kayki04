@@ -1,0 +1,153 @@
+<title>Trip Paleta</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;900&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: uma coluna estreita como tela de celular; cores da marca só na interface, conteúdo sobre neutro */
+:root{
+  --magenta:#FF0A78; --roxo:#8A2BE2; --ciano:#00D4FF;
+  --lima:#C6FF00; --laranja:#FF8A00;
+  --branco:#FFFFFF; --nevoa:#F4F3F7; --linha:#E6E3EC;
+  --tinta:#14121A; --cinza:#6E6A78; --noite:#0B0A10;
+  --marca:linear-gradient(120deg,var(--magenta),var(--roxo) 55%,var(--ciano));
+  --f-logo:"Unbounded","Arial Black",system-ui,sans-serif;
+  --f-texto:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+html{background:var(--nevoa)}
+body{background:var(--nevoa);color:var(--tinta);font-family:var(--f-texto);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 48px}
+.wrap{max-width:440px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--cinza);margin:0 0 10px;font-weight:600}
+.logo{font-family:var(--f-logo);font-weight:900;font-size:64px;letter-spacing:-.04em;line-height:1;
+  background:var(--marca);-webkit-background-clip:text;background-clip:text;color:transparent;margin:0}
+.sub{color:var(--cinza);margin:6px 0 0}
+.chips{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.chip{border-radius:12px;height:56px;display:flex;align-items:flex-end;padding:6px 8px;font-size:11px;font-weight:600}
+.chip span{background:rgba(255,255,255,.85);color:var(--tinta);border-radius:6px;padding:1px 5px}
+.usos{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--cinza)}
+.usos b{color:var(--tinta)}
+.app{background:var(--branco);border-radius:24px;overflow:hidden;border:1px solid var(--linha)}
+.topo{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--linha)}
+.topo .logo{font-size:26px}
+.sino{position:relative;width:26px;height:26px;border:2px solid var(--tinta);border-radius:8px 8px 4px 4px}
+.sino::after{content:"3";position:absolute;top:-8px;right:-10px;background:var(--magenta);color:#fff;font-size:10px;font-weight:700;border-radius:99px;padding:1px 5px}
+.stories{display:flex;gap:12px;padding:14px 16px;overflow-x:auto}
+.st{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--cinza);flex:none}
+.anel{width:60px;height:60px;border-radius:50%;padding:3px;background:var(--marca)}
+.anel.visto{background:var(--linha)}
+.anel i{display:block;width:100%;height:100%;border-radius:50%;border:3px solid var(--branco)}
+.post{border-top:1px solid var(--linha)}
+.ph{display:flex;align-items:center;gap:10px;padding:10px 16px}
+.av{width:34px;height:34px;border-radius:50%}
+.nome{font-weight:600;font-size:14px;display:flex;align-items:center;gap:6px}
+.selo{background:var(--marca);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:99px}
+.tag{margin-left:auto;font-size:11px;font-weight:700;color:var(--laranja);border:1.5px solid var(--laranja);border-radius:99px;padding:2px 8px}
+.foto{aspect-ratio:4/5;max-width:100%;background:linear-gradient(160deg,#c9b8a6,#7d6a5c 60%,#3d3430)}
+.bloq{position:relative;aspect-ratio:4/5;max-width:100%;overflow:hidden;background:linear-gradient(160deg,#d7a99a,#8f5d68 55%,#3a2a3a)}
+.bloq::before{content:"";position:absolute;inset:-20px;background:inherit;filter:blur(22px)}
+.bloq .cta{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff;text-align:center;padding:20px}
+.cadeado{width:34px;height:28px;border:3px solid #fff;border-radius:6px;position:relative}
+.cadeado::before{content:"";position:absolute;width:18px;height:16px;border:3px solid #fff;border-bottom:0;border-radius:10px 10px 0 0;left:5px;top:-17px}
+.acoes{display:flex;gap:16px;padding:10px 16px 4px;font-size:13px;font-weight:600}
+.acoes .imp{margin-left:auto;color:var(--roxo)}
+.leg{padding:0 16px 14px;font-size:14px}
+.texto{margin:0 16px 14px;border-radius:16px;padding:28px 22px;color:#fff;font-weight:700;font-size:22px;line-height:1.25;text-wrap:balance;background:var(--magenta)}
+.btn{font:inherit;font-weight:700;border:0;border-radius:12px;padding:12px 18px;cursor:pointer}
+.btn-lima{background:var(--lima);color:var(--tinta)}
+.btn-marca{background:var(--marca);color:#fff}
+.btn-linha{background:var(--branco);color:var(--tinta);border:1.5px solid var(--linha)}
+.btn:focus-visible{outline:3px solid var(--roxo);outline-offset:2px}
+.linha-btns{display:flex;flex-wrap:wrap;gap:10px}
+.reels{background:var(--noite);border-radius:24px;aspect-ratio:9/14;max-width:100%;position:relative;overflow:hidden;color:#fff}
+.reels .bg{position:absolute;inset:0;background:radial-gradient(circle at 30% 30%,#3a2c55,#0B0A10 70%)}
+.reels .lado{position:absolute;right:14px;bottom:90px;display:flex;flex-direction:column;gap:18px;align-items:center;font-size:11px;font-weight:600}
+.reels .lado i{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.15);display:block}
+.reels .info{position:absolute;left:16px;right:70px;bottom:20px;display:flex;flex-direction:column;gap:8px}
+.aovivo{align-self:flex-start;background:var(--laranja);color:var(--noite);font-weight:800;font-size:11px;padding:3px 8px;border-radius:6px;letter-spacing:.05em}
+.sens{position:relative;border-radius:16px;overflow:hidden;aspect-ratio:16/9;max-width:100%;background:linear-gradient(120deg,#6b5a5a,#2c2424)}
+.sens .cta{position:absolute;inset:0;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);background:rgba(20,18,26,.55);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#fff;font-size:13px;text-align:center;padding:16px}
+.sens b{font-size:15px}
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="logo">trip</p>
+    <p class="sub">Paleta “mistura”: o gradiente vem do Choque e do Elétrico, o verde-limão marca o dinheiro e o laranja do Fogo marca o que está quente.</p>
+  </header>
+
+  <section>
+    <h2>Cores da marca</h2>
+    <div class="chips">
+      <div class="chip" style="background:var(--magenta)"><span>#FF0A78</span></div>
+      <div class="chip" style="background:var(--roxo)"><span>#8A2BE2</span></div>
+      <div class="chip" style="background:var(--ciano)"><span>#00D4FF</span></div>
+      <div class="chip" style="background:var(--marca)"><span>gradiente</span></div>
+      <div class="chip" style="background:var(--lima)"><span>#C6FF00</span></div>
+      <div class="chip" style="background:var(--laranja)"><span>#FF8A00</span></div>
+      <div class="chip" style="background:var(--tinta)"><span>#14121A</span></div>
+      <div class="chip" style="background:var(--branco);border:1px solid var(--linha)"><span>#FFFFFF</span></div>
+    </div>
+    <ul class="usos">
+      <li><b>Gradiente:</b> logo, anel dos stories, selo de criador, Impulsionar</li>
+      <li><b>Verde-limão:</b> Assinar e tudo que envolve pagamento</li>
+      <li><b>Laranja:</b> Ao vivo, Em alta, post impulsionado</li>
+      <li><b>Branco e cinza:</b> fundo do feed, para a postagem aparecer</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Feed (fundo branco)</h2>
+    <div class="app">
+      <div class="topo"><p class="logo">trip</p><div class="sino" aria-label="3 notificações"></div></div>
+      <div class="stories">
+        <div class="st"><div class="anel"><i style="background:#b78f7d"></i></div>luna.vibe</div>
+        <div class="st"><div class="anel"><i style="background:#6d7f99"></i></div>caio.fit</div>
+        <div class="st"><div class="anel"><i style="background:#a2697a"></i></div>bia.noite</div>
+        <div class="st"><div class="anel visto"><i style="background:#8c8c7a"></i></div>rafa.chef</div>
+        <div class="st"><div class="anel visto"><i style="background:#9a7d9f"></i></div>duda.art</div>
+      </div>
+
+      <div class="post">
+        <div class="ph"><div class="av" style="background:#b78f7d"></div><div class="nome">luna.vibe <span class="selo">criadora</span></div><span class="tag">Impulsionado</span></div>
+        <div class="foto" role="img" aria-label="Foto de exemplo"></div>
+        <div class="acoes"><span>♥ 12,4 mil</span><span>💬 318</span><span class="imp">Impulsionar</span></div>
+        <p class="leg"><b>luna.vibe</b> Fim de tarde em Floripa. Conteúdo completo no meu plano 🔥</p>
+      </div>
+
+      <div class="post">
+        <div class="ph"><div class="av" style="background:#6d7f99"></div><div class="nome">caio.fit <span class="selo">criador</span></div></div>
+        <div class="texto">Treino de 20 minutos que eu faço em casa toda manhã. O passo a passo completo está no plano Pro.</div>
+        <div class="acoes"><span>♥ 2.104</span><span>💬 96</span></div>
+      </div>
+
+      <div class="post">
+        <div class="ph"><div class="av" style="background:#a2697a"></div><div class="nome">bia.noite <span class="selo">criadora</span></div></div>
+        <div class="bloq"><div class="cta"><div class="cadeado"></div><b>Só para assinantes</b><button class="btn btn-lima" id="assinar1">Assinar por R$ 19,90/mês</button></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Botões</h2>
+    <div class="linha-btns">
+      <button class="btn btn-lima" id="b1">Assinar</button>
+      <button class="btn btn-marca" id="b2">Impulsionar post</button>
+      <button class="btn btn-linha" id="b3">Seguir</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Vídeos curtos (tela cheia, fundo preto)</h2>
+    <div class="reels">
+      <div class="bg"></div>
+      <div class="lado"><i></i>8,2 mil<i></i>540<i></i>Enviar</div>
+      <div class="info"><span class="aovivo">AO VIVO</span><b>duda.art</b><span>Pintando ao vivo, quem assina escolhe a próxima cor</span><button class="btn btn-lima" id="b4" style="align-self:flex-start">Assinar</button></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Conteúdo sensível (borrado)</h2>
+    <div class="sens"><div class="cta"><b>Conteúdo sensível</b>Pode conter cenas fortes. Toque para ver.</div></div>
+  </section>
+</div>
