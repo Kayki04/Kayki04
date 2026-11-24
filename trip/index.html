@@ -1,0 +1,219 @@
+<title>Trip</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: coluna de celular (máx. 480px) com área rolável e barra inferior fixa; marca forte só na interface, conteúdo sobre branco */
+:root{
+  --magenta:#FF0A78; --roxo:#8A2BE2; --ciano:#00D4FF;
+  --lima:#C6FF00; --laranja:#FF8A00;
+  --branco:#FFFFFF; --nevoa:#F4F3F7; --linha:#E6E3EC;
+  --tinta:#14121A; --cinza:#6E6A78; --noite:#0B0A10; --perigo:#E5243B;
+  --marca:linear-gradient(120deg,var(--magenta),var(--roxo) 55%,var(--ciano));
+  --f-logo:"Unbounded","Arial Black",system-ui,sans-serif;
+  --f-texto:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --nav-h:60px;
+  color-scheme:light;
+}
+html,body{height:100%;margin:0}
+html{background:var(--nevoa)}
+body{background:var(--nevoa);color:var(--tinta);font-family:var(--f-texto);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid var(--roxo);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+#app{position:relative;max-width:480px;height:100%;margin:0 auto;background:var(--branco);display:flex;flex-direction:column;overflow:hidden}
+#view{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+#view[data-view="videos"]{background:var(--noite)}
+
+/* Barra inferior */
+#tabs{flex:none;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;height:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);border-top:1px solid var(--linha);background:var(--branco)}
+#tabs button{height:var(--nav-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10px;font-weight:600;color:var(--cinza)}
+#tabs button svg{width:24px;height:24px}
+#tabs button[aria-current]{color:var(--tinta)}
+#tabs button[data-view="post"] .mais{width:44px;height:32px;border-radius:10px;background:var(--marca);display:grid;place-items:center;color:#fff}
+#tabs button[data-view="post"] .mais svg{width:20px;height:20px}
+#app.escuro #tabs{background:var(--noite);border-top-color:#25222e}
+#app.escuro #tabs button{color:#8c8798}
+#app.escuro #tabs button[aria-current]{color:#fff}
+
+/* Entrada 18+ */
+#age-gate{position:absolute;inset:0;z-index:50;background:var(--noite);color:#fff;display:flex;flex-direction:column;justify-content:center;gap:22px;padding:32px max(24px,env(safe-area-inset-right,0px)) 32px max(24px,env(safe-area-inset-left,0px));overflow-y:auto}
+#age-gate::before{content:"";position:absolute;inset:-30% -30% auto auto;width:120%;aspect-ratio:1;background:radial-gradient(circle,rgba(255,10,120,.45),transparent 60%);pointer-events:none}
+#age-gate::after{content:"";position:absolute;inset:auto auto -30% -40%;width:120%;aspect-ratio:1;background:radial-gradient(circle,rgba(0,212,255,.28),transparent 60%);pointer-events:none}
+#age-gate > *{position:relative;z-index:1}
+#age-gate .logo{font-size:72px}
+#age-gate h1{font-size:24px;line-height:1.2;margin:0;text-wrap:balance}
+#age-gate p{margin:0;color:#c9c4d4;max-width:36ch}
+#age-gate .regras{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:13px;color:#c9c4d4}
+#age-gate .regras li{display:flex;gap:8px}
+#age-gate .regras li::before{content:"";flex:none;width:6px;height:6px;margin-top:7px;border-radius:50%;background:var(--lima)}
+#age-gate .acoes-gate{display:flex;flex-direction:column;gap:10px}
+#age-no-msg{font-size:13px;color:#ffb3c9}
+
+/* Marca e botões */
+.logo{font-family:var(--f-logo);font-weight:900;letter-spacing:-.04em;line-height:1;background:var(--marca);-webkit-background-clip:text;background-clip:text;color:transparent;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:700;border-radius:12px;padding:12px 18px;font-size:15px;line-height:1.1;transition:transform .12s}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-lima{background:var(--lima);color:var(--tinta)}
+.btn-marca{background:var(--marca);color:#fff}
+.btn-linha{background:var(--branco);color:var(--tinta);border:1.5px solid var(--linha)}
+.btn-escuro{background:var(--tinta);color:#fff}
+.btn-fantasma{color:#c9c4d4;padding:10px}
+.btn-bloco{width:100%}
+.btn-p{padding:8px 12px;font-size:13px;border-radius:10px}
+
+/* Cabeçalho das views */
+.cab{position:sticky;top:0;z-index:5;background:var(--branco);display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--linha)}
+.cab h1{font-size:18px;margin:0;font-weight:800}
+.cab .logo{font-size:28px}
+.cab .dir{margin-left:auto;display:flex;gap:8px;align-items:center}
+.icone{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;position:relative}
+.icone svg{width:24px;height:24px}
+.badge{position:absolute;top:2px;right:0;min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:var(--magenta);color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center;border:2px solid var(--branco)}
+.secao{padding:16px;display:flex;flex-direction:column;gap:12px}
+.rotulo{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--cinza);font-weight:700;margin:0}
+.vazio{padding:40px 24px;text-align:center;color:var(--cinza);display:flex;flex-direction:column;gap:12px;align-items:center}
+
+/* Sheet e toast */
+#sheet-bg{position:absolute;inset:0;z-index:40;background:rgba(11,10,16,.55);display:flex;align-items:flex-end}
+#sheet{width:100%;max-height:88%;overflow-y:auto;background:var(--branco);border-radius:22px 22px 0 0;padding:10px 16px calc(20px + env(safe-area-inset-bottom,0px));animation:sobe .22s ease-out}
+#sheet .alca{width:40px;height:5px;border-radius:9px;background:var(--linha);margin:0 auto 12px}
+#sheet h2{font-size:19px;margin:0 0 4px}
+#sheet .sub{color:var(--cinza);margin:0 0 14px;font-size:14px}
+@keyframes sobe{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+#toast{position:absolute;left:16px;right:16px;bottom:calc(var(--nav-h) + 14px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--tinta);color:#fff;border-radius:14px;padding:12px 14px;font-size:14px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+</style>
+
+<div id="app">
+  <div id="age-gate" role="dialog" aria-modal="true" aria-labelledby="age-title">
+    <p class="logo">trip</p>
+    <h1 id="age-title">A Trip tem conteúdo adulto. Você tem 18 anos ou mais?</h1>
+    <p>Aqui criadores publicam o que quiserem para quem assina, inclusive conteúdo adulto. Para entrar, confirme sua idade.</p>
+    <ul class="regras">
+      <li>Conteúdo com menores de idade é proibido e o perfil é suspenso na hora.</li>
+      <li>Cenas de violência ficam borradas ou são removidas.</li>
+      <li>Quem aparece no conteúdo precisa ser maior e ter concordado.</li>
+    </ul>
+    <div class="acoes-gate">
+      <button class="btn btn-lima btn-bloco" id="age-ok">Tenho 18 anos ou mais</button>
+      <button class="btn btn-fantasma" id="age-no">Tenho menos de 18</button>
+      <p id="age-no-msg" hidden>A Trip é só para maiores de 18 anos.</p>
+    </div>
+  </div>
+
+  <main id="view" data-view="home" tabindex="-1"></main>
+
+  <nav id="tabs" aria-label="Navegação principal">
+    <button data-view="home" aria-label="Início"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Início</button>
+    <button data-view="videos" aria-label="Vídeos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M10 8.5v7l6-3.5z" fill="currentColor"/></svg>Vídeos</button>
+    <button data-view="post" aria-label="Postar"><span class="mais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></button>
+    <button data-view="subs" aria-label="Assinaturas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6 .7-4.4 4.1 1.2 6L12 16.4 6.6 19.4l1.2-6L3.4 9.3l6-.7z"/></svg>Assinaturas</button>
+    <button data-view="me" aria-label="Perfil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" stroke-linecap="round"/></svg>Perfil</button>
+  </nav>
+
+  <div id="sheet-bg" hidden><div id="sheet" role="dialog" aria-modal="true"></div></div>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+</div>
+
+<script>
+(function(){
+const T = window.T = {};
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const brl = n => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
+const num = n => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace('.', ',') + ' mil' : String(n);
+T.util = { $, $$, esc, brl, num };
+
+/* ---------- Dados de exemplo (inventados) ---------- */
+T.data = {
+  creators: [
+    { id: 'luna', name: 'Luna Vibe', handle: 'luna.vibe', color: '#b78f7d', bio: 'Ensaios, viagens e bastidores. O conteúdo sem filtro fica no plano.', subscribers: 3120,
+      plans: [{ id: 'luna-fa', name: 'Fã', price: 19.9 }, { id: 'luna-vip', name: 'VIP', price: 49.9 }] },
+    { id: 'caio', name: 'Caio Fit', handle: 'caio.fit', color: '#6d7f99', bio: 'Treinos em casa, dieta sem frescura. Passo a passo completo no Pro.', subscribers: 1840,
+      plans: [{ id: 'caio-pro', name: 'Pro', price: 29.9 }] },
+    { id: 'bia', name: 'Bia Noite', handle: 'bia.noite', color: '#a2697a', bio: '+18. Só para assinantes. Respondo todas as mensagens do Noite+.', subscribers: 5410,
+      plans: [{ id: 'bia-noite', name: 'Noite', price: 24.9 }, { id: 'bia-mais', name: 'Noite+', price: 59.9 }] },
+    { id: 'duda', name: 'Duda Art', handle: 'duda.art', color: '#9a7d9f', bio: 'Pintura ao vivo. Quem assina escolhe o próximo quadro.', subscribers: 760,
+      plans: [{ id: 'duda-atelie', name: 'Ateliê', price: 14.9 }] },
+    { id: 'rafa', name: 'Rafa Chef', handle: 'rafa.chef', color: '#8c8c7a', bio: 'Receitas de boteco em casa. Aulas completas no plano Cozinha.', subscribers: 990,
+      plans: [{ id: 'rafa-cozinha', name: 'Cozinha', price: 19.9 }] }
+  ],
+  posts: [
+    { id: 'p1', creatorId: 'luna', type: 'photo', bg: 'linear-gradient(160deg,#f3c9a8,#d9876b 45%,#6e3b4f)', text: 'Fim de tarde em Floripa. O ensaio completo está no plano Fã 🔥', likes: 12400, comments: 318, boosted: true },
+    { id: 'p2', creatorId: 'caio', type: 'text', bg: '#FF0A78', text: 'Treino de 20 minutos que eu faço em casa toda manhã. O passo a passo completo está no plano Pro.', likes: 2104, comments: 96 },
+    { id: 'p3', creatorId: 'bia', type: 'photo', bg: 'linear-gradient(160deg,#d7a99a,#8f5d68 55%,#3a2a3a)', text: 'Ensaio novo de hoje à noite.', likes: 8930, comments: 410, exclusive: true },
+    { id: 'p4', creatorId: 'duda', type: 'video', bg: 'linear-gradient(135deg,#ffd166,#ef476f 50%,#118ab2)', text: 'Timelapse do quadro da semana. 3 horas em 40 segundos.', likes: 1530, comments: 44, duration: '0:40' },
+    { id: 'p5', creatorId: 'rafa', type: 'photo', bg: 'linear-gradient(170deg,#f6d6a8,#c97b3d 55%,#5b3218)', text: 'Torresmo de rolo. A receita completa está na aula de sábado.', likes: 640, comments: 52 },
+    { id: 'p6', creatorId: 'luna', type: 'video', bg: 'linear-gradient(160deg,#c3b1e1,#8a6fb3 50%,#2c1f45)', text: 'Bastidor do ensaio de ontem. Versão completa para VIP.', likes: 9870, comments: 230, exclusive: true, duration: '2:15' },
+    { id: 'p7', creatorId: 'caio', type: 'photo', bg: 'linear-gradient(160deg,#9fb3c8,#56708f 55%,#1f2d3d)', text: 'Cena do acidente que vi hoje na corrida. Cuidado no trânsito, pessoal.', likes: 310, comments: 88, sensitive: true },
+    { id: 'p8', creatorId: 'bia', type: 'text', bg: '#8A2BE2', text: 'Hoje às 22h tem live só para o Noite+. Quem vem?', likes: 4120, comments: 377 },
+    { id: 'p9', creatorId: 'duda', type: 'photo', bg: 'linear-gradient(140deg,#06d6a0,#118ab2 50%,#073b4c)', text: 'Quadro pronto. Quem assina o Ateliê escolheu essas cores.', likes: 2210, comments: 61 },
+    { id: 'p10', creatorId: 'bia', type: 'video', bg: 'linear-gradient(160deg,#e8a0b4,#a24b6b 55%,#2b1422)', text: 'Vídeo completo de hoje.', likes: 15200, comments: 902, exclusive: true, duration: '8:02' },
+    { id: 'p11', creatorId: 'rafa', type: 'text', bg: '#14121A', text: 'Dica rápida: sal no torresmo só depois de fritar. Confia.', likes: 870, comments: 33 },
+    { id: 'p12', creatorId: 'luna', type: 'photo', bg: 'linear-gradient(180deg,#a8d8ea,#f5c6aa 60%,#e07a5f)', text: 'Bom dia daqui ☀️', likes: 6410, comments: 120 }
+  ],
+  stories: [
+    { creatorId: 'luna', frames: [{ bg: 'linear-gradient(180deg,#f3c9a8,#6e3b4f)', text: 'Chegando em Floripa ✈️' }, { bg: 'linear-gradient(180deg,#a8d8ea,#e07a5f)', text: 'Ensaio novo amanhã no plano' }] },
+    { creatorId: 'caio', frames: [{ bg: 'linear-gradient(180deg,#9fb3c8,#1f2d3d)', text: 'Treino de perna hoje. Sem desculpa.' }] },
+    { creatorId: 'bia', frames: [{ bg: 'linear-gradient(180deg,#e8a0b4,#2b1422)', text: 'Live às 22h para o Noite+' }, { bg: 'linear-gradient(180deg,#d7a99a,#3a2a3a)', text: 'Prévia do ensaio 👀' }, { bg: 'linear-gradient(180deg,#8A2BE2,#FF0A78)', text: 'Assina que te espero lá' }] },
+    { creatorId: 'duda', frames: [{ bg: 'linear-gradient(180deg,#ffd166,#118ab2)', text: 'Escolham a cor do próximo quadro' }] },
+    { creatorId: 'rafa', frames: [{ bg: 'linear-gradient(180deg,#f6d6a8,#5b3218)', text: 'Panela no fogo. Aula às 18h.' }] }
+  ]
+};
+T.creator = id => T.data.creators.find(c => c.id === id) || (id === 'me' ? T.me() : null);
+
+/* ---------- Estado do usuário (só neste navegador) ---------- */
+const KEY = 'trip-prototipo-v1';
+const base = () => ({ age: false, likes: {}, subs: {}, myPosts: [], isCreator: false, boosts: [], seenStories: {}, reported: {}, myPlans: [], underReview: false });
+T.state = base();
+try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) T.state = Object.assign(base(), s); } catch (e) { /* sem armazenamento: segue sem lembrar */ }
+T.save = () => { try { localStorage.setItem(KEY, JSON.stringify(T.state)); } catch (e) {} };
+T.me = () => ({ id: 'me', name: 'Você', handle: 'voce', color: '#FF0A78', bio: '', plans: T.state.myPlans, subscribers: 0 });
+
+/* ---------- Toast e sheet ---------- */
+let toastTimer;
+T.toast = msg => { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 2600); };
+T.sheet = html => { $('#sheet').innerHTML = '<div class="alca"></div>' + html; $('#sheet-bg').hidden = false; };
+T.closeSheet = () => { $('#sheet-bg').hidden = true; $('#sheet').innerHTML = ''; };
+$('#sheet-bg').addEventListener('click', e => { if (e.target.id === 'sheet-bg') T.closeSheet(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#sheet-bg').hidden) T.closeSheet(); });
+
+/* ---------- Views ---------- */
+T.views = {
+  home: () => `<header class="cab"><p class="logo">trip</p></header>`,
+  videos: () => `<div class="vazio">Vídeos</div>`,
+  post: () => `<header class="cab"><h1>Nova postagem</h1></header>`,
+  subs: () => `<header class="cab"><h1>Minhas assinaturas</h1></header>`,
+  me: () => `<header class="cab"><h1>Meu perfil</h1></header>`,
+  creator: () => `<header class="cab"><h1>Perfil</h1></header>`
+};
+T.after = {};
+T.current = { view: 'home', arg: null };
+T.go = (view, arg) => {
+  if (!T.views[view]) view = 'home';
+  T.current = { view, arg };
+  const v = $('#view');
+  v.dataset.view = view;
+  v.innerHTML = T.views[view](arg);
+  v.scrollTop = 0;
+  $('#app').classList.toggle('escuro', view === 'videos');
+  $$('#tabs button').forEach(b => b.toggleAttribute('aria-current', b.dataset.view === view));
+  if (T.after[view]) T.after[view](v, arg);
+};
+T.refresh = () => { const y = $('#view').scrollTop; T.go(T.current.view, T.current.arg); $('#view').scrollTop = y; };
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('button[data-view]'); if (b) T.go(b.dataset.view); });
+
+/* ---------- Entrada 18+ ---------- */
+const gate = $('#age-gate');
+$('#age-ok').addEventListener('click', () => { T.state.age = true; T.save(); gate.hidden = true; T.go('home'); });
+$('#age-no').addEventListener('click', () => { $('#age-no-msg').hidden = false; });
+
+T.start = () => { gate.hidden = !!T.state.age; T.go('home'); };
+setTimeout(T.start, 0);
+})();
+</script>
