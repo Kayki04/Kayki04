@@ -52,6 +52,60 @@ test('semStorage', async b => {
   assert(p.errors.length === 0, 'erros: ' + p.errors.join('; '));
 });
 
+
+// ---------- Task 2 ----------
+test('feedMostraTipos', async b => {
+  const p = await open(b); await enter(p);
+  for (const t of ['photo', 'video', 'text'])
+    assert(await p.locator(`.post[data-type="${t}"]`).count() > 0, `sem post ${t}`);
+});
+test('curtir', async b => {
+  const p = await open(b); await enter(p);
+  const btn = p.locator('.post').first().locator('.like-btn');
+  const n0 = Number(await btn.getAttribute('data-count'));
+  await btn.click();
+  assert(Number(await btn.getAttribute('data-count')) === n0 + 1, 'curtida não somou 1');
+  assert((await btn.getAttribute('aria-pressed')) === 'true', 'não ficou ativo');
+  await btn.click();
+  assert(Number(await btn.getAttribute('data-count')) === n0, 'descurtir não voltou');
+  assert((await btn.getAttribute('aria-pressed')) === 'false', 'não desativou');
+});
+test('sensivelRevela', async b => {
+  const p = await open(b); await enter(p);
+  const post = p.locator('.post[data-id="p7"]');
+  assert(await post.locator('.blur').count() === 1, 'post sensível deveria estar borrado');
+  await post.locator('.reveal').click();
+  assert(await post.locator('.blur').count() === 0, 'continuou borrado');
+});
+test('exclusivoBloqueado', async b => {
+  const p = await open(b); await enter(p);
+  const lock = p.locator('.post[data-id="p3"] .locked');
+  assert(await lock.count() === 1, 'exclusivo sem .locked');
+  assert((await lock.locator('button').innerText()).includes('Assinar'), 'sem botão Assinar');
+});
+test('storyAbre', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('.story[data-id="bia"]');
+  assert(await p.isVisible('#story-viewer'), 'viewer não abriu');
+  const f = () => p.getAttribute('#story-viewer', 'data-frame');
+  assert((await f()) === '0', 'frame inicial');
+  await p.click('#story-viewer .story-next'); assert((await f()) === '1', 'não avançou');
+  await p.click('#story-viewer .story-next'); assert((await f()) === '2', 'não avançou 2');
+  await p.click('#story-viewer .story-next');
+  assert(!(await p.isVisible('#story-viewer')), 'não fechou no fim');
+});
+test('textoLongo360', async b => {
+  const p = await open(b, { width: 360 }); await enter(p);
+  await p.evaluate(() => {
+    const longo = ('Texto bem comprido para testar a quebra de linha. ').repeat(11) + 'a'.repeat(90);
+    T.data.posts.unshift({ id: 'longo', creatorId: 'caio', type: 'text', bg: '#FF0A78', text: longo, likes: 1, comments: 0 });
+    T.refresh();
+  });
+  assert(await p.locator('.post[data-id="longo"]').count() === 1, 'post longo não apareceu');
+  const w = await p.evaluate(() => Math.max(document.documentElement.scrollWidth, document.getElementById('view').scrollWidth));
+  assert(w <= 360, 'largura estourou: ' + w);
+});
+
 // ---------- runner ----------
 const filter = process.argv[2];
 const browser = await chromium.launch();

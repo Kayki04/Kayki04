@@ -214,6 +214,206 @@ $('#age-ok').addEventListener('click', () => { T.state.age = true; T.save(); gat
 $('#age-no').addEventListener('click', () => { $('#age-no-msg').hidden = false; });
 
 T.start = () => { gate.hidden = !!T.state.age; T.go('home'); };
-setTimeout(T.start, 0);
+document.addEventListener('DOMContentLoaded', T.start);
+/* Cliques genéricos: abrir perfil de criador */
+$('#view').addEventListener('click', e => { const a = e.target.closest('[data-open-creator]'); if (a) T.go('creator', a.dataset.openCreator); });
+})();
+</script>
+
+<!-- ================= Feed e stories ================= -->
+<style>
+.stories{display:flex;gap:14px;padding:12px 16px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--linha)}
+.stories::-webkit-scrollbar{display:none}
+.story{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11px;color:var(--cinza);flex:none;width:66px}
+.story span{max-width:66px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.anel{width:64px;height:64px;border-radius:50%;padding:3px;background:var(--marca)}
+.anel.visto{background:var(--linha)}
+.anel i{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;border:3px solid var(--branco);font-style:normal;color:#fff;font-weight:800;font-size:20px}
+.anel.meu{background:var(--linha);position:relative}
+.anel.meu::after{content:"+";position:absolute;right:-2px;bottom:-2px;width:22px;height:22px;border-radius:50%;background:var(--marca);color:#fff;font-weight:800;display:grid;place-items:center;border:2px solid var(--branco);font-size:15px;line-height:1}
+
+.post{border-bottom:1px solid var(--linha);padding-bottom:6px}
+.ph{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px}
+.av{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;font-weight:800;font-size:14px}
+.quem{display:flex;flex-direction:column;min-width:0;text-align:left}
+.nome{font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;min-width:0}
+.nome b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.selo{flex:none;background:var(--marca);color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px}
+.quem small{color:var(--cinza);font-size:12px}
+.tag{flex:none;font-size:11px;font-weight:800;color:var(--laranja);border:1.5px solid var(--laranja);border-radius:99px;padding:2px 8px}
+.tag.assin{color:#5a7300;border-color:#9bc400;background:#f6ffd6}
+.ph .dir{margin-left:auto;display:flex;align-items:center;gap:4px}
+.mais-btn{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--cinza)}
+
+.midia{position:relative;aspect-ratio:4/5;width:100%;overflow:hidden}
+.midia .arte{position:absolute;inset:0}
+.midia .arte::before{content:"";position:absolute;width:55%;aspect-ratio:1;left:22%;top:18%;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.55),rgba(255,255,255,0) 65%)}
+.midia .arte::after{content:"";position:absolute;inset:auto 0 0 0;height:38%;background:linear-gradient(0deg,rgba(0,0,0,.28),transparent)}
+.midia .play{position:absolute;left:50%;top:50%;translate:-50% -50%;width:64px;height:64px;border-radius:50%;background:rgba(11,10,16,.45);display:grid;place-items:center;backdrop-filter:blur(4px)}
+.midia .play svg{width:28px;height:28px;margin-left:4px}
+.midia .dur{position:absolute;right:10px;bottom:10px;background:rgba(11,10,16,.65);color:#fff;font-size:12px;font-weight:700;padding:3px 8px;border-radius:8px}
+.texto-post{margin:0 16px;border-radius:18px;padding:30px 22px;color:#fff;font-weight:800;font-size:22px;line-height:1.25;overflow-wrap:anywhere;position:relative;overflow:hidden;min-height:150px;display:flex;align-items:center}
+.texto-post.claro{background:var(--nevoa)!important;color:var(--tinta);font-weight:700}
+.texto-post .blur, .texto-post .locked{border-radius:18px}
+
+.blur{position:absolute;inset:0;z-index:2;backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);background:rgba(20,18,26,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#fff;text-align:center;padding:20px;font-size:13px;font-weight:500}
+.blur b{font-size:16px}
+.blur .reveal{margin-top:4px;border:1.5px solid rgba(255,255,255,.7);color:#fff;border-radius:99px;padding:8px 16px;font-weight:700;font-size:13px}
+.locked{position:absolute;inset:0;z-index:2;backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);background:rgba(20,18,26,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;text-align:center;padding:20px}
+.locked b{font-size:17px}
+.cadeado{width:34px;height:28px;border:3px solid #fff;border-radius:7px;position:relative;margin-top:14px}
+.cadeado::before{content:"";position:absolute;width:18px;height:16px;border:3px solid #fff;border-bottom:0;border-radius:10px 10px 0 0;left:5px;top:-17px}
+
+.acoes{display:flex;align-items:center;gap:4px;padding:6px 10px 0}
+.acao{display:flex;align-items:center;gap:6px;padding:6px;font-size:13px;font-weight:700;border-radius:10px}
+.acao svg{width:24px;height:24px}
+.like-btn[aria-pressed="true"]{color:var(--magenta)}
+.like-btn[aria-pressed="true"] svg{fill:var(--magenta);animation:pulo .3s}
+@keyframes pulo{50%{transform:scale(1.3)}}
+.acoes .boost-btn{margin-left:auto}
+.legenda{padding:2px 16px 8px;font-size:14px;margin:0;overflow-wrap:anywhere}
+.legenda b{margin-right:4px}
+
+#story-viewer{position:absolute;inset:0;z-index:45;background:var(--noite);color:#fff;display:flex;flex-direction:column}
+#story-viewer .fundo{position:absolute;inset:0}
+#story-viewer .barras{position:relative;z-index:2;display:flex;gap:4px;padding:10px 10px 0}
+#story-viewer .barras span{flex:1;height:3px;border-radius:3px;background:rgba(255,255,255,.35);overflow:hidden}
+#story-viewer .barras span i{display:block;height:100%;width:0;background:#fff}
+#story-viewer .barras span.feito i{width:100%}
+#story-viewer .barras span.atual i{animation:enche 5s linear forwards}
+@keyframes enche{to{width:100%}}
+#story-viewer .topo-s{position:relative;z-index:2;display:flex;align-items:center;gap:10px;padding:10px 12px}
+#story-viewer .topo-s .fechar{margin-left:auto;width:40px;height:40px;display:grid;place-items:center}
+#story-viewer .frase{position:relative;z-index:1;margin:auto 24px;font-size:28px;font-weight:800;line-height:1.2;text-align:center;text-wrap:balance;text-shadow:0 2px 20px rgba(0,0,0,.35);pointer-events:none}
+#story-viewer .story-prev,#story-viewer .story-next{position:absolute;top:70px;bottom:90px;z-index:1}
+#story-viewer .story-prev{left:0;width:35%}
+#story-viewer .story-next{right:0;width:65%}
+#story-viewer .rodape-s{position:relative;z-index:2;padding:12px 16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;gap:10px}
+#story-viewer .rodape-s .resp{flex:1;border:1.5px solid rgba(255,255,255,.5);border-radius:99px;padding:10px 14px;color:rgba(255,255,255,.8);font-size:14px}
+</style>
+<script>
+(function(){
+const { $, $$, esc, brl, num } = T.util;
+const ICON = {
+  heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-9.2-9.3C1.7 7.5 3.8 4 7.4 4c2 0 3.6 1.1 4.6 2.7C13 5.1 14.6 4 16.6 4c3.6 0 5.7 3.5 4.6 6.7C19.5 15.4 12 20 12 20z"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 18.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8z"/></svg>',
+  send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/></svg>',
+  dots: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M7 4.5v15l13-7.5z"/></svg>',
+  bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4z"/><path d="M10 21h4" stroke-linecap="round"/></svg>',
+  close: '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  rocket: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 15l-3-3c1.5-5 5-8 11-8 0 6-3 9.5-8 11z"/><path d="M9 12H5l2-4h4M12 15v4l4-2v-4"/></svg>'
+};
+T.icon = ICON;
+T.revealed = new Set();
+
+T.initial = c => (c.name || '?').trim()[0].toUpperCase();
+T.avatar = (c, size) => `<span class="av" style="background:${esc(c.color)}${size ? `;width:${size}px;height:${size}px;font-size:${Math.round(size / 2.6)}px` : ''}">${esc(T.initial(c))}</span>`;
+T.isSubscribed = T.isSubscribed || (id => !!T.state.subs[id]);
+T.minPrice = c => c.plans && c.plans.length ? Math.min(...c.plans.map(p => p.price)) : 0;
+T.allPosts = () => [...T.state.myPosts.slice().reverse(), ...T.data.posts].filter(p => !T.state.reported[p.id]);
+T.isBoosted = p => p.boosted || T.state.boosts.some(b => b.postId === p.id);
+
+T.renderPost = p => {
+  const c = T.creator(p.creatorId); if (!c) return '';
+  const liked = !!T.state.likes[p.id];
+  const count = p.likes + (liked ? 1 : 0);
+  const mine = p.creatorId === 'me';
+  const locked = p.exclusive && !mine && !T.isSubscribed(c.id);
+  const blur = p.sensitive && !T.revealed.has(p.id) && !locked;
+  const lockHtml = locked ? `<div class="locked"><span class="cadeado" aria-hidden="true"></span><b>Só para assinantes</b><span>Assine ${esc(c.name)} para ver este ${p.type === 'video' ? 'vídeo' : p.type === 'text' ? 'texto' : 'post'}.</span><button class="btn btn-lima sub-btn" data-creator="${esc(c.id)}">Assinar a partir de ${brl(T.minPrice(c))}/mês</button></div>` : '';
+  const blurHtml = blur ? `<div class="blur"><b>Conteúdo sensível</b><span>Pode conter cenas fortes, como violência ou sangue.</span><button class="reveal" data-id="${esc(p.id)}">Toque para ver</button></div>` : '';
+  let media;
+  if (p.type === 'text') {
+    const claro = !p.bg || p.bg === 'none';
+    media = `<div class="texto-post${claro ? ' claro' : ''}" style="background:${claro ? 'var(--nevoa)' : esc(p.bg)}"><span>${esc(p.text)}</span>${lockHtml}${blurHtml}</div>`;
+  } else {
+    media = `<div class="midia"><div class="arte" style="background:${esc(p.bg)}"></div>${p.type === 'video' ? `<span class="play" aria-hidden="true">${ICON.play}</span><span class="dur">${esc(p.duration || '0:30')}</span>` : ''}${lockHtml}${blurHtml}</div>`;
+  }
+  const tags = [T.isBoosted(p) ? '<span class="tag">Impulsionado</span>' : '', p.exclusive ? '<span class="tag assin">Assinantes</span>' : ''].join('');
+  return `<article class="post" data-id="${esc(p.id)}" data-type="${esc(p.type)}">
+    <div class="ph">
+      <button class="quem-btn" data-open-creator="${esc(c.id)}" style="display:flex;align-items:center;gap:10px;min-width:0">${T.avatar(c)}<span class="quem"><span class="nome"><b>${esc(c.handle)}</b>${mine ? '' : '<span class="selo">criador</span>'}</span><small>${esc(c.name)}</small></span></button>
+      <div class="dir">${tags}<button class="mais-btn report-btn" data-id="${esc(p.id)}" aria-label="Mais opções">${ICON.dots}</button></div>
+    </div>
+    ${media}
+    <div class="acoes">
+      <button class="acao like-btn" data-id="${esc(p.id)}" data-count="${count}" aria-pressed="${liked}" aria-label="Curtir">${ICON.heart}<span>${num(count)}</span></button>
+      <button class="acao" aria-label="Comentários">${ICON.chat}<span>${num(p.comments || 0)}</span></button>
+      <button class="acao" aria-label="Enviar">${ICON.send}</button>
+      ${mine ? `<button class="btn btn-marca btn-p boost-btn" data-id="${esc(p.id)}">${ICON.rocket.replace('<svg', '<svg width="16" height="16"')}Impulsionar</button>` : ''}
+    </div>
+    ${p.type !== 'text' && p.text ? `<p class="legenda"><b>${esc(c.handle)}</b>${esc(p.text)}</p>` : ''}
+  </article>`;
+};
+
+const storiesBar = () => {
+  const items = T.data.stories.map(s => {
+    const c = T.creator(s.creatorId);
+    const seen = T.state.seenStories[s.creatorId];
+    return `<button class="story" data-id="${esc(c.id)}" aria-label="Story de ${esc(c.handle)}"><span class="anel${seen ? ' visto' : ''}"><i style="background:${esc(c.color)}">${esc(T.initial(c))}</i></span><span>${esc(c.handle)}</span></button>`;
+  });
+  // não vistos primeiro
+  const order = T.data.stories.map((s, i) => [T.state.seenStories[s.creatorId] ? 1 : 0, i]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => items[x[1]]);
+  return `<div class="stories"><button class="story" data-view-go="post" aria-label="Criar story"><span class="anel meu"><i style="background:var(--tinta)">V</i></span><span>Seu story</span></button>${order.join('')}</div>`;
+};
+
+T.views.home = () => `
+  <header class="cab"><p class="logo">trip</p><div class="dir"><button class="icone" aria-label="Notificações: 3 novas">${ICON.bell}<span class="badge">3</span></button></div></header>
+  ${storiesBar()}
+  <div class="feed">${T.allPosts().map(T.renderPost).join('')}</div>`;
+
+/* Interações do feed (delegação em #view) */
+$('#view').addEventListener('click', e => {
+  const like = e.target.closest('.like-btn');
+  if (like) {
+    const id = like.dataset.id, on = !T.state.likes[id];
+    if (on) T.state.likes[id] = true; else delete T.state.likes[id];
+    T.save();
+    const n = Number(like.dataset.count) + (on ? 1 : -1);
+    like.dataset.count = n; like.setAttribute('aria-pressed', on);
+    like.querySelector('span').textContent = num(n);
+    return;
+  }
+  const rev = e.target.closest('.reveal');
+  if (rev) { T.revealed.add(rev.dataset.id); rev.closest('.blur').remove(); return; }
+  const st = e.target.closest('.story[data-id]');
+  if (st) { T.openStory(st.dataset.id); return; }
+  const go = e.target.closest('[data-view-go]');
+  if (go) { T.go(go.dataset.viewGo); return; }
+  const sub = e.target.closest('.sub-btn');
+  if (sub) { T.go('creator', sub.dataset.creator); return; }
+});
+
+/* Viewer de stories */
+let timer;
+T.openStory = id => {
+  const s = T.data.stories.find(x => x.creatorId === id); if (!s) return;
+  const c = T.creator(id);
+  let i = 0;
+  const el = document.createElement('div');
+  el.id = 'story-viewer'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Story de ' + c.handle);
+  $('#app').appendChild(el);
+  const close = () => { clearTimeout(timer); el.remove(); T.state.seenStories[id] = true; T.save(); if (T.current.view === 'home') T.refresh(); };
+  const show = () => {
+    if (i < 0) i = 0;
+    if (i >= s.frames.length) return close();
+    const f = s.frames[i];
+    el.dataset.frame = i;
+    el.innerHTML = `<div class="fundo" style="background:${esc(f.bg)}"></div>
+      <div class="barras">${s.frames.map((_, k) => `<span class="${k < i ? 'feito' : k === i ? 'atual' : ''}"><i></i></span>`).join('')}</div>
+      <div class="topo-s">${T.avatar(c, 34)}<b>${esc(c.handle)}</b><button class="fechar" aria-label="Fechar">${ICON.close}</button></div>
+      <p class="frase">${esc(f.text)}</p>
+      <button class="story-prev" aria-label="Anterior"></button><button class="story-next" aria-label="Próximo"></button>
+      <div class="rodape-s"><span class="resp">Responder para ${esc(c.handle)}…</span></div>`;
+    clearTimeout(timer); timer = setTimeout(() => { i++; show(); }, 5000);
+  };
+  el.addEventListener('click', e => {
+    if (e.target.closest('.fechar')) return close();
+    if (e.target.closest('.story-next')) { i++; show(); }
+    else if (e.target.closest('.story-prev')) { i--; show(); }
+  });
+  show();
+};
 })();
 </script>
