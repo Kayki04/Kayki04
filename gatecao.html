@@ -4895,10 +4895,13 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       y+=2.5;
     });
     if(rx.obs){if(y>250){doc.addPage();y=20}y+=2;doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('Observações',M,y);y+=7;doc.setFont('helvetica','normal');doc.setFontSize(11);var ol=doc.splitTextToSize(rx.obs,W-2*M);doc.text(ol,M,y);y+=ol.length*6}
-    y=Math.max(y+18,252);if(y>275){doc.addPage();y=252}
+    y=Math.max(y+16,252);if(y>275){doc.addPage();y=252}
     doc.setDrawColor(120);doc.line(W/2-38,y,W/2+38,y);y+=5;
     doc.setFontSize(10);doc.text(prof||'Médico(a) Veterinário(a)',W/2,y,{align:'center'});y+=5;if(crmv)doc.text('CRMV '+crmv,W/2,y,{align:'center'});
-    doc.setFontSize(8);doc.setTextColor(160);doc.text('Receita gerada pelo app Gatecão Pet Shop',W/2,291,{align:'center'});
+    // Rodapé discreto e neutro: onde encontrar os itens (sem publicidade de desconto)
+    doc.setFontSize(8);doc.setTextColor(150);
+    doc.text('Itens disponíveis em gatecao.com.br  ·  código da receita: '+String(rx.code||''),W/2,287,{align:'center'});
+    doc.text('Receita gerada pelo app Gatecão Pet Shop',W/2,291,{align:'center'});
     var fname='receita-'+String(rx.petName||'pet').normalize('NFD').replace(/[^\w]+/g,'-').toLowerCase()+'.pdf';
     await sharePdf(doc.output('blob'),fname,rx);
   }
