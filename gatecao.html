@@ -318,6 +318,9 @@ body.adm::before{background:#F1F5FB}
 .st.bad{background:#FCE0DA;color:#A8321F}
 .st.off{background:var(--line);color:var(--muted)}
 .st.info{background:var(--sky);color:var(--brand)}
+.srctag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.4px;border-radius:6px;padding:3px 8px;white-space:nowrap}
+.srctag.bal{background:#EADDFB;color:#5B2DA8}
+.srctag.onl{background:#DDEBFC;color:#1C5BB8}
 .sw{width:50px;height:28px;border-radius:999px;border:0;background:var(--line);position:relative;padding:0;flex:none}
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
 .sw[aria-checked="true"]{background:var(--accent)}
@@ -2350,7 +2353,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   var APPT_ST=['Agendado','Aguardando','Em atendimento','Pronto para buscar','A caminho de casa','Concluído','Cancelado','Faltou'];
 
   /* ---------- estado ---------- */
-  var D={reviews:[],coupons:[],myOrd:[],myRec:[],banners:[],products:[],promos:[],tables:[],services:[],settings:{},slots:{},status:{},orders:[],appts:[],ready:{},nodb:false,slow:false,customers:[],wallets:{},crm:{},rewards:[],redeems:[],me:null,myRedeems:[],partners:[],rxAll:[],partner:null,myRx:[],rxForMe:[]};
+  var D={reviews:[],coupons:[],myOrd:[],myRec:[],banners:[],products:[],promos:[],tables:[],services:[],settings:{},slots:{},status:{},orders:[],appts:[],ready:{},nodb:false,slow:false,customers:[],wallets:{},crm:{},rewards:[],redeems:[],me:null,myRedeems:[],partners:[],rxAll:[],partner:null,myRx:[],rxForMe:[],quotes:[]};
   var X={db:null,user:null,assets:null,uid:null,isAdmin:false,checked:false};
   var state={tab:'loja',cat:'Todos',q:'',cart:load('gc_cart',{}),cartRec:load('gc_cartrec',{}),myOrders:load('gc_orders',[]),myAppts:load('gc_appts',[]),
     ag:Object.assign({svc:'',extras:[],lt:'loja',ltAddr:'',ltBairro:'',ltComp:'',ltPhone:'',day:'',slot:'',pet:'',kind:'Cachorro',size:'',weight:'',coat:'',breed:'',tutor:'',obs:''},load('gc_ag',{})),co:{mode:'Retirada na loja',pay:'Pix',name:''},
@@ -4266,7 +4269,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
 
   /* ----- Balcão (retaguarda): venda e agendamento manual ----- */
-  var MB={items:{},price:{},pay:'Dinheiro',mode:'Balcão',cust:null,addr:{},tab:'venda',fromCaixa:false};
+  var MB={items:{},price:{},pay:'Dinheiro',mode:'Balcão',cust:null,addr:{},tab:'venda',fromCaixa:false,quoteId:null};
   function custResults(q){
     q=normTxt(q);var qd=q.replace(/\D/g,'');
     return D.customers.filter(function(c){if(!c.name&&!c.phone)return false;var byn=q&&normTxt(c.name||'').indexOf(q)>-1,byp=qd.length>=3&&String(c.phone||'').indexOf(qd)>-1;return byn||byp}).slice(0,8);
@@ -4309,6 +4312,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function aBalcao(m){
     var h='<div class="seg"><button data-act="mbTab" data-id="venda" aria-pressed="'+(MB.tab==='venda')+'">Venda manual</button><button data-act="mbTab" data-id="banho" aria-pressed="'+(MB.tab==='banho')+'">Agendar banho e tosa</button></div>';
     if(MB.tab==='banho'){m.innerHTML=h+mbBanhoHtml();mbBanhoBind();return}
+    if(MB.quoteId){h+='<div class="acard" style="border-color:var(--accent)"><div class="rowtight"><b>✏️ Editando orçamento #'+esc(String(MB.quoteId).slice(-5))+'</b><button class="mini" id="mbQuoteCancelEdit">Sair da edição</button></div><p class="hint" style="margin:0">Altere os itens, o cliente ou a forma de entrega. Você pode salvar as alterações ou finalizar a venda.</p></div>';}
     h+='<div class="acard"><b>Nova venda no balcão</b><p class="hint">Retaguarda: você vê o custo, o preço de venda e o lucro de cada item. Ao registrar, o estoque é baixado e a venda entra nos relatórios.</p>'+
       '<label class="fld">Buscar produto<div style="position:relative"><input class="in" id="mbQ" placeholder="Nome ou código do produto" autocomplete="off" style="padding-right:46px"><button id="mbScan" class="scanbtn" type="button" aria-label="Ler código de barras"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><path d="M6 8v8M9.5 8v8M13 8v8M18 8v8" stroke-width="1.6"/></svg></button></div></label><div class="mbres" id="mbRes" hidden></div></div>';
     h+='<div class="acard"><b>Itens da venda</b><div class="gridwrap" id="mbCart" style="border:0"></div><div id="mbTot"></div></div>';
@@ -4316,8 +4320,11 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='<div class="acard"><div class="two"><label class="fld">Pagamento<select class="in" id="mbPay">'+opts(['Dinheiro','Pix','Cartão de débito','Cartão de crédito'],MB.pay)+'</select></label>'+
       '<label class="fld">Como entregar<select class="in" id="mbMode">'+opts(['Balcão','Entrega'],MB.mode)+'</select></label></div>'+
       '<div id="mbAddrBox"></div>'+
-      '<button class="primary" id="mbSave">Registrar venda</button></div>';
+      '<button class="primary" id="mbSave">'+(MB.quoteId?'Finalizar venda deste orçamento':'Finalizar venda')+'</button>'+
+      '<button class="btn line" id="mbQuote" style="margin-top:8px">'+(MB.quoteId?'Salvar alterações do orçamento':'Salvar como orçamento')+'</button>'+
+      '<p class="hint" style="margin:6px 0 0">Finalizar venda baixa o estoque e registra a venda. Salvar como orçamento guarda a proposta em Orçamentos, sem baixar estoque.</p></div>';
     m.innerHTML=h;
+    var qce=$('#mbQuoteCancelEdit');if(qce)qce.onclick=function(){MB.quoteId=null;MB.items={};MB.price={};MB.cust=null;MB.addr={};renderAdmin()};
     var res=$('#mbRes');
     $('#mbQ').oninput=function(){
       var q=normTxt(this.value);if(!q){res.hidden=true;return}
@@ -4340,6 +4347,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     $('#mbPay').onchange=function(){MB.pay=this.value};
     $('#mbMode').onchange=function(){MB.mode=this.value;mbAddrRender()};
     $('#mbSave').onclick=mbRegister;
+    $('#mbQuote').onclick=mbSaveQuote;
     mbRender();mbAddrRender();
   }
   function mbRender(){
@@ -4384,19 +4392,40 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     }
     var uid=MB.cust?MB.cust.id:'balcao';
     var o={id:'o'+Date.now(),ts:Date.now(),name:MB.cust?MB.cust.name:'Venda balcão',mode:MB.mode,pay:MB.pay,addr:addr,sub:sub,pixOff:0,fee:0,cashUse:0,total:sub,items:items,manual:true};
-    $('#mbSave').disabled=true;
+    var _sb=$('#mbSave');if(_sb)_sb.disabled=true;
     try{
       var ref=X.db.doc('orders/'+uid),cs=await ref.get(),whole=cs.exists?cs.data():{},nx=Object.assign({},whole.o||{});nx[o.id]=o;
       await ref.set(Object.assign({},whole,{o:nx}));
-      var stt={status:'Entregue',stockApplied:true,cashApplied:0,earnedPts:0,earnedCash:0,earnedBase:0,ts:Date.now()};
+      var stt={status:(MB.mode==='Entrega'?'Em separação':'Entregue'),stockApplied:true,cashApplied:0,earnedPts:0,earnedCash:0,earnedBase:0,ts:Date.now()};
       if(MB.cust&&typeof earnFor==='function'){var e=earnFor(sub,wal(uid).life);if(e.pts>0||e.cash>0){try{await walletAdd(uid,{t:'compra',pago:sub,pts:e.pts,cash:e.cash,text:'Compra na loja (balcão)'});stt.earnedPts=e.pts;stt.earnedCash=e.cash;stt.earnedBase=sub}catch(w){}}}
       await X.db.doc('status/'+o.id).set(stt);
       for(var i=0;i<items.length;i++){var p=byId(D.products,items[i].id);if(p)await X.db.doc('products/'+p.id).update({stock:Math.max(0,stockOf(p)-items[i].q)})}
       if(MB.cust&&addr&&!(MB.cust.addr&&MB.cust.addr.addr)){try{var cref=X.db.doc('customers/'+uid),cc=await cref.get();if(cc.exists)await cref.set(Object.assign({},cc.data(),{addr:addr}))}catch(w){}}
+      if(MB.quoteId){try{await X.db.doc('quotes/'+MB.quoteId).delete()}catch(w){}}
       toast(MB.cust?'Venda registrada para '+MB.cust.name:'Venda avulsa registrada');
-      var oid=o.id;MB.items={};MB.price={};MB.cust=null;MB.addr={};
+      var oid=o.id;MB.items={};MB.price={};MB.cust=null;MB.addr={};MB.quoteId=null;
       renderAdmin();printOrder(uid,oid);
-    }catch(e){$('#mbSave').disabled=false;wfail(e)}
+    }catch(e){var _s=$('#mbSave');if(_s)_s.disabled=false;wfail(e)}
+  }
+  async function mbSaveQuote(){
+    var ids=Object.keys(MB.items).filter(function(k){return MB.items[k]>0});
+    if(!ids.length){toast('Adicione ao menos um produto');return}
+    var items=ids.map(function(id){var p=byId(D.products,id);return{id:id,n:pName(p),p:r2(mbVenda(id)),q:MB.items[id],cost:num(p&&p.cost)}});
+    var sub=r2(items.reduce(function(a,i){return a+i.p*i.q},0));
+    var addr=null;
+    if(MB.mode==='Entrega'){var A=MB.addr||{};
+      addr={addr:String(A.addr||'').trim().slice(0,160),bairro:String(A.bairro||'').trim().slice(0,80),comp:String(A.comp||'').trim().slice(0,120),ref:String(A.ref||'').trim().slice(0,160),phone:String(A.phone||'').replace(/\D/g,'').slice(0,11)};
+    }
+    var id=MB.quoteId||('q'+Date.now());
+    var old=byId(D.quotes,id)||{};
+    var q={id:id,ts:old.ts||Date.now(),upd:Date.now(),name:MB.cust?MB.cust.name:'Orçamento avulso',cust:MB.cust?{id:MB.cust.id,name:MB.cust.name,phone:MB.cust.phone||'',pets:MB.cust.pets||[],addr:MB.cust.addr||null}:null,mode:MB.mode,pay:MB.pay,addr:addr,sub:sub,total:sub,items:items,status:'aberto'};
+    var btn=$('#mbQuote');if(btn)btn.disabled=true;
+    try{
+      await X.db.doc('quotes/'+id).set(q);
+    }catch(e){if(btn)btn.disabled=false;wfail(e);return}
+    toast(MB.quoteId?'Orçamento atualizado':'Orçamento salvo em Orçamentos');
+    MB.items={};MB.price={};MB.cust=null;MB.addr={};MB.quoteId=null;
+    state.adm.tab='pedidos';state.adm.ord='orcamentos';renderAdmin();
   }
   function mbBanhoHtml(){
     var A=MB.ag||(MB.ag={pet:'',tutor:'',kind:'Cachorro',svc:'',day:todayStr(),slot:'',price:'',obs:'',weight:'',coat:'',breed:'',extras:[]});
@@ -5305,8 +5334,100 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       try{await X.db.doc('products/'+p.id).update({stock:v});p.stock=v}catch(e){wfail(e)}
     }
   }
+  function orderSrcTag(o){return o.manual?'<span class="srctag bal">BALCÃO</span>':'<span class="srctag onl">ONLINE</span>';}
+  function aEntregasHtml(){
+    var all=allOrders().filter(function(o){return ordStatus(o)!=='Cancelado'});
+    var cut=Date.now()-2*864e5;
+    var B={sep:[],saiu:[],chegou:[]};
+    all.forEach(function(o){var s=ordStatus(o);var b=(s==='Saiu para entrega'||s==='Pronto para retirada')?'saiu':(s==='Entregue'?'chegou':'sep');
+      if(b==='chegou'){var t=(D.status[o.id]&&D.status[o.id].ts)||o.ts;if(t<cut)return}
+      B[b].push(o);});
+    var cols=[['sep','📦 Separados / a separar'],['saiu','🚚 Saíram / prontos'],['chegou','✅ Chegaram / entregues (48h)']];
+    var total=B.sep.length+B.saiu.length+B.chegou.length;
+    if(!total)return '<div class="empty-card"><h2>Nenhuma entrega</h2><p class="muted">Pedidos de entrega e retirada — do balcão e do app — aparecem aqui conforme forem criados.</p></div>';
+    var h='<p class="hint">Acompanhe os pedidos por etapa. Cada card mostra se é do <b>balcão</b> ou <b>online</b> (site e app). Toque no botão para avançar a etapa.</p>';
+    cols.forEach(function(c){var L=B[c[0]];
+      h+='<div class="sec" style="margin-top:14px"><h2 style="font-size:19px">'+c[1]+'</h2><span>'+L.length+'</span></div>';
+      if(!L.length){h+='<div class="empty-card"><p class="muted" style="margin:0">Nada nesta etapa.</p></div>';return}
+      L.forEach(function(o){h+=entregaCard(o)});
+    });
+    return h;
+  }
+  function entregaCard(o){
+    var s=ordStatus(o),a=o.addr,deliv=o.mode==='Entrega';
+    var nx=(s==='Saiu para entrega'||s==='Pronto para retirada')?'Entregue':(deliv?'Saiu para entrega':'Pronto para retirada');
+    var nxLabel=(nx==='Entregue')?(deliv?'Marcar entregue':'Marcar retirado'):(deliv?'🚚 Saiu para entrega':'📦 Pronto para retirada');
+    var qtd=(o.items||[]).reduce(function(x,i){return x+num(i.q)},0);
+    return '<div class="acard ord"><div class="rowtight">'+orderSrcTag(o)+'<span class="st '+stClass(s)+'">'+esc(s)+'</span></div>'+
+      '<div class="rowtight"><b>'+esc(o.name||'Cliente')+' · #'+esc(String(o.id).slice(-5))+'</b><b>'+brl(o.total)+'</b></div>'+
+      '<div class="muted">'+qtd+' item'+(qtd===1?'':'s')+' · '+esc(o.mode||'')+' · '+esc(o.pay||'')+' · '+fmtTs(o.ts)+'</div>'+
+      (a&&a.addr?'<div class="muted">📍 '+esc(a.addr)+(a.bairro?', '+esc(a.bairro):'')+(a.comp?' ('+esc(a.comp)+')':'')+(a.ref?' · Ref.: '+esc(a.ref):'')+(a.phone?' · '+esc(fmtPhone(a.phone)):'')+'</div>':'')+
+      '<div class="rowtight" style="gap:8px;flex-wrap:wrap;justify-content:flex-start;margin-top:4px">'+
+        (s!=='Entregue'?'<button class="btn" data-act="delAdv" data-id="'+esc(o.uid)+'|'+esc(o.id)+'|'+esc(nx)+'">'+nxLabel+'</button>':'')+
+        '<button class="mini" data-act="printOrd" data-id="'+esc(o.uid)+'|'+esc(o.id)+'">🖨️ Separação</button>'+
+        (s!=='Entregue'?'<button class="mini danger" data-act="delCancel" data-id="'+esc(o.uid)+'|'+esc(o.id)+'">Cancelar</button>':'')+
+      '</div></div>';
+  }
+  function quoteWa(q){
+    var ph=q.cust&&q.cust.phone?String(q.cust.phone).replace(/\D/g,''):'';
+    if(ph&&ph.length<=11)ph='55'+ph;
+    var lines=(q.items||[]).map(function(i){return '• '+num(i.q)+'x '+i.n+' — '+brl(i.q*i.p)}).join('\n');
+    var msg='*Orçamento · Gatecão Pet Shop*\n'+(q.name&&q.name!=='Orçamento avulso'?q.name+'\n':'')+'\n'+lines+'\n\n*Total: '+brl(q.total)+'*'+(q.mode==='Entrega'?'\n(entrega a combinar)':'')+'\n\nQualquer dúvida é só chamar! 🐾';
+    return 'https://wa.me/'+ph+'?text='+encodeURIComponent(msg);
+  }
+  function aOrcamentosHtml(){
+    var L=(D.quotes||[]).slice().sort(function(a,b){return (b.upd||b.ts||0)-(a.upd||a.ts||0)});
+    var h='<div class="acard"><div class="rowtight"><b>Orçamentos</b><button class="btn" data-act="quoteNew">+ Novo orçamento</button></div><p class="hint" style="margin:6px 0 0">Propostas salvas no balcão. Você pode imprimir, enviar pelo WhatsApp, editar, finalizar a venda ou cancelar.</p></div>';
+    if(!L.length)return h+'<div class="empty-card"><h2>Nenhum orçamento</h2><p class="muted">No Balcão, monte os itens e toque em "Salvar como orçamento".</p></div>';
+    L.forEach(function(q){
+      var canceled=q.status==='cancelado',qtd=(q.items||[]).reduce(function(x,i){return x+num(i.q)},0);
+      h+='<div class="acard'+(canceled?' off':'')+'"><div class="rowtight"><b>'+esc(q.name||'Orçamento')+' · #'+esc(String(q.id).slice(-5))+'</b><span class="st '+(canceled?'bad':'info')+'">'+(canceled?'Cancelado':'Aberto')+'</span></div>'+
+        '<div class="items">'+(q.items||[]).map(function(i){return '<div class="rowtight"><span>'+num(i.q)+' x '+esc(i.n)+'</span><span>'+brl(i.q*i.p)+'</span></div>'}).join('')+'</div>'+
+        (q.addr&&q.addr.addr?'<div class="muted">Entregar em: '+esc(q.addr.addr)+(q.addr.bairro?', '+esc(q.addr.bairro):'')+'</div>':'')+
+        '<div class="rowtight"><span class="muted">'+fmtTs(q.upd||q.ts)+' · '+esc(q.mode||'')+' · '+esc(q.pay||'')+(q.cust&&q.cust.phone?' · '+esc(fmtPhone(q.cust.phone)):'')+'</span><b>'+brl(q.total)+'</b></div>'+
+        (canceled?'<div class="rowtight" style="gap:8px;flex-wrap:wrap;justify-content:flex-start"><button class="mini danger" data-act="quoteDel" data-id="'+esc(q.id)+'">Excluir</button></div>'
+        :'<div class="rowtight" style="gap:8px;flex-wrap:wrap;justify-content:flex-start;margin-top:4px"><button class="btn" data-act="quoteFin" data-id="'+esc(q.id)+'">Finalizar venda</button><button class="mini" data-act="quoteEdit" data-id="'+esc(q.id)+'">✏️ Editar</button><button class="mini" data-act="quotePrint" data-id="'+esc(q.id)+'">🖨️ Imprimir</button><a class="mini" style="text-decoration:none" href="'+esc(quoteWa(q))+'" target="_blank" rel="noopener">📱 WhatsApp</a><button class="mini danger" data-act="quoteCancel" data-id="'+esc(q.id)+'">Cancelar</button></div>')+
+        '</div>';
+    });
+    return h;
+  }
+  function printQuote(id){
+    var q=byId(D.quotes,id);if(!q)return;
+    var sl=$('#printSlip');if(!sl)return;
+    var h='<div class="ph"><b>GATECÃO</b><br><span class="big">ORÇAMENTO</span></div>';
+    h+='<hr><div class="row"><span>Orçamento</span><b>#'+esc(String(q.id).slice(-5))+'</b></div>';
+    h+='<div class="row"><span>'+esc(fmtTs(q.upd||q.ts))+'</span><span></span></div>';
+    h+='<div class="big">'+esc(q.name||'Cliente')+'</div>';
+    h+='<div class="row"><span>'+esc(q.mode||'')+'</span><span>'+esc(q.pay||'')+'</span></div>';
+    if(q.addr&&q.addr.addr)h+='<div class="mut">Entrega: '+esc(q.addr.addr)+(q.addr.bairro?', '+esc(q.addr.bairro):'')+'</div>';
+    h+='<hr>';
+    (q.items||[]).forEach(function(i){h+='<div class="row"><span>'+num(i.q)+'x '+esc(i.n)+'</span><span>'+brl(i.q*i.p)+'</span></div>'});
+    h+='<hr><div class="row big"><span>TOTAL</span><span>'+brl(q.total)+'</span></div>';
+    h+='<div class="ph mut" style="margin-top:8px">Validade sugerida: 7 dias · Gatecão Pet Shop</div>';
+    sl.innerHTML=h;setTimeout(function(){window.print()},60);
+  }
+  function quoteEdit(id){
+    var q=byId(D.quotes,id);if(!q)return;
+    MB.quoteId=q.id;MB.items={};MB.price={};
+    (q.items||[]).forEach(function(i){if(byId(D.products,i.id)){MB.items[i.id]=num(i.q);MB.price[i.id]=num(i.p)}});
+    MB.mode=q.mode||'Balcão';MB.pay=q.pay||'Dinheiro';MB.cust=q.cust||null;MB.addr=q.addr?Object.assign({},q.addr):{};
+    MB.tab='venda';state.adm.tab='balcao';renderAdmin();
+    toast('Orçamento aberto para edição no Balcão');
+  }
+  async function finalizeQuote(id){
+    var q=byId(D.quotes,id);if(!q)return;
+    MB.items={};MB.price={};
+    (q.items||[]).forEach(function(i){if(byId(D.products,i.id)){MB.items[i.id]=num(i.q);MB.price[i.id]=num(i.p)}});
+    if(!Object.keys(MB.items).length){toast('Os produtos deste orçamento saíram do catálogo. Edite antes de finalizar.');return}
+    MB.mode=q.mode||'Balcão';MB.pay=q.pay||'Dinheiro';MB.cust=q.cust||null;MB.addr=q.addr?Object.assign({},q.addr):{};MB.quoteId=q.id;
+    await mbRegister();
+  }
+  async function quoteSetCancel(id){var q=byId(D.quotes,id);if(!q)return;try{await X.db.doc('quotes/'+id).set(Object.assign({},q,{status:'cancelado',upd:Date.now()}));toast('Orçamento cancelado')}catch(e){wfail(e)}}
+  async function quoteDelete(id){try{await X.db.doc('quotes/'+id).delete();toast('Orçamento excluído')}catch(e){wfail(e)}}
   function aPedidos(m){
-    var seg=state.adm.ord,h='<div class="seg"><button data-act="seg" data-id="pedidos" aria-pressed="'+(seg==='pedidos')+'">Pedidos da loja</button><button data-act="seg" data-id="agenda" aria-pressed="'+(seg==='agenda')+'">Banho e tosa</button><button data-act="seg" data-id="rec" aria-pressed="'+(seg==='rec')+'">Recompras'+(recDue().length?' ('+recDue().length+')':'')+'</button></div>';
+    var delN=allOrders().filter(function(o){var s=ordStatus(o);return o.mode==='Entrega'&&s!=='Entregue'&&s!=='Cancelado'}).length;
+    var quoN=(D.quotes||[]).filter(function(q){return q.status!=='cancelado'}).length;
+    var seg=state.adm.ord,h='<div class="seg"><button data-act="seg" data-id="pedidos" aria-pressed="'+(seg==='pedidos')+'">Pedidos da loja</button><button data-act="seg" data-id="entregas" aria-pressed="'+(seg==='entregas')+'">Entregas'+(delN?' ('+delN+')':'')+'</button><button data-act="seg" data-id="orcamentos" aria-pressed="'+(seg==='orcamentos')+'">Orçamentos'+(quoN?' ('+quoN+')':'')+'</button><button data-act="seg" data-id="agenda" aria-pressed="'+(seg==='agenda')+'">Banho e tosa</button><button data-act="seg" data-id="rec" aria-pressed="'+(seg==='rec')+'">Recompras'+(recDue().length?' ('+recDue().length+')':'')+'</button></div>';
     var plReq=D.orders.filter(function(d){return d.pl&&d.pl.id});
     h=h.replace('</div>','<button data-act="seg" data-id="planos" aria-pressed="'+(seg==='planos')+'">Planos'+(plReq.filter(function(d){return !D.status['plan_'+d.id]}).length?' ('+plReq.filter(function(d){return !D.status['plan_'+d.id]}).length+')':'')+'</button></div>');
     if(seg==='planos'){
@@ -5317,6 +5438,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
           '<label class="fld">Situação<select class="in" data-chg="planSt" data-id="'+esc(d.id)+'">'+opts(['Pedido','Ativo','Pausado','Cancelado'],st)+'</select></label></div>'});
       m.innerHTML=h+hp;return;
     }
+    if(seg==='entregas'){m.innerHTML=h+aEntregasHtml();return}
+    if(seg==='orcamentos'){m.innerHTML=h+aOrcamentosHtml();return}
     if(seg==='rec'){m.innerHTML=h+aRecHtml();return}
     if(seg==='pedidos'){
       var list=allOrders();
@@ -5722,6 +5845,14 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     },
     mpSaveKey:async function(){var v=($('#mpPK')&&$('#mpPK').value||'').trim();try{await X.db.doc('settings/store').set(Object.assign({},D.settings,{mpPubKey:v}));toast(v?'Chave do cartão salva':'Chave removida');renderAdmin()}catch(e){wfail(e)}},
     printOrd:function(id){var a=String(id).split('|');printOrder(a[0],a[1])},
+    delAdv:function(id){var p=String(id).split('|'),o=allOrders().filter(function(x){return x.id===p[1]})[0];if(o)applyOrderStatus(p[0],o,p[2]).then(function(){renderAdmin()})},
+    delCancel:function(id,el){if(el&&el.getAttribute&&el.getAttribute('data-sure')!=='1'){el.setAttribute('data-sure','1');el.textContent='Confirmar cancelamento';return}var p=String(id).split('|'),o=allOrders().filter(function(x){return x.id===p[1]})[0];if(o)applyOrderStatus(p[0],o,'Cancelado').then(function(){renderAdmin()})},
+    quoteNew:function(){MB.quoteId=null;MB.items={};MB.price={};MB.cust=null;MB.addr={};MB.tab='venda';state.adm.tab='balcao';renderAdmin()},
+    quoteFin:function(id){finalizeQuote(id)},
+    quoteEdit:function(id){quoteEdit(id)},
+    quotePrint:function(id){printQuote(id)},
+    quoteCancel:function(id,el){if(el&&el.getAttribute&&el.getAttribute('data-sure')!=='1'){el.setAttribute('data-sure','1');el.textContent='Confirmar';return}quoteSetCancel(id)},
+    quoteDel:function(id,el){if(el&&el.getAttribute&&el.getAttribute('data-sure')!=='1'){el.setAttribute('data-sure','1');el.textContent='Confirmar exclusão';return}quoteDelete(id)},
     mbTab:function(id){MB.tab=id;renderAdmin()},
     prodNew:function(){openProduct(null)},
     prodEdit:function(id){openProduct(id)},
@@ -5785,11 +5916,18 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     },
     ordSt:async function(id,el){
       var parts=id.split('|'),uid=parts[0],o=allOrders().filter(function(x){return x.id===parts[1]})[0];if(!o)return;
-      var next=el.value,prev=D.status[o.id]||{};
-      var st={status:next,stockApplied:!!prev.stockApplied,cashApplied:num(prev.cashApplied),earnedPts:num(prev.earnedPts),earnedCash:num(prev.earnedCash),earnedBase:num(prev.earnedBase),rxComm:num(prev.rxComm),rxVpts:num(prev.rxVpts),rxCredited:!!prev.rxCredited,ts:Date.now()};
-      var tag='Pedido #'+String(o.id).slice(-5);
-      try{
-        if(next==='Cancelado'||next==='Novo'){
+      await applyOrderStatus(uid,o,el.value);
+    },
+    apSt:function(id,el){var p=String(id).split('|');setApptStatus(p[0],p[1],p[2],p[3],el.value)},
+    gdayPick:function(id,el){if(el.value){state.adm.gday=el.value;renderAdmin()}}
+  };
+
+  async function applyOrderStatus(uid,o,next){
+    var prev=D.status[o.id]||{};
+    var st={status:next,stockApplied:!!prev.stockApplied,cashApplied:num(prev.cashApplied),earnedPts:num(prev.earnedPts),earnedCash:num(prev.earnedCash),earnedBase:num(prev.earnedBase),rxComm:num(prev.rxComm),rxVpts:num(prev.rxVpts),rxCredited:!!prev.rxCredited,ts:Date.now()};
+    var tag='Pedido #'+String(o.id).slice(-5);
+    try{
+      if(next==='Cancelado'||next==='Novo'){
           if(st.stockApplied){await applyStock(o.items,+1);st.stockApplied=false}
           if(st.cashApplied>0||st.earnedPts>0||st.earnedCash>0){
             await walletAdd(uid,{t:'compra',pago:-(st.earnedBase||0),pts:-st.earnedPts,cash:st.cashApplied-st.earnedCash,text:tag+' desfeito'});
@@ -5826,10 +5964,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
         if(prev.status!==next){var nm=orderNote(next,st);if(nm)notifyUser(uid,tag,nm,'pedido').catch(function(){})}
         toast('Situação do pedido atualizada');
       }catch(e){wfail(e)}
-    },
-    apSt:function(id,el){var p=String(id).split('|');setApptStatus(p[0],p[1],p[2],p[3],el.value)},
-    gdayPick:function(id,el){if(el.value){state.adm.gday=el.value;renderAdmin()}}
-  };
+  }
 
   /* ================= VANTAGENS: regras, carteira e resgates ================= */
   var TIERS_DEF=[{n:'Bronze',min:0,pct:2},{n:'Prata',min:500,pct:3},{n:'Ouro',min:1500,pct:5}];
@@ -7474,6 +7609,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       col('wallet','wallets',function(s){var m={};s.docs.forEach(function(d){m[d.id]=d.data()});D.wallets=m});
       col('pdv_ficha','ficha',function(s){var m={};s.docs.forEach(function(d){m[d.id]=d.data()});D.ficha=m});
       col('partners','partners',plain('partners'));
+      col('quotes','quotes',plain('quotes'));
       try{X.db.collection('rx').onSnapshot(function(s){D.rxAll=s.docs.map(function(d){return Object.assign({id:d.id},d.data())});D.ready.rxAll=true;schedule()},function(){D.ready.rxAll=true})}catch(e){D.ready.rxAll=true}
     }
   }
