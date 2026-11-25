@@ -4292,6 +4292,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     ]);
     h+=grp('Aplicativo',[
       isVet()?{icon:svg('pill'),label:'Vet parceiro',attr:act('rxOpen')}:null,
+      (!isVet()&&X.uid&&window.GCFB)?{icon:svg('pill'),label:'Seja um parceiro (vet ou clínica)',attr:act('vetSignup')}:null,
       {icon:IC_SHARE,label:'Instalar o app no celular',attr:act('installApp')},
       {icon:IC_M_DOC,label:'Termos de uso',attr:act('legalTermos')},
       {icon:IC_M_DOC,label:'Privacidade',attr:act('legalPriv')},
@@ -8135,6 +8136,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     mais_vets:function(){go('vetdir')},
     clinVetApprove:function(id){clinSetVet(id,true)},
     clinVetPause:function(id){clinSetVet(id,false)},
+    vetSignup:function(){VS={mode:'vet'};openVetSignup()},
     mais_logout:function(){if(window.GCFB&&GCFB.logout)GCFB.logout()}};
   view.addEventListener('click',function(e){
     var ca=e.target.closest('[data-act]');if(ca&&CACT[ca.getAttribute('data-act')]){e.preventDefault();CACT[ca.getAttribute('data-act')](ca.getAttribute('data-id'),ca);return}
