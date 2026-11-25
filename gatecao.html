@@ -4420,6 +4420,10 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       '<label class="fld">Nome<input class="in" id="ncN" placeholder="Nome do cliente"></label>'+
       '<label class="fld">Telefone com DDD<input class="in" id="ncT" inputmode="tel" value="'+esc(phone?fmtPhone(phone):'')+'" placeholder="(11) 90000-0000"></label>'+
       '<div class="two"><label class="fld">Pet (opcional)<input class="in" id="ncP" placeholder="Nome do pet"></label><label class="fld">Tipo<select class="in" id="ncK">'+opts(['Cachorro','Gato','Outro'],'Cachorro')+'</select></label></div>'+
+      '<div class="acard" style="margin:0;gap:8px"><b>Endereço <small class="muted" style="font-weight:600">(opcional — para entregas)</small></b>'+
+      '<label class="fld">Rua e número<input class="in" id="ncRua" placeholder="Ex.: Rua das Flores, 120"></label>'+
+      '<div class="two"><label class="fld">Bairro<input class="in" id="ncBairro" placeholder="Bairro"></label><label class="fld">Complemento<input class="in" id="ncComp" placeholder="Apto, bloco"></label></div>'+
+      '<label class="fld">Ponto de referência<input class="in" id="ncRef" placeholder="Ex.: ao lado da padaria"></label></div>'+
       '<button class="primary" id="ncSave">Cadastrar cliente</button>';
     $('#overlay').innerHTML=sheetHtml(h,'Novo cliente');bindClose();
     if(ex){$('#ncUse').onclick=function(){closeSheet();cb({id:ex.id,name:ex.name,phone:ex.phone,pets:ex.pets||[]})}}
@@ -4428,8 +4432,11 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       if(!name){toast('Informe o nome');$('#ncN').focus();return}
       if(ph&&(ph.length<10||ph.length>11)){toast('Confira o telefone com DDD');$('#ncT').focus();return}
       var pets=$('#ncP').value.trim()?[{n:$('#ncP').value.trim().slice(0,40),k:$('#ncK').value}]:[];
+      var rua=$('#ncRua').value.trim();
+      var addr=rua?{addr:rua.slice(0,160),bairro:$('#ncBairro').value.trim().slice(0,80),comp:$('#ncComp').value.trim().slice(0,120),ref:$('#ncRef').value.trim().slice(0,160),phone:ph}:null;
       var id='loja'+Date.now()+Math.random().toString(36).slice(2,5);
       var data={name:name,phone:ph,email:'',optin:true,pets:pets,ts:Date.now(),upd:Date.now(),by:'loja'};
+      if(addr)data.addr=addr;
       this.disabled=true;
       try{await X.db.doc('customers/'+id).set(data);closeSheet();toast('Cliente cadastrado');cb(Object.assign({id:id},data))}catch(e){this.disabled=false;wfail(e)}
     };
