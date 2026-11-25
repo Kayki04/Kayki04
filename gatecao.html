@@ -338,6 +338,15 @@ body.adm::before{background:#F1F5FB}
 .acctrow .al{flex:1;min-width:0}
 .acctrow .ac{color:var(--muted);font-size:20px;font-weight:800;flex:none}
 .acctrow.danger .ai,.acctrow.danger .al{color:var(--danger)}
+.vetgrid{display:grid;gap:10px;margin-top:4px}
+.vetcard{display:flex;gap:14px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 4px 14px rgba(11,42,91,.05)}
+.vetlogo{width:62px;height:62px;border-radius:14px;object-fit:cover;flex:none;background:#fff}
+.vetlogo.ph{display:grid;place-items:center;background:var(--sky);color:var(--brand)}
+.vetlogo.ph svg{width:30px;height:30px}
+.vetinfo{display:flex;flex-direction:column;min-width:0;gap:1px}
+.vetinfo b{font-size:16px;line-height:1.15}
+.vetesp{color:var(--accent-d);font-weight:800;font-size:13.5px}
+.vetinfo .muted{font-size:12.5px}
 .sw{width:50px;height:28px;border-radius:999px;border:0;background:var(--line);position:relative;padding:0;flex:none}
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
 .sw[aria-checked="true"]{background:var(--accent)}
@@ -4231,7 +4240,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       isVet()?{icon:svg('pill'),label:'Vet parceiro',attr:act('rxOpen')}:null
     ]);
     h+=grp('Loja e ajuda',[
-      {icon:svg('shield'),label:'Veterinários parceiros',attr:act('mais_vets')},
+      {icon:svg('shield'),label:'Meu parceiro vet',attr:act('mais_vets')},
       hasLojaInfo()?{icon:IC_M_STORE,label:'A loja (endereço e horário)',attr:act('lojaInfo')}:null,
       X.uid?{icon:BELL_SVG,label:'Avisos',attr:act('mais_inbox')}:null,
       waNum()?{icon:IC_WA,label:'Falar no WhatsApp',attr:act('mais_wa')}:null
@@ -4266,7 +4275,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     maybeRoleChoice();
     if(PV.pending&&D.ready.products){var pp=PV.pending;PV.pending=null;showProduct(pp,true)}
     else if(PV.id)renderPview();
-    if(state.tab==='loja'){renderCats();renderShop()}else if(state.tab==='banho')renderBanho();else if(state.tab==='vantagens')renderVantagens();else if(state.tab==='pet')renderPet();else if(state.tab==='mais')renderMais();else renderPedidos();
+    if(state.tab==='loja'){renderCats();renderShop()}else if(state.tab==='banho')renderBanho();else if(state.tab==='vantagens')renderVantagens();else if(state.tab==='pet')renderPet();else if(state.tab==='mais')renderMais();else if(state.tab==='vet')renderVetPage();else if(state.tab==='vetdir')renderVetDir();else renderPedidos();
   }
   function go(tab){
     if(PV.id)hidePview();
@@ -5145,6 +5154,44 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(pays.length)h+='<p class="hint" style="margin:6px 0 0">Último pagamento recebido: <b>'+brl(num(pays[0].amount))+'</b> em '+fmtTs(pays[0].ts)+'.</p>';
     return h+'</div>';
   }
+  function renderVetPage(){
+    if(D.nodb){view.innerHTML=noDbBox();return}
+    if(!X.checked){view.innerHTML=loadingBox();return}
+    if(!isVet()){view.innerHTML='<div class="empty-card"><h2>Área do veterinário</h2><p class="muted">Esta área é só para veterinários parceiros. Se você é vet e quer entrar no programa, fale com a loja.</p><button class="btn" data-go2="pet">Voltar</button></div>';return}
+    var nm=(D.partner&&D.partner.name)?('Dr(a). '+D.partner.name):'Veterinário parceiro';
+    var h='<section class="phero"><h2>Vet parceiro</h2><p>'+esc(nm)+((D.partner&&D.partner.clinica)?' · '+esc(D.partner.clinica):'')+'</p>'+svg('pill','art')+'</section>';
+    if(!vetApproved())h+='<div class="combobar">⏳ <span>Seu cadastro está <b>em análise</b> pela loja. Você já pode montar receitas; a comissão e o desconto do cliente começam após a aprovação.</span></div>';
+    h+='<div class="two" style="margin:12px 0 4px"><button class="btn" data-act="vetNew">+ Montar receita</button><button class="btn line" data-act="vetClin">Dados da clínica</button></div>';
+    h+=vetPartnerCard();
+    var list=(D.myRx||[]).slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)});
+    h+='<div class="sec"><h2>Minhas receitas</h2><span>'+list.length+'</span></div>';
+    if(!list.length)h+='<p class="hint" style="margin-top:0">Você ainda não gerou receitas. Toque em "Montar receita" para começar.</p>';
+    list.forEach(function(r){h+='<div class="acard"><div class="rowtight"><b>'+esc(r.code)+'</b><span class="st '+(r.status==='usada'?'ok':r.status==='cancelada'?'off':'info')+'">'+(r.status==='usada'?'Usada':r.status==='cancelada'?'Cancelada':'Aberta')+'</span></div><span class="muted">'+(r.items||[]).length+' ite'+((r.items||[]).length>1?'ns':'m')+(r.clientName?' · '+esc(r.clientName):'')+' · '+fmtTs(r.ts)+'</span><div class="rowtight"><button class="mini alt" data-rxpdf="'+esc(r.code)+'">PDF</button><button class="mini" data-rxshare="'+esc(r.code)+'">Código</button></div></div>'});
+    view.innerHTML=h;
+  }
+  function renderVetDir(){
+    if(D.nodb){view.innerHTML=noDbBox();return}
+    var q=normTxt(VETQ.q||''),all=approvedVets();
+    var list=all.filter(function(p){if(!q)return true;return normTxt((p.name||'')+' '+(p.clinica||'')+' '+(p.especialidade||'')+' '+(p.crmv||'')).indexOf(q)>-1})
+      .sort(function(a,b){return String(a.name||a.clinica||'').localeCompare(String(b.name||b.clinica||''),'pt-BR')});
+    var h='<section class="phero"><h2>Meu parceiro vet</h2><p>Veterinários e clínicas parceiras da Gatecão. A receita deles sai com desconto pra você comprar aqui no app.</p>'+svg('shield','art')+'</section>';
+    h+='<label class="fld" style="margin:10px 0 2px"><input class="in" id="vetQ" value="'+esc(VETQ.q||'')+'" placeholder="Buscar por nome, clínica ou especialidade" autocomplete="off"></label>';
+    if(!all.length)h+='<div class="empty-card"><h2>Em breve</h2><p class="muted">Nossos veterinários parceiros vão aparecer aqui.</p></div>';
+    else if(!list.length)h+='<div class="empty-card"><h2>Nada encontrado</h2><p class="muted">Nenhum parceiro para "'+esc(VETQ.q)+'". Tente outro termo.</p></div>';
+    else{
+      h+='<div class="muted" style="margin:6px 2px">'+list.length+' parceiro'+(list.length>1?'s':'')+'</div><div class="vetgrid">';
+      list.forEach(function(p){h+='<div class="vetcard">'+
+        (p.logo?'<img class="vetlogo" src="/_blob/'+esc(p.logo)+'" alt="" loading="lazy">':'<span class="vetlogo ph">'+svg('shield')+'</span>')+
+        '<div class="vetinfo"><b>'+esc(p.name?('Dr(a). '+p.name):(p.clinica||'Veterinário parceiro'))+'</b>'+
+        (p.especialidade?'<span class="vetesp">'+esc(p.especialidade)+'</span>':'')+
+        (p.clinica&&p.name?'<span class="muted">'+esc(p.clinica)+'</span>':'')+
+        (p.crmv?'<span class="muted" style="font-size:12px">CRMV '+esc(p.crmv)+'</span>':'')+
+        '</div></div>'});
+      h+='</div>';
+    }
+    view.innerHTML=h;
+    var qi=$('#vetQ');if(qi){qi.oninput=function(){VETQ.q=this.value;renderVetDir()};if(VETQ.q){try{qi.focus();qi.setSelectionRange(qi.value.length,qi.value.length)}catch(e){}}}
+  }
   function openVetHub(){
     var w=X.uid?wal(X.uid):{points:0,cash:0},saldo=num(D.partner&&D.partner.saldo);
     var nm=(D.partner&&D.partner.name)?('Dr(a). '+D.partner.name):'Veterinário parceiro';
@@ -5203,7 +5250,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='<div class="acard"><b>Observação geral</b><textarea class="in" id="rxobs" rows="3" maxlength="500" placeholder="Observação avulsa para o tutor (ex.: retornar em 15 dias, jejum antes do exame...)">'+esc(RXD.obs||'')+'</textarea></div>';
     h+='<button class="primary" id="rxgen"'+(RXD.order.length?'':' disabled')+'>Gerar receita'+(RXD.order.length?' · '+RXD.order.length+' ite'+(RXD.order.length>1?'ns':'m'):'')+'</button>';
     $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Montar receita');bindClose();
-    var vb0=$('#vhBack');if(vb0)vb0.onclick=openVetHub;
+    var vb0=$('#vhBack');if(vb0)vb0.onclick=function(){closeSheet();if(state.tab!=='vet')go('vet')};
     var fc=$('#rxfc');if(fc)fc.onclick=function(){rxGrabFields();RXD.forClient=!RXD.forClient;renderRxBuilder()};
     var cn=$('#rxcn');if(cn)cn.oninput=function(){RXD.clientName=cn.value};
     var cp=$('#rxcp');if(cp)cp.oninput=function(){RXD.clientPhone=cp.value};
@@ -7911,13 +7958,13 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
 
   async function boot(){
     var h=location.hash.slice(1);
-    if(['loja','banho','vantagens','pet','pedidos','gestao'].indexOf(h)>-1)state.tab=h;
+    if(['loja','banho','vantagens','pet','pedidos','gestao','mais','vet','vetdir'].indexOf(h)>-1)state.tab=h;
     else if(h==='balcao'||h==='balcao-banho'){state.tab='gestao';state.adm.tab='balcao';MB.fromCaixa=true;MB.tab=(h==='balcao-banho'?'banho':'venda')}
     else if(h.indexOf('caixa')===0)state.tab='caixa';
     else if(h.indexOf('produto/')===0){state.tab='loja';PV.pending=decodeURIComponent(h.slice(8))}
     else if(h==='cart'){state.tab='loja';setTimeout(function(){try{if(cartCount())openCart()}catch(e){}},400)}
     else if(h.indexOf('rx/')===0){state.tab='loja';var _rxc=decodeURIComponent(h.slice(3));setTimeout(function(){try{openRxRedeem(_rxc)}catch(e){}},700)}
-    else if(h==='receitas'||h==='parceiro'){state.tab='pet';setTimeout(function(){try{if(isVet())openVetHub()}catch(e){}},700)}
+    else if(h==='receitas'||h==='parceiro'){state.tab='pet';setTimeout(function(){try{if(isVet())go('vet')}catch(e){}},700)}
     renderCats();persist();render();
     try{
       if(!window.claude||!window.claude.use)throw new Error('sem runtime');
@@ -7952,18 +7999,22 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var ab=nc.querySelector('[data-add]');if(ab)ab.onclick=function(){addToCart(ab.getAttribute('data-add'))};
     return true;
   }
-  var CACT={installApp:installApp,legalPriv:function(){openLegal('priv')},legalTermos:function(){openLegal('termos')},lojaInfo:openLoja,rxOpen:function(){openVetHub()},rxRedeem:function(){openRxRedeem('')},
+  var CACT={installApp:installApp,legalPriv:function(){openLegal('priv')},legalTermos:function(){openLegal('termos')},lojaInfo:openLoja,rxOpen:function(){go('vet')},rxRedeem:function(){openRxRedeem('')},
+    vetNew:function(){openRxBuilder(true)},
+    vetClin:function(){openClinic()},
     mais_inbox:function(){openInbox()},
     mais_fav:function(){state.cat='Todos';state.fCat='Todos';state.showAll=true;state.f={fav:true};renderCats();go('loja')},
     mais_ref:function(){go('vantagens')},
     mais_wa:function(){var u=waUrl('Olá, Gatecão! Vim pelo app.');if(u)window.open(u,'_blank')},
-    mais_vets:function(){openVets()},
+    mais_vets:function(){go('vetdir')},
     mais_logout:function(){if(window.GCFB&&GCFB.logout)GCFB.logout()}};
   view.addEventListener('click',function(e){
     var ca=e.target.closest('[data-act]');if(ca&&CACT[ca.getAttribute('data-act')]){e.preventDefault();CACT[ca.getAttribute('data-act')]();return}
     var rg=e.target.closest('[data-rxget]');if(rg){e.preventDefault();openRxRedeem(rg.getAttribute('data-rxget'));return}
     var cr=e.target.closest('[data-cron]');if(cr){e.preventDefault();openCronograma(cr.getAttribute('data-cron'));return}
     var pc=e.target.closest('[data-rxpdfc]');if(pc){e.preventDefault();var rpc=(D.rxForMe||[]).filter(function(x){return x.code===pc.getAttribute('data-rxpdfc')})[0];if(rpc)rxPdf(rpc);return}
+    var vpd=e.target.closest('[data-rxpdf]');if(vpd){e.preventDefault();var rvp=(D.myRx||[]).filter(function(x){return x.code===vpd.getAttribute('data-rxpdf')})[0];if(rvp)rxPdf(rvp);return}
+    var vsh=e.target.closest('[data-rxshare]');if(vsh){e.preventDefault();var rvs=(D.myRx||[]).filter(function(x){return x.code===vsh.getAttribute('data-rxshare')})[0];if(rvs)rxShareView(rvs);return}
     var ds=e.target.closest('[data-dose]');if(ds){e.preventDefault();var da=ds.getAttribute('data-dose').split('|'),dm=myMeds().filter(function(x){return x.id===da[0]})[0];if(dm)doseToggle(dm,+da[1]);return}
     var me2=e.target.closest('[data-medend]');if(me2){e.preventDefault();var mid=me2.getAttribute('data-medend');if(me2.getAttribute('data-sure')!=='1'){me2.setAttribute('data-sure','1');me2.textContent='Confirmar';return}medsSave(myMeds().filter(function(x){return x.id!==mid}));return}
     var fv=e.target.closest('[data-fav]');if(fv){e.preventDefault();toggleFav(fv.getAttribute('data-fav'));return}
@@ -8033,7 +8084,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var t=location.hash.slice(1);
     if(t.indexOf('produto/')===0){var pid=decodeURIComponent(t.slice(8));if(pid!==PV.id){if(D.ready.products)showProduct(pid,true);else PV.pending=pid}return}
     if(t.indexOf('rx/')===0){openRxRedeem(decodeURIComponent(t.slice(3)));return}
-    if(t==='receitas'||t==='parceiro'){if(isVet())openVetHub();return}
+    if(t==='receitas'||t==='parceiro'){if(isVet())go('vet');else go('pet');return}
     if(t==='balcao'||t==='balcao-banho'){if(PV.id)hidePview();MB.fromCaixa=true;MB.tab=(t==='balcao-banho'?'banho':'venda');state.tab='gestao';state.adm.tab='balcao';render();return}
     if(t.indexOf('caixa')===0){if(PV.id)hidePview();if(state.tab!=='caixa'){state.tab='caixa';render()}return}
     if(PV.id){hidePview();var a=PV.after;PV.after=null;if(a){a();return}}
