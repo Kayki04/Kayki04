@@ -2784,21 +2784,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var home=state.cat==='Todos'&&!q&&!state.showAll&&!nF;
     if(home){
       if(isVet())h+=vetHomeCard();
-      h+=loyStrip();
-      h+=storeStrip();
-      h+=bnCarousel();
-      var _sst=storeStatus();if(!_sst||_sst.open)h+=delStrip();
-      h+=quickTiles(all);
-      var sv=D.services.filter(function(s){return s.active!==false&&!isExtra(s)});
-      if(sv.length){
-        h+='<div class="sec" style="margin-top:4px"><h2>Banho e tosa</h2><span>Agende em 1 minuto</span></div><div class="svcs">';
-        sv.forEach(function(s,i){
-          var mp=mainPrice(s,null);h+='<button class="svc s'+(i%4)+'" data-svc="'+esc(s.id)+'">'+(mp.promo?'<span class="hot">-'+mp.off+'%</span>':s.hot?'<span class="hot">Mais pedido</span>':'')+'<span class="si">'+svg(s.i||'paw')+'</span><b>'+esc(s.name)+'</b><span class="d">'+esc(s.desc||'')+'</span><span class="pp"><span>a partir de '+brl(mp.price)+(mp.promo?' <s style="opacity:.6;font-weight:600">'+brl(mp.full)+'</s>':'')+'</span><i>Agendar</i></span></button>';
-        });
-        h+='</div>';
-      }
-      h+=brandRow(all);
-      h+=homeRows(list);
+      homeLayout().forEach(function(b){if(b.on!==false)h+=blockHtml(b,all,list)});
+      h+='<button class="primary allbtn" data-hcat="*">Ver todos os produtos ('+list.length+')</button>';
       view.innerHTML=h;
       shopBind();
       bnMount();
@@ -2968,6 +2955,63 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     });
     h+='<button class="primary allbtn" data-hcat="*">Ver todos os produtos ('+list.length+')</button>';
     return h;
+  }
+
+  /* ---------- layout da tela inicial (configurável) ---------- */
+  var LAYOUT_LABELS={loy:'Faixa do Clube',store:'Aberto / fechado',banners:'Banners',delivery:'Faixa de entrega',quick:'Atalhos rápidos',services:'Banho e tosa',brands:'Marcas parceiras',fav:'Favoritos',petrecs:'Para o pet',again:'Compre de novo',ofertas:'Ofertas da semana',best:'Mais vendidos',cat:'Categoria',custom:'Carrossel personalizado'};
+  var LAYOUT_CAROUSEL={fav:1,petrecs:1,again:1,ofertas:1,best:1,cat:1,custom:1};
+  function defaultLayout(){
+    var L=[{k:'loy'},{k:'store'},{k:'banners'},{k:'delivery'},{k:'quick'},{k:'services',title:'Banho e tosa'},{k:'brands'},{k:'fav',title:'Seus favoritos'},{k:'petrecs'},{k:'again',title:'Compre de novo'},{k:'ofertas',title:'Ofertas da semana'},{k:'best',title:'Mais vendidos'}];
+    HOME_CATS.forEach(function(c){L.push({k:'cat',cat:c,title:c})});
+    return L.map(function(b){b.on=true;return b});
+  }
+  function homeLayout(){var L=S('homeLayout',null);if(!Array.isArray(L)||!L.length)return defaultLayout();return L.filter(function(b){return b&&b.k&&LAYOUT_LABELS[b.k]});}
+  function servicesBlock(title){
+    var sv=D.services.filter(function(s){return s.active!==false&&!isExtra(s)});if(!sv.length)return '';
+    var h='<div class="sec" style="margin-top:4px"><h2>'+esc(title||'Banho e tosa')+'</h2><span>Agende em 1 minuto</span></div><div class="svcs">';
+    sv.forEach(function(s,i){var mp=mainPrice(s,null);h+='<button class="svc s'+(i%4)+'" data-svc="'+esc(s.id)+'">'+(mp.promo?'<span class="hot">-'+mp.off+'%</span>':s.hot?'<span class="hot">Mais pedido</span>':'')+'<span class="si">'+svg(s.i||'paw')+'</span><b>'+esc(s.name)+'</b><span class="d">'+esc(s.desc||'')+'</span><span class="pp"><span>a partir de '+brl(mp.price)+(mp.promo?' <s style="opacity:.6;font-weight:600">'+brl(mp.full)+'</s>':'')+'</span><i>Agendar</i></span></button>';});
+    return h+'</div>';
+  }
+  function shelfItems(b,list){
+    var PER=12;
+    if(b.k==='fav')return list.filter(favOn).slice(0,PER);
+    if(b.k==='ofertas')return list.filter(function(p){return priced(p).off>0&&stockOf(p)>0}).sort(function(a,c){return (c.img?1:0)-(a.img?1:0)}).slice(0,PER);
+    if(b.k==='best'){var br=bestRank();if(!Object.keys(br).length)return [];return list.filter(function(p){return rankOf(p,br)<1e4&&stockOf(p)>0}).sort(function(a,c){return rankOf(a,br)-rankOf(c,br)}).slice(0,PER);}
+    if(b.k==='again'){var seen={},out=[];myOrdSrc().slice().sort(function(a,c){return (c.ts||0)-(a.ts||0)}).forEach(function(o){(o.items||[]).forEach(function(i){var p=byId(D.products,i.id);if(!p||p.active===false||stockOf(p)<=0)return;var g=varOf(p),key=g?g.key:p.id;if(seen[key])return;seen[key]=1;out.push(p)})});return out.slice(0,PER);}
+    if(b.k==='cat')return list.filter(function(p){return (p.t||[]).indexOf(b.cat)>-1}).slice(0,PER);
+    if(b.k==='custom')return (b.ids||[]).map(function(id){return byId(D.products,id)}).filter(function(p){return p&&p.active!==false&&stockOf(p)>0});
+    return [];
+  }
+  function petRecRows(list){
+    var h='';
+    ((D.me&&D.me.pets)||[]).slice(0,2).forEach(function(pt){
+      var sp=pt.k==='Gato'?'Gatos':pt.k==='Cachorro'?'Cães':'';if(!sp)return;
+      var am=petAgeM(pt.bd),age=am==null?'':am<12?'Filhote':am>=84?'Sênior':'Adulto',w=num(pt.w),po=sp==='Cães'&&w?(w<=10?'Pequeno':w<=25?'Médio':'Grande'):'';
+      var CT=['Rações','Petiscos','Antiparasitários','Higiene','Brinquedos','Acessórios'];
+      var it=list.filter(function(p){var t=p.t||[];if(t.indexOf(sp)<0||stockOf(p)<=0||!CT.some(function(c){return t.indexOf(c)>-1}))return false;var m=pMeta(p);if(age&&m.ag.length&&m.ag.indexOf(age)<0)return false;if(po&&m.po.length&&m.po.indexOf(po)<0)return false;return true});
+      var sc=function(p){var m=pMeta(p),v=0;if(age&&m.ag.indexOf(age)>-1)v+=3;if(po&&m.po.indexOf(po)>-1)v+=3;if(priced(p).off)v+=2;if((p.t||[]).indexOf('Rações')>-1)v+=1;if(p.img)v+=1;return v};
+      it.sort(function(a,c){return sc(c)-sc(a)||rankOf(a,bestRank())-rankOf(c,bestRank())});
+      if(it.length>=3)h+='<section class="hrow"><div class="sec"><h2>'+esc('Para '+(pt.sx==='F'?'a ':'o ')+pt.n+(age||po?' ('+[po?'porte '+po.toLowerCase():'',age.toLowerCase()].filter(Boolean).join(', ')+')':''))+'</h2></div><div class="hscroll">'+it.slice(0,12).map(prodCard).join('')+'</div></section>';
+    });
+    return h;
+  }
+  function shelfHtml(b,list){
+    if(b.k==='petrecs')return petRecRows(list);
+    var items=shelfItems(b,list);if(!items.length)return '';
+    var title=b.title||(b.k==='cat'?b.cat:LAYOUT_LABELS[b.k]);
+    var more=b.k==='cat'?b.cat:b.k==='fav'?'@fav':b.k==='best'?'@best':b.k==='ofertas'?'*':'';
+    var moreBtn=more?'<button class="seeall" data-hcat="'+esc(more)+'">Ver todos ›</button>':'';
+    return '<section class="hrow"><div class="sec"><h2>'+esc(title)+'</h2>'+moreBtn+'</div><div class="hscroll">'+items.map(prodCard).join('')+'</div></section>';
+  }
+  function blockHtml(b,all,list){
+    if(b.k==='loy')return loyStrip();
+    if(b.k==='store')return storeStrip();
+    if(b.k==='banners')return bnCarousel();
+    if(b.k==='delivery'){var s=storeStatus();return (!s||s.open)?delStrip():'';}
+    if(b.k==='quick')return quickTiles(all);
+    if(b.k==='services')return servicesBlock(b.title);
+    if(b.k==='brands')return brandRow(all);
+    return shelfHtml(b,list);
   }
 
   /* ---------- carrinho ---------- */
@@ -4130,7 +4174,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
 
   /* ================= GESTÃO ================= */
-  var ATABS=[['resumo','Resumo'],['relatorios','Relatórios'],['produtos','Produtos'],['promos','Promoções'],['tabelas','Tabelas de preço'],['pedidos','Pedidos'],['painel','Painel banho'],['clientes','Clientes'],['parceiros','Parceiros'],['vantagens','Vantagens'],['mensagens','Mensagens'],['servicos','Serviços'],['banners','Banners'],['loja','Loja']];
+  var ATABS=[['resumo','Resumo'],['layout','Layout'],['relatorios','Relatórios'],['produtos','Produtos'],['promos','Promoções'],['tabelas','Tabelas de preço'],['pedidos','Pedidos'],['painel','Painel banho'],['clientes','Clientes'],['parceiros','Parceiros'],['vantagens','Vantagens'],['mensagens','Mensagens'],['servicos','Serviços'],['banners','Banners'],['loja','Loja']];
   function wfail(e){toast(e&&e.code==='invalid_argument'?'Sem permissão para salvar':'Não foi possível salvar. Tente de novo.')}
   function allOrders(){
     var out=[];
@@ -4243,7 +4287,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     (function(){var bar=$('.atabs',admEl);if(bar&&!bar._wx){bar._wx=1;bar.addEventListener('wheel',function(e){if(e.ctrlKey)return;var dy=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;if(!dy||bar.scrollWidth<=bar.clientWidth+1)return;bar.scrollLeft+=(e.deltaMode===1?dy*16:dy);e.preventDefault()},{passive:false})}})();
     var m=$('#aMain');
     if(D.nodb){m.innerHTML=noDbBox();return}
-    var fn={relatorios:aRelatorios,resumo:aResumo,balcao:aBalcao,produtos:aProdutos,promos:aPromos,tabelas:aTabelas,pedidos:aPedidos,painel:aBanhoPainel,clientes:aClientes,parceiros:aParceiros,vantagens:aVantagens,mensagens:aMensagens,servicos:aServicos,banners:aBanners,loja:aLoja}[tab];
+    var fn={relatorios:aRelatorios,resumo:aResumo,layout:aLayout,balcao:aBalcao,produtos:aProdutos,promos:aPromos,tabelas:aTabelas,pedidos:aPedidos,painel:aBanhoPainel,clientes:aClientes,parceiros:aParceiros,vantagens:aVantagens,mensagens:aMensagens,servicos:aServicos,banners:aBanners,loja:aLoja}[tab];
     fn(m);
     m.onclick=function(e){var b=e.target.closest('[data-act]');if(b&&ACT[b.getAttribute('data-act')])ACT[b.getAttribute('data-act')](b.getAttribute('data-id'),b)};
     m.onchange=function(e){var t=e.target;if(t.getAttribute&&t.getAttribute('data-chg')&&CHG[t.getAttribute('data-chg')])CHG[t.getAttribute('data-chg')](t.getAttribute('data-id'),t)};
@@ -5678,6 +5722,58 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
 
   /* ----- Loja (textos e regras) ----- */
+  function blockName(b){
+    if(b.k==='custom')return '🧩 '+(b.title||'Carrossel personalizado');
+    if(b.k==='cat')return '🏷️ Categoria: '+(b.title||b.cat||'');
+    if(LAYOUT_CAROUSEL[b.k])return '🎞️ '+(b.title||LAYOUT_LABELS[b.k]);
+    return '▫️ '+LAYOUT_LABELS[b.k];
+  }
+  function allCatNames(){var s={};HOME_CATS.forEach(function(c){s[c]=1});D.products.forEach(function(p){(p.t||[]).forEach(function(c){if(c)s[c]=1})});return Object.keys(s);}
+  function aLayout(m){
+    if(!state.adm.lay)state.adm.lay=JSON.parse(JSON.stringify(homeLayout()));
+    var LAY=state.adm.lay;
+    var h='<div class="acard"><div class="rowtight"><b>Layout da tela inicial</b><button class="btn" data-act="laySave">Salvar</button></div><p class="hint" style="margin:6px 0 0">Use ▲ ▼ para mudar a ordem, <b>Ocultar</b> para esconder um bloco, e edite o nome dos carrosséis. Crie carrosséis com os produtos que você escolher. Salve para publicar no app.</p></div>';
+    LAY.forEach(function(b,i){
+      var off=b.on===false;
+      h+='<div class="acard'+(off?' off':'')+'" style="gap:8px">'+
+        '<div class="rowtight">'+
+          '<span style="display:flex;gap:4px;flex:none">'+
+            '<button class="mini" data-act="layUp" data-id="'+i+'"'+(i===0?' disabled':'')+' aria-label="Subir">▲</button>'+
+            '<button class="mini" data-act="layDn" data-id="'+i+'"'+(i===LAY.length-1?' disabled':'')+' aria-label="Descer">▼</button>'+
+          '</span>'+
+          '<b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">'+esc(blockName(b))+'</b>'+
+          '<button class="mini" data-act="layTog" data-id="'+i+'">'+(off?'Mostrar':'Ocultar')+'</button>'+
+          (b.k==='custom'||b.k==='cat'?'<button class="mini danger" data-act="layDel" data-id="'+i+'">Remover</button>':'')+
+        '</div>';
+      if(LAYOUT_CAROUSEL[b.k]&&b.k!=='petrecs')
+        h+='<label class="fld" style="margin:0">Nome do carrossel<input class="in" data-chg="layTitle" data-id="'+i+'" value="'+esc(b.title||(b.k==='cat'?b.cat:LAYOUT_LABELS[b.k]))+'" maxlength="40"></label>';
+      if(b.k==='cat')
+        h+='<label class="fld" style="margin:0">Categoria<select class="in" data-chg="layCat" data-id="'+i+'">'+allCatNames().map(function(c){return '<option'+(c===b.cat?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select></label>';
+      if(b.k==='custom'){
+        var ids=b.ids||[];
+        h+='<button class="btn line" data-act="layPick" data-id="'+i+'">Escolher produtos ('+ids.length+')</button>'+(ids.length?'<div class="muted" style="font-size:12px">'+esc(ids.map(function(id){var p=byId(D.products,id);return p?pName(p):null}).filter(Boolean).slice(0,6).join(' · '))+(ids.length>6?'…':'')+'</div>':'<div class="hint" style="margin:0">Nenhum produto ainda. Toque em "Escolher produtos".</div>');
+      }
+      h+='</div>';
+    });
+    h+='<div class="toolbar" style="margin-top:6px"><button class="btn alt" data-act="layAddCustom">+ Carrossel de produtos</button><button class="btn line" data-act="layAddCat">+ Carrossel de categoria</button><button class="btn line" data-act="layReset">Restaurar padrão</button></div>';
+    h+='<button class="primary" data-act="laySave" style="margin-top:10px">Salvar layout</button>';
+    m.innerHTML=h;
+  }
+  function layPickProducts(i){var b=state.adm.lay[i];if(!b)return;if(!b.ids)b.ids=[];state.layPick={i:i,q:''};renderLayPick(false);}
+  function renderLayPick(focusSearch){
+    var i=state.layPick.i,b=state.adm.lay[i];if(!b)return;
+    var q=normTxt(state.layPick.q||'');
+    var list=D.products.filter(function(p){return p.active!==false&&(!q||normTxt(pName(p)).indexOf(q)>-1||String(p.code||'').indexOf(q)>-1)}).slice(0,80);
+    var sel=b.ids||[];
+    var h='<div class="mpcard" style="max-width:480px;text-align:left"><div class="mphd"><b>Produtos do carrossel</b><button class="ghost" id="mpX">Concluir</button></div>'+
+      '<label class="fld" style="margin:0">Buscar<input class="in" id="lpQ" value="'+esc(state.layPick.q||'')+'" placeholder="Nome ou código" autocomplete="off"></label>'+
+      '<div class="hint" style="margin:0">'+(sel.length?sel.length+' produto(s) no carrossel.':'Toque para adicionar produtos.')+'</div>'+
+      '<div class="picklist" style="max-height:52vh;overflow:auto">'+(list.length?list.map(function(p){var on=sel.indexOf(p.id)>-1;return '<button class="pickrow2'+(on?'':'')+'" data-lpid="'+esc(p.id)+'" style="'+(on?'background:#E6F0FF;':'')+'">'+(on?'✅ ':'➕ ')+esc(pName(p))+' <span class="muted" style="font-size:12px">· '+brl(priced(p).price)+'</span></button>'}).join(''):'<div class="hint" style="padding:10px">Nenhum produto encontrado.</div>')+'</div></div>';
+    mpBox(h);
+    var x=$('#mpX');if(x)x.onclick=function(){mpClose();renderAdmin()};
+    var qi=$('#lpQ');if(qi){qi.oninput=function(){state.layPick.q=this.value;renderLayPick(true)};if(focusSearch){qi.focus();try{qi.setSelectionRange(qi.value.length,qi.value.length)}catch(e){}}}
+    $$('[data-lpid]').forEach(function(btn){btn.onclick=function(){var id=btn.getAttribute('data-lpid'),k=sel.indexOf(id);if(k>-1)sel.splice(k,1);else sel.push(id);b.ids=sel;renderLayPick(false)}});
+  }
   function aLoja(m){
     var mpok=S('mpOn')===true;
     var h='<div class="acard"><div class="rowtight"><b>Pagamento online (Mercado Pago)</b><span class="st '+(mpok?'ok':'off')+'">'+(mpok?'Ligado':'Desligado')+'</span></div><p class="hint">Aceita Pix e cartão pagos na hora, dentro do app, e marca o pedido como pago sozinho. Antes de ligar: crie o segredo <b>MP_ACCESS_TOKEN</b> no GitHub com seu Access Token de produção do Mercado Pago e publique.'+(window.GCFB?'':' (Funciona só no app publicado em gatecao.com.br.)')+'</p><div class="toolbar" style="margin:0"><button class="btn'+(mpok?' line':'')+'" data-act="mpTog">'+(mpok?'Desligar':'Ligar pagamento online')+'</button></div>'+(mpok?'<label class="fld" style="margin-top:8px">Public Key do Mercado Pago (para cartão no app)<input class="in" id="mpPK" value="'+esc(S('mpPubKey',''))+'" placeholder="APP_USR-... (Public Key)"></label><button class="btn alt" data-act="mpSaveKey">Salvar chave do cartão</button><p class="hint" style="margin:4px 0 0">Com a Public Key, o cliente paga no cartão (à vista ou parcelado) dentro do app, sem sair pro Mercado Pago. A Public Key é diferente do Access Token (não é segredo).</p>':'')+'</div>';
@@ -5883,6 +5979,15 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     quoteCancel:function(id,el){if(el&&el.getAttribute&&el.getAttribute('data-sure')!=='1'){el.setAttribute('data-sure','1');el.textContent='Confirmar';return}quoteSetCancel(id)},
     quoteDel:function(id,el){if(el&&el.getAttribute&&el.getAttribute('data-sure')!=='1'){el.setAttribute('data-sure','1');el.textContent='Confirmar exclusão';return}quoteDelete(id)},
     mbTab:function(id){MB.tab=id;renderAdmin()},
+    layUp:function(id){var i=+id,L=state.adm.lay;if(L&&i>0){var t=L[i-1];L[i-1]=L[i];L[i]=t;renderAdmin()}},
+    layDn:function(id){var i=+id,L=state.adm.lay;if(L&&i<L.length-1){var t=L[i+1];L[i+1]=L[i];L[i]=t;renderAdmin()}},
+    layTog:function(id){var b=state.adm.lay&&state.adm.lay[+id];if(b){b.on=b.on===false;renderAdmin()}},
+    layDel:function(id){if(state.adm.lay){state.adm.lay.splice(+id,1);renderAdmin()}},
+    layAddCustom:function(){state.adm.lay.push({k:'custom',on:true,title:'Novo carrossel',ids:[]});renderAdmin();toast('Carrossel criado. Escolha os produtos e salve.')},
+    layAddCat:function(){state.adm.lay.push({k:'cat',on:true,cat:(allCatNames()[0]||'Rações')});renderAdmin()},
+    layReset:function(){state.adm.lay=JSON.parse(JSON.stringify(defaultLayout()));renderAdmin();toast('Padrão restaurado. Salve para aplicar.')},
+    layPick:function(id){layPickProducts(+id)},
+    laySave:async function(){try{await X.db.doc('settings/store').set(Object.assign({},D.settings,{homeLayout:state.adm.lay}));toast('Layout salvo e publicado no app')}catch(e){wfail(e)}},
     prodNew:function(){openProduct(null)},
     prodEdit:function(id){openProduct(id)},
     rowPhoto:function(id){if(!X.assets){toast('O envio de fotos não está disponível neste acesso');return}var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=function(){var f=inp.files&&inp.files[0];if(f)photoToProduct(id,f)};inp.click()},
@@ -5948,6 +6053,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       await applyOrderStatus(uid,o,el.value);
     },
     apSt:function(id,el){var p=String(id).split('|');setApptStatus(p[0],p[1],p[2],p[3],el.value)},
+    layTitle:function(id,el){var b=state.adm.lay&&state.adm.lay[+id];if(b){b.title=el.value;renderAdmin()}},
+    layCat:function(id,el){var b=state.adm.lay&&state.adm.lay[+id];if(b){b.cat=el.value;b.title=el.value;renderAdmin()}},
     gdayPick:function(id,el){if(el.value){state.adm.gday=el.value;renderAdmin()}}
   };
 
