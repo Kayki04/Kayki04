@@ -4237,15 +4237,15 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     ]);
     h+=grp('Serviços',[
       {icon:svg('drop'),label:'Banho e tosa',attr:go2('banho')},
-      isVet()?{icon:svg('pill'),label:'Vet parceiro',attr:act('rxOpen')}:null
+      {icon:svg('shield'),label:'Meu parceiro vet',attr:act('mais_vets')}
     ]);
     h+=grp('Loja e ajuda',[
-      {icon:svg('shield'),label:'Meu parceiro vet',attr:act('mais_vets')},
       hasLojaInfo()?{icon:IC_M_STORE,label:'A loja (endereço e horário)',attr:act('lojaInfo')}:null,
       X.uid?{icon:BELL_SVG,label:'Avisos',attr:act('mais_inbox')}:null,
       waNum()?{icon:IC_WA,label:'Falar no WhatsApp',attr:act('mais_wa')}:null
     ]);
     h+=grp('Aplicativo',[
+      isVet()?{icon:svg('pill'),label:'Vet parceiro',attr:act('rxOpen')}:null,
       {icon:IC_SHARE,label:'Instalar o app no celular',attr:act('installApp')},
       {icon:IC_M_DOC,label:'Termos de uso',attr:act('legalTermos')},
       {icon:IC_M_DOC,label:'Privacidade',attr:act('legalPriv')},
