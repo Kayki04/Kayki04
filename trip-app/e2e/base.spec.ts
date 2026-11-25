@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { makeUser, loginAs } from './helpers';
 
 test('ageGate', async ({ page }) => {
   await page.goto('/');
@@ -10,8 +11,8 @@ test('ageGate', async ({ page }) => {
 });
 
 test('navBase', async ({ page }) => {
+  await loginAs(page, await makeUser());
   await page.goto('/');
-  await page.getByRole('button', { name: 'Tenho 18 anos ou mais' }).click();
   const nav = page.getByRole('navigation', { name: 'Navegação principal' });
   for (const label of ['Início', 'Vídeos', 'Postar', 'Assinaturas', 'Perfil'])
     await expect(nav.getByRole('link', { name: label })).toBeVisible();
