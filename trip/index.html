@@ -324,6 +324,8 @@ const ICON = {
   play: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M7 4.5v15l13-7.5z"/></svg>',
   bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4z"/><path d="M10 21h4" stroke-linecap="round"/></svg>',
   close: '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  coin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.3 1.7 3 2 3 .8 3 2-1.3 2-3 2c-1.4 0-2.5-.6-3-1.5M12 6.5v11"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>',
   rocket: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 15l-3-3c1.5-5 5-8 11-8 0 6-3 9.5-8 11z"/><path d="M9 12H5l2-4h4M12 15v4l4-2v-4"/></svg>'
 };
 T.icon = ICON;
@@ -333,7 +335,8 @@ T.initial = c => (c.name || '?').trim()[0].toUpperCase();
 T.avatar = (c, size) => `<span class="av" style="background:${esc(c.color)}${size ? `;width:${size}px;height:${size}px;font-size:${Math.round(size / 2.6)}px` : ''}">${esc(T.initial(c))}</span>`;
 T.isSubscribed = T.isSubscribed || (id => !!T.state.subs[id]);
 T.minPrice = c => c.plans && c.plans.length ? Math.min(...c.plans.map(p => p.price)) : 0;
-T.allPosts = () => [...T.state.myPosts.slice().reverse(), ...T.data.posts].filter(p => !T.state.reported[p.id]);
+T.visible = id => { const c = T.creator(id); return !c || !c.adult || T.state.showAdult !== false; };
+T.allPosts = () => [...T.state.myPosts.slice().reverse(), ...T.data.posts].filter(p => !T.state.reported[p.id] && T.visible(p.creatorId));
 T.isBoosted = p => p.boosted || T.state.boosts.some(b => b.postId === p.id);
 
 T.renderPost = p => {
@@ -361,8 +364,8 @@ T.renderPost = p => {
     ${p.type !== 'text' && p.text ? `<p class="legenda">${esc(p.text)}</p>` : ''}
     <div class="acoes">
       <button class="acao like-btn" data-id="${esc(p.id)}" data-count="${count}" aria-pressed="${liked}" aria-label="Curtir">${ICON.heart}<span>${num(count)}</span></button>
-      <button class="acao" aria-label="Comentários">${ICON.chat}<span>${num(p.comments || 0)}</span></button>
-      <button class="acao" aria-label="Enviar">${ICON.send}</button>
+      <button class="acao comment-btn" data-id="${esc(p.id)}" aria-label="Comentários">${ICON.chat}<span>${num((p.comments || 0) + ((T.state.comments || {})[p.id] || []).length)}</span></button>
+      ${mine ? `<button class="acao" aria-label="Enviar">${ICON.send}</button>` : `<button class="acao tip-btn" data-creator="${esc(c.id)}" aria-label="Mandar gorjeta para ${esc(c.name)}">${ICON.coin}</button>`}
       ${mine ? `<button class="btn btn-marca btn-p boost-btn" data-id="${esc(p.id)}">${ICON.rocket.replace('<svg', '<svg width="16" height="16"')}Impulsionar</button>`
         : canSub ? `<button class="btn btn-lima btn-p sub-chip sub-btn" data-creator="${esc(c.id)}">Assinar ${brl(T.minPrice(c))}</button>` : ''}
     </div>
@@ -370,12 +373,13 @@ T.renderPost = p => {
 };
 
 const storiesBar = () => {
-  const items = T.data.stories.map(s => {
+  const stories = T.data.stories.filter(s => T.visible(s.creatorId));
+  const items = stories.map(s => {
     const c = T.creator(s.creatorId);
     const seen = T.state.seenStories[s.creatorId];
     return `<button class="story${seen ? ' visto' : ''}" data-id="${esc(c.id)}" aria-label="Story de ${esc(c.handle)}" style="background:${esc(s.frames[0].bg)}">${seen ? '' : '<span class="novo">NOVO</span>'}${T.avatar(c)}<span class="h">${esc(c.handle)}</span></button>`;
   });
-  const order = T.data.stories.map((s, i) => [T.state.seenStories[s.creatorId] ? 1 : 0, i]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => items[x[1]]);
+  const order = stories.map((s, i) => [T.state.seenStories[s.creatorId] ? 1 : 0, i]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => items[x[1]]);
   return `<div class="agora"><b>Agora</b><small>Some em 24h</small></div>
     <div class="stories"><button class="story meu" data-view-go="post" aria-label="Criar story"><span class="mais-s">+</span><span>Seu story</span></button>${order.join('')}</div>`;
 };
@@ -392,7 +396,7 @@ const feedPosts = () => {
 T.views.home = () => {
   const posts = feedPosts();
   return `
-  <header class="cab"><p class="logo">trip</p><div class="dir"><button class="icone" aria-label="Notificações: 3 novas">${ICON.bell}<span class="badge">3</span></button>${T.inboxButton ? T.inboxButton() : ''}</div></header>
+  <header class="cab"><p class="logo">trip</p><div class="dir"><button class="icone" id="open-explore" aria-label="Explorar e buscar">${ICON.search}</button><button class="icone" id="open-notifs" aria-label="Notificações">${ICON.bell}${T.state.notifsSeen ? '' : '<span class="badge">3</span>'}</button>${T.inboxButton ? T.inboxButton() : ''}</div></header>
   <div class="filtros" role="group" aria-label="Filtrar feed">${FILTROS.map(([k, l]) => `<button data-filter="${k}" aria-pressed="${T.feedFilter === k}">${l}</button>`).join('')}</div>
   ${T.feedFilter === 'para-voce' ? storiesBar() : ''}
   <div class="feed">${posts.length ? posts.map(T.renderPost).join('') : `<div class="vazio feed-vazio"><b style="color:var(--tinta)">Nada por aqui ainda</b><span>Quando você assinar criadores, os posts deles aparecem neste filtro.</span></div>`}</div>`;
@@ -500,7 +504,7 @@ const reel = (r, k) => {
     <div class="lado">
       <button class="acao like-btn" data-id="${esc(r.id)}" data-count="${count}" aria-pressed="${liked}" aria-label="Curtir">${I().heart}<span>${num(count)}</span></button>
       <button class="acao" aria-label="Comentários">${I().chat}<span>${num(r.comments)}</span></button>
-      <button class="acao" aria-label="Enviar">${I().send}<span>Enviar</span></button>
+      <button class="acao tip-btn" data-creator="${esc(c.id)}" aria-label="Mandar gorjeta">${I().coin}<span>Gorjeta</span></button>
     </div>
     <div class="info">
       ${r.live ? '<span class="aovivo">AO VIVO</span>' : ''}
@@ -510,7 +514,7 @@ const reel = (r, k) => {
     </div>
   </section>`;
 };
-T.views.videos = () => T.data.reels.map(reel).join('');
+T.views.videos = () => T.data.reels.filter(r => T.visible(r.creatorId)).map(reel).join('');
 })();
 </script>
 
@@ -645,7 +649,7 @@ T.views.creator = id => {
       <p class="handle">@${esc(c.handle)}</p>
       ${c.bio ? `<p class="bio">${esc(c.bio)}</p>` : ''}
       <div class="numeros"><div><b>${posts.length}</b>posts</div><div><b>${num(c.subscribers || 0)}</b>assinantes</div></div>
-      ${mine ? '' : `<div class="botoes-perfil">${sub ? `<button class="btn btn-linha" disabled>Você assina ✓</button>` : (c.plans && c.plans.length ? `<button class="btn btn-lima" id="assinar-top" data-creator="${esc(c.id)}">Assinar ${brl(T.minPrice(c))}/mês</button>` : '')}<button class="btn btn-linha" id="msg-btn" data-creator="${esc(c.id)}">Mensagem</button><button class="btn btn-linha" id="seguir">Seguir</button></div>`}
+      ${mine ? '' : `<div class="botoes-perfil">${sub ? `<button class="btn btn-linha" disabled>Você assina ✓</button>` : (c.plans && c.plans.length ? `<button class="btn btn-lima" id="assinar-top" data-creator="${esc(c.id)}">Assinar ${brl(T.minPrice(c))}/mês</button>` : '')}<button class="btn btn-linha" id="msg-btn" data-creator="${esc(c.id)}">Mensagem</button><button class="btn btn-linha" id="seguir" data-creator="${esc(c.id)}">${(T.state.following || {})[c.id] ? 'Seguindo' : 'Seguir'}</button></div>`}
     </div>
     ${plans ? `<div class="secao"><p class="rotulo">Planos de assinatura</p><div class="planos">${plans}</div></div>` : ''}
     <div class="secao" style="padding-bottom:6px"><p class="rotulo">Postagens</p></div>
@@ -686,7 +690,7 @@ $('#view').addEventListener('click', e => {
   if (top) { const c = T.creator(top.dataset.creator); const cheap = c.plans.reduce((a, b) => a.price <= b.price ? a : b); T.startSubscribe(c.id, cheap.id); return; }
   if (e.target.closest('[data-back]')) { T.go(T.prev && T.prev.view !== 'creator' ? T.prev.view : 'home'); return; }
   const seg = e.target.closest('#seguir');
-  if (seg) { const on = seg.textContent === 'Seguir'; seg.textContent = on ? 'Seguindo' : 'Seguir'; return; }
+  if (seg) { const f = T.state.following = T.state.following || {}, id = seg.dataset.creator; if (f[id]) delete f[id]; else f[id] = true; T.save(); seg.textContent = f[id] ? 'Seguindo' : 'Seguir'; if (f[id]) T.toast('Você está seguindo ' + T.creator(id).name + '.'); return; }
   const cancel = e.target.closest('[data-cancel]');
   if (cancel) {
     const c = T.creator(cancel.dataset.cancel);
@@ -1030,6 +1034,8 @@ function openOptions(postId) {
 .composer textarea{min-height:44px;max-height:120px;border-radius:22px;padding:10px 14px;resize:none}
 #chat-send{flex:none;width:44px;height:44px;border-radius:50%;background:var(--marca);color:#fff;display:grid;place-items:center}
 #chat-send svg{width:20px;height:20px}
+#chat-tip{flex:none;width:44px;height:44px;border-radius:50%;background:var(--lima);color:var(--tinta);display:grid;place-items:center}
+#chat-tip svg{width:22px;height:22px}
 #chat-blocked{border-radius:12px;background:#fdebee;color:#8a1022;padding:10px 12px;font-size:13px}
 #chat-locked{position:sticky;bottom:0;background:var(--branco);border-top:1px solid var(--linha);padding:14px 16px;display:flex;flex-direction:column;gap:10px;text-align:center}
 #chat-locked span{color:var(--cinza);font-size:14px}
@@ -1062,7 +1068,7 @@ const allMsgs = id => [...chatOf(id).msgs, ...(st().chats[id] || [])].sort((a, b
 const canChat = id => { const ch = chatOf(id); if (!ch.chatPlan) return true; const s = T.state.subs[id]; return !!s && s.plan === ch.chatPlan; };
 const unread = id => { const last = allMsgs(id).filter(m => m.from === 'them').pop(); return last && (!st().readChats[id] || st().readChats[id] < last.at); };
 const hora = iso => { const d = new Date(iso), h = (Date.now() - d) / 36e5; return h < 24 ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); };
-const ids = () => { const set = new Set([...T.data.chats.map(c => c.creatorId), ...Object.keys(st().chats)]); return [...set].filter(id => T.creator(id)).sort((a, b) => (allMsgs(b).pop()?.at || '') < (allMsgs(a).pop()?.at || '') ? -1 : 1); };
+const ids = () => { const set = new Set([...T.data.chats.map(c => c.creatorId), ...Object.keys(st().chats)]); return [...set].filter(id => T.creator(id) && T.visible(id)).sort((a, b) => (allMsgs(b).pop()?.at || '') < (allMsgs(a).pop()?.at || '') ? -1 : 1); };
 
 T.inboxButton = () => { const n = ids().filter(unread).length; return `<button class="icone" id="open-inbox" aria-label="Mensagens${n ? ': ' + n + ' novas' : ''}">${CHAT_ICON}${n ? `<span class="badge">${n}</span>` : ''}</button>`; };
 
@@ -1088,7 +1094,7 @@ T.views.chat = id => {
   const ch = chatOf(id), plan = ch.chatPlan && T.planOf(c, ch.chatPlan);
   return `<header class="cab chat-cab"><button class="voltar" data-go-inbox aria-label="Voltar">${VOLTAR}</button><button class="quem-btn" data-open-creator="${esc(id)}">${T.avatar(c, 36)}<span class="quem"><span class="nome"><b>${esc(c.handle)}</b><span class="selo">criador</span></span><small>${esc(c.name)}</small></span></button></header>
     <div class="msgs" id="msgs"><span class="dia">Conversa com ${esc(c.name)}</span>${allMsgs(id).map(renderMsg).join('')}</div>
-    ${canChat(id) ? `<div class="composer"><div id="chat-blocked" role="alert" hidden></div><div class="lin"><textarea id="chat-input" rows="1" maxlength="1000" placeholder="Mensagem para ${esc(c.handle)}…" aria-label="Mensagem"></textarea><button id="chat-send" aria-label="Enviar">${SEND}</button></div></div>`
+    ${canChat(id) ? `<div class="composer"><div id="chat-blocked" role="alert" hidden></div><div class="lin"><textarea id="chat-input" rows="1" maxlength="1000" placeholder="Mensagem para ${esc(c.handle)}…" aria-label="Mensagem"></textarea><button id="chat-tip" data-creator="${esc(id)}" aria-label="Mandar gorjeta">${T.icon.coin}</button><button id="chat-send" aria-label="Enviar">${SEND}</button></div></div>`
       : `<div id="chat-locked"><b>Chat liberado só para o plano ${esc(plan ? plan.name : '')}</b><span>Assine o ${esc(plan ? plan.name : '')} para conversar com ${esc(c.name)}.</span><button class="btn btn-lima btn-bloco" id="chat-sub" data-creator="${esc(id)}" data-plan="${esc(ch.chatPlan)}">Assinar ${esc(plan ? plan.name : '')} por ${brl(plan ? plan.price : 0)}/mês</button></div>`}`;
 };
 T.after.chat = v => { v.scrollTop = v.scrollHeight; const i = $('#chat-input', v); if (i) i.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }); };
@@ -1126,6 +1132,280 @@ $('#view').addEventListener('click', e => {
       code: `00020126trip.pix/msg/${m.id}/${m.price.toFixed(2)}5303986BR`,
       onDone: () => { st().unlockedMsgs[m.id] = true; T.save(); T.toast('Mensagem desbloqueada.'); T.refresh(); } });
   }
+});
+})();
+</script>
+
+<!-- ================= Explorar, +18, gorjeta, carteira, verificação, comentários, notificações ================= -->
+<style>
+.busca{position:relative;display:block}
+.busca svg{position:absolute;left:14px;top:50%;translate:0 -50%;width:20px;height:20px;color:var(--cinza)}
+.busca input{padding-left:44px;border-radius:14px;background:var(--nevoa);border-color:transparent}
+.cats{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.cats::-webkit-scrollbar{display:none}
+.cat{flex:none;padding:8px 14px;border-radius:99px;border:1.5px solid var(--linha);font-weight:700;font-size:13px;color:var(--cinza);background:var(--branco)}
+.cat[aria-pressed="true"]{background:var(--tinta);border-color:var(--tinta);color:#fff}
+.cat.adulto{border-color:var(--magenta);color:var(--magenta)}
+.cat.adulto[aria-pressed="true"]{background:var(--magenta);color:#fff}
+.carrossel{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+.carrossel::-webkit-scrollbar{display:none}
+.creator-card.mini{flex:none;width:150px;border-radius:18px;overflow:hidden;background:var(--branco);border:1.5px solid var(--linha);text-align:left;display:flex;flex-direction:column}
+.creator-card.mini .capa-m{height:70px;position:relative}
+.creator-card.mini .av{position:absolute;left:12px;bottom:-20px;width:44px;height:44px;border:3px solid var(--branco)}
+.creator-card.mini .corpo{padding:26px 12px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.creator-card.mini b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.creator-card.mini small{color:var(--cinza);font-size:12px}
+.creator-card.mini .pr{font-weight:800;font-size:13px;margin-top:4px}
+.resultados{display:flex;flex-direction:column;gap:8px}
+.creator-card.linha{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px;border-radius:16px;border:1.5px solid var(--linha);background:var(--branco)}
+.creator-card.linha .si{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.creator-card.linha .si small{color:var(--cinza);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.creator-card.linha .pr{font-weight:800;font-size:13px;white-space:nowrap;text-align:right}
+.creator-card.linha .pr small{display:block;font-weight:600;color:var(--cinza);font-size:11px}
+.novo-tag{background:var(--lima);color:var(--tinta);font-size:9px;font-weight:800;letter-spacing:.06em;padding:2px 6px;border-radius:6px}
+
+.valores{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tip-amt{padding:12px 0;border-radius:14px;border:1.5px solid var(--linha);font-weight:800;font-variant-numeric:tabular-nums}
+.tip-amt[aria-pressed="true"]{background:var(--lima);border-color:#9bc400}
+.form{display:flex;flex-direction:column;gap:12px}
+.erro{color:var(--perigo);font-size:13px;margin:0}
+
+#wallet{display:flex;flex-direction:column;gap:12px}
+.saldo{border-radius:18px;padding:16px;background:var(--marca);color:#fff;display:flex;flex-direction:column;gap:4px}
+.saldo small{opacity:.9}
+.saldo b{font-size:28px;font-variant-numeric:tabular-nums}
+.saldo .sub-s{display:flex;justify-content:space-between;gap:8px;font-size:13px;opacity:.95;flex-wrap:wrap}
+#verified{display:flex;align-items:center;gap:8px;background:#f6ffd6;color:#3d4f00;border-radius:14px;padding:10px 12px;font-weight:700;font-size:14px}
+.pendente{border-radius:14px;background:#fff4e5;color:#7a4300;padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.saque-item{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:10px 12px;border-radius:12px;background:var(--nevoa)}
+.saque-item small{color:var(--cinza);display:block;font-size:12px}
+.passos{display:flex;gap:6px}
+.passos span{flex:1;height:4px;border-radius:4px;background:var(--linha)}
+.passos span.on{background:var(--roxo)}
+.captura{border:1.5px dashed var(--roxo);border-radius:16px;padding:22px;display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--roxo);font-weight:700;text-align:center}
+.captura.feito{border-style:solid;border-color:#9bc400;background:#f6ffd6;color:#3d4f00}
+.consent{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+.consent input{margin-top:3px;width:20px;height:20px;flex:none;accent-color:var(--roxo)}
+input[type="date"]{font:inherit;font-size:16px;color:var(--tinta);background:var(--branco);border:1.5px solid var(--linha);border-radius:12px;padding:12px;width:100%}
+
+.comments{display:flex;flex-direction:column;gap:12px;margin-bottom:12px;max-height:46vh;overflow-y:auto}
+.comment{display:flex;gap:10px;font-size:14px}
+.comment .av{width:32px;height:32px;font-size:12px}
+.comment div{min-width:0;overflow-wrap:anywhere}
+.comment small{color:var(--cinza);display:block;font-size:12px}
+.comment-lin{display:flex;gap:8px;align-items:flex-end}
+.comment-lin textarea{min-height:44px;border-radius:22px;padding:10px 14px;resize:none}
+#comment-blocked{border-radius:12px;background:#fdebee;color:#8a1022;padding:10px 12px;font-size:13px;margin-bottom:8px}
+
+.notif{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 16px}
+.notif .si{flex:1;min-width:0;font-size:14px}
+.notif .si small{display:block;color:var(--cinza);font-size:12px}
+.notif.nova{background:#faf5ff}
+</style>
+<script>
+(function(){
+const { $, $$, esc, brl, num } = T.util;
+const parseMoney = raw => { raw = String(raw).trim(); if (!raw) return NaN; return Number(raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw); };
+T.parseMoney = parseMoney;
+
+/* ---------- Mais criadores e categorias ---------- */
+const CAT = { luna: ['+18', 'Viagem'], caio: ['Fitness', 'Aulas'], bia: ['+18'], duda: ['Arte', 'Aulas'], rafa: ['Culinária', 'Aulas'] };
+T.data.creators.forEach(c => { c.cats = CAT[c.id] || []; c.adult = c.cats.includes('+18'); });
+T.data.creators.push(
+  { id: 'mari', name: 'Mari Yoga', handle: 'mari.yoga', color: '#5fa38a', bio: 'Yoga e alongamento para quem passa o dia sentado.', subscribers: 420, cats: ['Fitness', 'Aulas'], isNew: true, plans: [{ id: 'mari-zen', name: 'Zen', price: 12.9 }] },
+  { id: 'leo', name: 'Leo Beats', handle: 'leo.beats', color: '#3b5bdb', bio: 'Produção musical do zero. Projetos abertos para assinantes.', subscribers: 610, cats: ['Música', 'Aulas'], isNew: true, plans: [{ id: 'leo-estudio', name: 'Estúdio', price: 24.9 }] },
+  { id: 'nina', name: 'Nina Ink', handle: 'nina.ink', color: '#c2410c', bio: 'Tatuadora. Ensaios +18 e processo das tattoos.', subscribers: 1280, cats: ['Arte', '+18'], adult: true, isNew: true, plans: [{ id: 'nina-ink', name: 'Ink', price: 29.9 }] }
+);
+const CATS = ['+18', 'Fitness', 'Culinária', 'Arte', 'Aulas', 'Música', 'Viagem'];
+
+/* ---------- Explorar ---------- */
+let exCat = null, exQ = '';
+const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const visCreators = () => T.data.creators.filter(c => T.visible(c.id));
+const card = c => `<button class="creator-card linha" data-creator="${esc(c.id)}" data-open-creator="${esc(c.id)}">${T.avatar(c, 52)}
+  <span class="si"><span class="nome"><b>${esc(c.name)}</b><span class="selo">criador</span>${c.isNew ? '<span class="novo-tag">NOVO</span>' : ''}</span><small>@${esc(c.handle)} · ${esc(c.cats.join(', '))}</small><small>${num(c.subscribers)} assinantes</small></span>
+  <span class="pr">${brl(T.minPrice(c))}<small>/mês</small></span></button>`;
+const mini = c => `<button class="creator-card mini" data-creator="${esc(c.id)}" data-open-creator="${esc(c.id)}"><span class="capa-m" style="background:linear-gradient(120deg,${esc(c.color)},var(--roxo))">${T.avatar(c, 44)}</span>
+  <span class="corpo"><b>${esc(c.name)}</b><small>${esc(c.cats.join(' · '))}</small><span class="pr">${brl(T.minPrice(c))}/mês</span></span></button>`;
+const results = () => {
+  const q = norm(exQ.trim());
+  const list = visCreators().filter(c => (!exCat || c.cats.includes(exCat)) && (!q || norm([c.name, c.handle, c.bio, ...c.cats].join(' ')).includes(q)));
+  return list.length ? `<div class="resultados">${list.map(card).join('')}</div>` : `<div class="vazio">Nenhum criador encontrado${exQ ? ` para “${esc(exQ)}”` : ''}.</div>`;
+};
+const exploreBody = () => (exCat || exQ.trim()) ? results() : `
+  <p class="rotulo">Em alta</p>
+  <div class="carrossel">${visCreators().slice().sort((a, b) => b.subscribers - a.subscribers).map(mini).join('')}</div>
+  <p class="rotulo">Novos na Trip</p>
+  <div class="resultados">${visCreators().filter(c => c.isNew).map(card).join('')}</div>`;
+T.views.explore = () => {
+  if (exCat === '+18' && T.state.showAdult === false) exCat = null;
+  const cats = CATS.filter(k => k !== '+18' || T.state.showAdult !== false);
+  return `<header class="cab"><button class="voltar" data-go-home aria-label="Voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M15 5l-7 7 7 7"/></svg></button><h1>Explorar</h1></header>
+  <div class="secao">
+    <label class="busca">${T.icon.search}<input type="search" id="explore-q" placeholder="Buscar criadores, aulas, temas…" value="${esc(exQ)}" aria-label="Buscar criadores"></label>
+    <div class="cats" role="group" aria-label="Categorias">${cats.map(k => `<button class="cat${k === '+18' ? ' adulto' : ''}" data-cat="${esc(k)}" aria-pressed="${exCat === k}">${esc(k)}</button>`).join('')}</div>
+    <div id="explore-res" class="form">${exploreBody()}</div>
+  </div>`;
+};
+T.after.explore = v => { $('#explore-q', v).addEventListener('input', e => { exQ = e.target.value; $('#explore-res').innerHTML = exploreBody(); }); };
+
+/* ---------- Gorjeta ---------- */
+T.openTip = (creatorId, onSent) => {
+  const c = T.creator(creatorId); let val = null;
+  T.sheet(`<h2>Mandar gorjeta para ${esc(c.name)}</h2><p class="sub">100% de incentivo para quem você curte. A Trip fica com 10%.</p>
+    <div class="form">
+      <div class="valores">${[5, 10, 20, 50].map(v => `<button class="tip-amt" data-v="${v}" aria-pressed="false">R$ ${v}</button>`).join('')}</div>
+      <div class="campo"><label for="tip-other">Outro valor (R$)</label><input type="text" id="tip-other" inputmode="decimal" placeholder="Ex.: 15,00"></div>
+      <div class="campo"><label for="tip-msg">Mensagem (opcional)</label><input type="text" id="tip-msg" maxlength="120" placeholder="Valeu pelo conteúdo!"></div>
+      <p class="erro" id="tip-erro"></p>
+      <button class="btn btn-lima btn-bloco" id="tip-send" disabled>Mandar gorjeta</button>
+    </div>`);
+  const upd = () => { const ok = Number.isFinite(val) && val >= 2 && val <= 5000; $('#tip-send').disabled = !ok; $('#tip-send').textContent = ok ? `Mandar ${brl(val)}` : 'Mandar gorjeta'; $('#tip-erro').textContent = val != null && !ok && !Number.isNaN(val) ? 'A gorjeta vai de R$ 2,00 a R$ 5.000,00.' : ''; };
+  $$('.tip-amt').forEach(b => b.onclick = () => { val = Number(b.dataset.v); $('#tip-other').value = ''; $$('.tip-amt').forEach(x => x.setAttribute('aria-pressed', x === b)); upd(); });
+  $('#tip-other').addEventListener('input', e => { $$('.tip-amt').forEach(x => x.setAttribute('aria-pressed', 'false')); val = e.target.value.trim() ? parseMoney(e.target.value) : null; upd(); });
+  $('#tip-send').onclick = () => {
+    const v = val, msg = $('#tip-msg').value.trim();
+    if (msg && T.isBlocked(msg).blocked) { $('#tip-erro').textContent = 'Mensagem com termo proibido. Apague para continuar.'; return; }
+    T.payPix({ title: 'Gorjeta para ' + c.name, sub: msg || 'Gorjeta pela Trip', amount: v, code: `00020126trip.pix/tip/${c.handle}/${v.toFixed(2)}5303986BR`, doneLabel: 'Já paguei',
+      onDone: () => { (T.state.tips = T.state.tips || []).push({ creatorId, amount: v, msg, at: new Date().toISOString() }); T.save(); T.toast(`Gorjeta de ${brl(v)} enviada para ${c.name}.`); if (onSent) onSent(v, msg); } });
+  };
+};
+
+/* ---------- Carteira, verificação e configurações (Meu perfil) ---------- */
+const DISPONIVEL = 3120, A_LIBERAR = 1200, GORJETAS = 340;
+const available = () => Math.round((DISPONIVEL - (T.state.withdrawals || []).reduce((a, w) => a + w.amount, 0)) * 100) / 100;
+const baseMe = T.views.me, baseAfter = T.after.me;
+T.views.me = () => {
+  const s = T.state, ws = s.withdrawals || [];
+  const wallet = !s.isCreator ? '' : `<div class="secao" id="wallet">
+    <p class="rotulo">Carteira</p>
+    ${s.verified ? '<div id="verified">✓ Identidade verificada. Você pode receber e sacar.</div>' : `<div class="pendente"><b>Verifique sua identidade para receber</b><span>Pedimos documento e selfie de todo criador, para garantir que só maiores de idade vendem conteúdo na Trip.</span><button class="btn btn-escuro" id="verify-start">Verificar identidade</button></div>`}
+    <div class="saldo"><small>Disponível para saque · exemplo</small><b id="wallet-available">${brl(available())}</b>
+      <div class="sub-s"><span>A liberar: ${brl(A_LIBERAR)}</span><span>Gorjetas no mês: ${brl(GORJETAS)}</span></div></div>
+    <button class="btn btn-lima btn-bloco" id="withdraw" ${s.verified && available() > 0 ? '' : 'disabled'}>Sacar via Pix</button>
+    <p class="dica">O dinheiro de cada assinatura fica disponível 7 dias depois do pagamento. O saque cai na hora.</p>
+    ${ws.slice().reverse().map(w => `<div class="saque-item"><span>Saque Pix<small>${esc(w.key)} · ${new Date(w.at).toLocaleDateString('pt-BR')}</small></span><b>${brl(w.amount)}</b></div>`).join('')}
+  </div>`;
+  const cfg = `<div class="secao"><p class="rotulo">Configurações</p>
+    <label class="chave" for="toggle-adult"><span><b>Mostrar conteúdo adulto (+18)</b><small>Desligado, você não vê criadores, posts, stories e vídeos +18.</small></span><input type="checkbox" id="toggle-adult" ${s.showAdult !== false ? 'checked' : ''}></label></div>`;
+  return baseMe() + wallet + cfg;
+};
+T.after.me = v => {
+  baseAfter && baseAfter(v);
+  $('#toggle-adult', v).addEventListener('change', e => { T.state.showAdult = e.target.checked; T.save(); T.refresh(); T.toast(e.target.checked ? 'Conteúdo +18 visível.' : 'Conteúdo +18 escondido.'); });
+};
+
+const openWithdraw = () => {
+  const max = available();
+  T.sheet(`<h2>Sacar via Pix</h2><p class="sub">Disponível: ${brl(max)}</p>
+    <div class="form">
+      <div class="campo"><label for="withdraw-key">Chave Pix (CPF, e-mail, celular ou aleatória)</label><input type="text" id="withdraw-key" autocomplete="off"></div>
+      <div class="campo"><label for="withdraw-amount">Valor (R$)</label><input type="text" id="withdraw-amount" inputmode="decimal" value="${max.toFixed(2).replace('.', ',')}"></div>
+      <p class="erro" id="withdraw-erro"></p>
+      <button class="btn btn-lima btn-bloco" id="withdraw-confirm" disabled>Confirmar saque</button>
+    </div>`);
+  const upd = () => {
+    const key = $('#withdraw-key').value.trim(), v = parseMoney($('#withdraw-amount').value);
+    let err = '';
+    if (!(v >= 10)) err = 'O saque mínimo é R$ 10,00.'; else if (v > max) err = 'Valor maior que o saldo disponível.'; else if (key.length < 5) err = 'Informe sua chave Pix.';
+    $('#withdraw-erro').textContent = err && (key || $('#withdraw-amount').value) ? err : '';
+    $('#withdraw-confirm').disabled = !!err;
+    return err ? null : { key, v };
+  };
+  $('#withdraw-key').addEventListener('input', upd); $('#withdraw-amount').addEventListener('input', upd); upd();
+  $('#withdraw-confirm').onclick = () => { const r = upd(); if (!r) return; (T.state.withdrawals = T.state.withdrawals || []).push({ amount: Math.round(r.v * 100) / 100, key: r.key, at: new Date().toISOString() }); T.save(); T.closeSheet(); T.refresh(); T.toast(`Saque de ${brl(r.v)} enviado. Cai na sua conta na hora.`); };
+};
+
+const openVerify = () => {
+  const d = { step: 1, doc: false, selfie: false };
+  const passos = () => `<div class="passos">${[1, 2, 3, 4].map(i => `<span class="${i <= d.step ? 'on' : ''}"></span>`).join('')}</div>`;
+  const render = () => {
+    let body;
+    if (d.step === 1) body = `<h2>Seus dados</h2><p class="sub">Precisam ser iguais aos do documento.</p><div class="form">
+      <div class="campo"><label for="v-name">Nome completo</label><input type="text" id="v-name" autocomplete="name" value="${esc(d.name || '')}"></div>
+      <div class="campo"><label for="v-cpf">CPF</label><input type="text" id="v-cpf" inputmode="numeric" placeholder="000.000.000-00" value="${esc(d.cpf || '')}"></div>
+      <div class="campo"><label for="v-birth">Data de nascimento</label><input type="date" id="v-birth" value="${esc(d.birth || '')}"></div>
+      <p class="erro" id="v-erro" hidden></p><button class="btn btn-escuro btn-bloco" id="v-next">Continuar</button></div>`;
+    else if (d.step === 2) body = `<h2>Foto do documento</h2><p class="sub">RG ou CNH, frente e verso, sem reflexo.</p><div class="form">
+      <button class="captura${d.doc ? ' feito' : ''}" id="v-doc">${d.doc ? '✓ documento.jpg (simulado)' : 'Tirar foto do documento'}</button>
+      <button class="btn btn-escuro btn-bloco" id="v-next" ${d.doc ? '' : 'disabled'}>Continuar</button></div>`;
+    else if (d.step === 3) body = `<h2>Selfie</h2><p class="sub">Uma selfie segurando o documento, para comparar com a foto.</p><div class="form">
+      <button class="captura${d.selfie ? ' feito' : ''}" id="v-selfie">${d.selfie ? '✓ selfie.jpg (simulado)' : 'Tirar selfie com o documento'}</button>
+      <button class="btn btn-escuro btn-bloco" id="v-next" ${d.selfie ? '' : 'disabled'}>Continuar</button></div>`;
+    else body = `<h2>Consentimento</h2><p class="sub">Última etapa.</p><div class="form">
+      <label class="consent"><input type="checkbox" id="v-consent"><span>Declaro que tenho 18 anos ou mais e que <b>todas as pessoas que aparecem no meu conteúdo são maiores de idade e concordaram em aparecer</b>. Guardo o termo de consentimento assinado de cada uma.</span></label>
+      <button class="btn btn-lima btn-bloco" id="v-finish" disabled>Enviar verificação</button>
+      <p class="aviso-sim">No protótipo a aprovação é imediata. No app real, a análise leva alguns minutos.</p></div>`;
+    T.sheet(passos() + body);
+    const next = $('#v-next');
+    if (d.step === 1) next.onclick = () => {
+      d.name = $('#v-name').value.trim(); d.cpf = $('#v-cpf').value.trim(); d.birth = $('#v-birth').value;
+      const err = $('#v-erro'), show = m => { err.hidden = false; err.textContent = m; };
+      if (d.name.split(/\s+/).length < 2) return show('Digite seu nome completo.');
+      if (d.cpf.replace(/\D/g, '').length !== 11) return show('O CPF precisa ter 11 números.');
+      const b = new Date(d.birth + 'T12:00:00'); if (!d.birth || isNaN(b)) return show('Informe sua data de nascimento.');
+      const t = new Date(); let age = t.getFullYear() - b.getFullYear(); if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) age--;
+      if (age < 18) return show('Você precisa ter 18 anos ou mais para ser criador na Trip.');
+      d.step = 2; render();
+    };
+    else if (next) next.onclick = () => { d.step++; render(); };
+    if ($('#v-doc')) $('#v-doc').onclick = () => { d.doc = true; render(); };
+    if ($('#v-selfie')) $('#v-selfie').onclick = () => { d.selfie = true; render(); };
+    if ($('#v-consent')) $('#v-consent').onchange = e => { $('#v-finish').disabled = !e.target.checked; };
+    if ($('#v-finish')) $('#v-finish').onclick = () => { T.state.verified = true; T.save(); T.closeSheet(); T.refresh(); T.toast('Identidade verificada. Você já pode receber e sacar.'); };
+  };
+  render();
+};
+
+/* ---------- Comentários ---------- */
+const FAKE = [['ana.lu', '#d08c60', 'Que incrível 😍'], ['joao.p', '#4f7cac', 'Melhor perfil da Trip'], ['carol.m', '#9b5de5', 'Quero mais conteúdo assim!']];
+const openComments = postId => {
+  const p = T.allPosts().find(x => x.id === postId); if (!p) return;
+  const mine = () => (T.state.comments = T.state.comments || {})[postId] || [];
+  const item = (h, color, text, when) => `<div class="comment"><span class="av" style="background:${esc(color)}">${esc(h[0].toUpperCase())}</span><div><b>${esc(h)}</b> ${esc(text)}<small>${esc(when)}</small></div></div>`;
+  T.sheet(`<h2>Comentários</h2><p class="sub">${num((p.comments || 0) + mine().length)} comentários</p>
+    <div class="comments" id="comments">${FAKE.map(([h, c, t], i) => item(h, c, t, (i + 1) * 2 + ' h')).join('')}${mine().map(m => item('voce', '#FF0A78', m.text, 'agora')).join('')}</div>
+    <div id="comment-blocked" role="alert" hidden></div>
+    <div class="comment-lin"><textarea id="comment-input" rows="1" maxlength="500" placeholder="Escreva um comentário…" aria-label="Comentário"></textarea><button class="btn btn-marca" id="comment-send">Enviar</button></div>`);
+  $('#comment-send').onclick = () => {
+    const ta = $('#comment-input'), text = ta.value.trim(); if (!text) return;
+    const mod = T.isBlocked(text), box = $('#comment-blocked');
+    if (mod.blocked) { box.hidden = false; box.textContent = `Comentário bloqueado: termos ligados a menores de idade (“${mod.term}”) são proibidos na Trip.`; T.state.underReview = true; T.save(); return; }
+    box.hidden = true;
+    (T.state.comments[postId] = mine()).push({ text, at: new Date().toISOString() }); T.save();
+    $('#comments').insertAdjacentHTML('beforeend', item('voce', '#FF0A78', text, 'agora')); ta.value = '';
+    const btn = document.querySelector(`.post[data-id="${CSS.escape(postId)}"] .comment-btn span`); if (btn) btn.textContent = num((p.comments || 0) + mine().length);
+  };
+};
+
+/* ---------- Notificações ---------- */
+const NOTIFS = [
+  { c: 'bia', t: 'vai fazer live às 22h para o Noite+.', h: '10 min', go: ['creator', 'bia'] },
+  { c: 'luna', t: 'publicou um ensaio novo.', h: '1 h', go: ['creator', 'luna'] },
+  { c: 'caio', t: 'respondeu sua mensagem.', h: '3 h', go: ['chat', 'caio'] },
+  { c: 'nina', t: 'entrou na Trip. Veja o perfil.', h: 'ontem', go: ['creator', 'nina'] },
+  { c: 'duda', t: 'começou a pintar ao vivo.', h: 'ontem', go: ['videos'] }
+];
+T.views.notifs = () => {
+  const novas = !T.state.notifsSeen;
+  T.state.notifsSeen = true; T.save();
+  const list = NOTIFS.filter(n => T.visible(n.c));
+  return `<header class="cab"><button class="voltar" data-go-home aria-label="Voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M15 5l-7 7 7 7"/></svg></button><h1>Notificações</h1></header>
+    <div>${list.map((n, i) => { const c = T.creator(n.c); return `<button class="notif${novas && i < 3 ? ' nova' : ''}" data-notif="${i}">${T.avatar(c, 44)}<span class="si"><b>${esc(c.handle)}</b> ${esc(n.t)}<small>${esc(n.h)}</small></span></button>`; }).join('')}</div>`;
+};
+
+/* ---------- Cliques ---------- */
+$('#view').addEventListener('click', e => {
+  if (e.target.closest('#open-explore')) { T.go('explore'); return; }
+  if (e.target.closest('#open-notifs')) { T.go('notifs'); return; }
+  const cat = e.target.closest('.cat'); if (cat) { exCat = exCat === cat.dataset.cat ? null : cat.dataset.cat; T.refresh(); return; }
+  const cm = e.target.closest('.comment-btn'); if (cm) { openComments(cm.dataset.id); return; }
+  const tip = e.target.closest('.tip-btn'); if (tip) { T.openTip(tip.dataset.creator); return; }
+  const ct = e.target.closest('#chat-tip');
+  if (ct) { const id = ct.dataset.creator; T.openTip(id, (v, msg) => { (T.state.chats[id] = T.state.chats[id] || []).push({ from: 'me', text: `💸 Gorjeta de ${brl(v)}${msg ? ' · ' + msg : ''}`, at: new Date().toISOString() }); T.save(); T.refresh(); }); return; }
+  if (e.target.closest('#verify-start')) { openVerify(); return; }
+  if (e.target.closest('#withdraw')) { openWithdraw(); return; }
+  const nt = e.target.closest('[data-notif]'); if (nt) { const n = NOTIFS.filter(x => T.visible(x.c))[Number(nt.dataset.notif)]; T.go(n.go[0], n.go[1]); return; }
 });
 })();
 </script>

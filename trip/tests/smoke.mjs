@@ -387,6 +387,143 @@ test('filtroEmAlta', async b => {
   assert(first === 'p10', 'mais curtido deveria vir primeiro: ' + first);
 });
 
+
+// ---------- Explorar ----------
+test('exploreBusca', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('#open-explore');
+  assert((await view(p)) === 'explore', 'não abriu Explorar');
+  await p.fill('#explore-q', 'culin');
+  const ids = await p.$$eval('.creator-card', cs => cs.map(c => c.dataset.creator));
+  assert(ids.length === 1 && ids[0] === 'rafa', 'busca errada: ' + ids);
+});
+test('exploreCategoria', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('#open-explore');
+  await p.click('.cat[data-cat="Fitness"]');
+  const ids = await p.$$eval('.resultados .creator-card', cs => cs.map(c => c.dataset.creator));
+  assert(ids.length >= 2 && ids.includes('caio') && !ids.includes('bia'), 'categoria errada: ' + ids);
+});
+// ---------- +18 ----------
+test('esconderAdulto', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('nav#tabs button[data-view="me"]');
+  await p.click('#toggle-adult');
+  await p.click('nav#tabs button[data-view="home"]');
+  const ids = await p.$$eval('.feed .post', ps => ps.map(x => x.dataset.id));
+  assert(!ids.some(i => ['p1', 'p3', 'p6', 'p8', 'p10', 'p12'].includes(i)), 'feed mostra adulto: ' + ids);
+  assert(await p.locator('.story[data-id="bia"]').count() === 0, 'story adulto visível');
+  await p.click('#open-explore');
+  assert(await p.locator('.creator-card[data-creator="bia"]').count() === 0, 'explorar mostra adulto');
+  assert(await p.locator('.cat[data-cat="+18"]').count() === 0, 'categoria +18 visível');
+  await p.click('nav#tabs button[data-view="videos"]');
+  const reels = await p.$$eval('.reel', rs => rs.map(r => r.dataset.id));
+  assert(!reels.includes('r3') && !reels.includes('r5'), 'vídeos adultos: ' + reels);
+});
+// ---------- Gorjeta ----------
+test('gorjetaPost', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('.post[data-id="p5"] .tip-btn');
+  await p.click('.tip-amt[data-v="10"]');
+  await p.click('#tip-send');
+  await p.click('#pix-done');
+  assert(nb(await p.innerText('#toast')).includes('Gorjeta de R$ 10,00'), 'sem confirmação da gorjeta');
+});
+test('gorjetaInvalida', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('.post[data-id="p5"] .tip-btn');
+  await p.fill('#tip-other', '1');
+  assert(await p.isDisabled('#tip-send'), 'gorjeta de R$ 1 permitida');
+  await p.fill('#tip-other', '');
+  assert(await p.isDisabled('#tip-send'), 'gorjeta vazia permitida');
+});
+test('gorjetaChat', async b => {
+  const p = await open(b); await enter(p);
+  await abrirChat(p, 'caio');
+  await p.click('#chat-tip');
+  await p.click('.tip-amt[data-v="20"]');
+  await p.click('#tip-send');
+  await p.click('#pix-done');
+  assert(nb(await p.locator('.msg.me').last().innerText()).includes('Gorjeta de R$ 20,00'), 'gorjeta não apareceu na conversa');
+});
+// ---------- Verificação e carteira ----------
+async function virarCriador(p) {
+  await p.click('nav#tabs button[data-view="me"]');
+  if (!(await p.isChecked('#toggle-creator'))) await p.click('#toggle-creator');
+}
+async function verificar(p, nasc = '1995-05-10') {
+  await p.click('#verify-start');
+  await p.fill('#v-name', 'Fulana de Tal'); await p.fill('#v-cpf', '123.456.789-09'); await p.fill('#v-birth', nasc);
+  await p.click('#v-next');
+}
+test('saqueExigeVerificacao', async b => {
+  const p = await open(b); await enter(p); await virarCriador(p);
+  assert(await p.isVisible('#wallet'), 'sem carteira');
+  assert(await p.isDisabled('#withdraw'), 'saque liberado sem verificação');
+});
+test('verificacaoMenor', async b => {
+  const p = await open(b); await enter(p); await virarCriador(p);
+  await verificar(p, '2010-01-01');
+  assert(await p.isVisible('#v-erro'), 'sem erro de idade');
+  assert((await p.innerText('#v-erro')).includes('18'), 'erro não fala de 18 anos');
+});
+test('verificacaoCompleta', async b => {
+  const p = await open(b); await enter(p); await virarCriador(p);
+  await verificar(p);
+  await p.click('#v-doc'); await p.click('#v-next');
+  await p.click('#v-selfie'); await p.click('#v-next');
+  await p.check('#v-consent'); await p.click('#v-finish');
+  assert(await p.isVisible('#verified'), 'sem selo de verificado');
+  assert(!(await p.isDisabled('#withdraw')), 'saque continua bloqueado');
+});
+test('saque', async b => {
+  const p = await open(b); await enter(p); await virarCriador(p);
+  await p.evaluate(() => { T.state.verified = true; T.refresh(); });
+  await p.click('#withdraw');
+  await p.fill('#withdraw-key', 'fulana@exemplo.com');
+  await p.fill('#withdraw-amount', '99999');
+  assert(await p.isDisabled('#withdraw-confirm'), 'saque acima do saldo permitido');
+  await p.fill('#withdraw-amount', '1000');
+  await p.click('#withdraw-confirm');
+  assert(nb(await p.innerText('#wallet-available')).includes('R$ 2.120,00'), 'saldo não diminuiu');
+  assert(await p.locator('.saque-item').count() === 1, 'sem histórico do saque');
+});
+// ---------- Comentários, notificações, seguir ----------
+test('comentar', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('.post[data-id="p5"] .comment-btn');
+  await p.fill('#comment-input', 'Que delícia, vou fazer!');
+  await p.click('#comment-send');
+  assert((await p.locator('.comment').last().innerText()).includes('Que delícia'), 'comentário não apareceu');
+  await p.evaluate(() => T.closeSheet());
+  assert((await p.innerText('.post[data-id="p5"] .comment-btn')).includes('53'), 'contador não subiu');
+});
+test('comentarProibido', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('.post[data-id="p5"] .comment-btn');
+  const n = await p.locator('.comment').count();
+  await p.fill('#comment-input', 'que novinha');
+  await p.click('#comment-send');
+  assert(await p.isVisible('#comment-blocked'), 'sem bloqueio');
+  assert(await p.locator('.comment').count() === n, 'comentou mesmo assim');
+});
+test('notificacoes', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('#open-notifs');
+  assert((await view(p)) === 'notifs', 'não abriu notificações');
+  assert(await p.locator('.notif').count() >= 3, 'poucas notificações');
+  await p.click('nav#tabs button[data-view="home"]');
+  assert(await p.locator('#open-notifs .badge').count() === 0, 'contador não zerou');
+});
+test('seguir', async b => {
+  const p = await open(b); await enter(p);
+  await p.evaluate(() => T.go('creator', 'duda'));
+  await p.click('#seguir');
+  assert((await p.innerText('#seguir')).includes('Seguindo'), 'não mudou para Seguindo');
+  await p.evaluate(() => { T.go('home'); T.go('creator', 'duda'); });
+  assert((await p.innerText('#seguir')).includes('Seguindo'), 'não lembrou');
+});
+
 // ---------- runner ----------
 const filter = process.argv[2];
 const browser = await chromium.launch();
