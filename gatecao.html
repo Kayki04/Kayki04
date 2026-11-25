@@ -4228,7 +4228,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     ]);
     h+=grp('Serviços',[
       {icon:svg('drop'),label:'Banho e tosa',attr:go2('banho')},
-      isVet()?{icon:svg('pill'),label:'Área do parceiro (veterinário)',attr:act('rxOpen')}:null
+      isVet()?{icon:svg('pill'),label:'Vet parceiro',attr:act('rxOpen')}:null
     ]);
     h+=grp('Loja e ajuda',[
       {icon:svg('shield'),label:'Veterinários parceiros',attr:act('mais_vets')},
@@ -5145,11 +5145,46 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(pays.length)h+='<p class="hint" style="margin:6px 0 0">Último pagamento recebido: <b>'+brl(num(pays[0].amount))+'</b> em '+fmtTs(pays[0].ts)+'.</p>';
     return h+'</div>';
   }
-  function renderRxBuilder(){
-    var h='<div class="row"><h2>Atendimento · receita</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
-    h+='<p class="hint" style="margin-top:0">Monte a receita do paciente: adicione os medicamentos, a orientação de cada um e uma observação geral se precisar.</p>';
-    if(!vetApproved())h+='<div class="combobar">⏳ <span>Seu cadastro de veterinário está <b>em análise</b>. Você já pode montar receitas; o <b>desconto do cliente e a sua comissão</b> começam quando a loja aprovar seu cadastro.</span></div>';
+  function openVetHub(){
+    var w=X.uid?wal(X.uid):{points:0,cash:0},saldo=num(D.partner&&D.partner.saldo);
+    var nm=(D.partner&&D.partner.name)?('Dr(a). '+D.partner.name):'Veterinário parceiro';
+    var h='<div class="row"><h2>Vet parceiro</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
+    h+='<div class="acard"><b>'+esc(nm)+'</b>'+((D.partner&&D.partner.clinica)?'<br><span class="muted">'+esc(D.partner.clinica)+'</span>':'')+
+      '<div class="kpis3" style="margin-top:8px"><div><span>Pontos</span><b>'+w.points+'</b></div><div><span>Cashback</span><b>'+brl(w.cash)+'</b></div><div><span>A receber</span><b>'+brl(saldo)+'</b></div></div>'+
+      (!vetApproved()?'<div class="combobar" style="margin-top:8px">⏳ <span>Seu cadastro está <b>em análise</b> pela loja.</span></div>':'')+'</div>';
+    function rowv(k,icon,label,sub){return '<button class="acctrow" data-vh="'+k+'"><span class="ai">'+icon+'</span><span class="al">'+label+(sub?'<br><span class="muted" style="font-weight:600;font-size:12px">'+esc(sub)+'</span>':'')+'</span><span class="ac">›</span></button>'}
+    h+='<div class="acctrows" style="margin-top:12px">';
+    h+=rowv('rxnew',svg('pill'),'Montar receita','Prescrever para um paciente');
+    h+=rowv('rxlist',IC_M_DOC,'Minhas receitas','('+(D.myRx||[]).length+')');
+    h+=rowv('earn',svg('star'),'Meus ganhos e comissão','Pontos, a receber e % por linha');
+    h+=rowv('clin',IC_M_STORE,'Dados da clínica','Nome, CRMV, especialidade e logo');
+    h+='</div>';
+    $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Vet parceiro');bindClose();
+    $('#overlay').onclick=function(e){var a=e.target.closest('[data-vh]');if(!a)return;var k=a.getAttribute('data-vh');
+      if(k==='rxnew')openRxBuilder(true);else if(k==='rxlist')openVetRx();else if(k==='earn')openVetEarnings();else if(k==='clin')openClinic();};
+  }
+  function openVetEarnings(){
+    var h='<div class="row"><button class="ghost" id="vhBack">‹ Vet parceiro</button><button class="ghost" id="closeSheet">Fechar</button></div>';
     h+=vetPartnerCard();
+    $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Meus ganhos');bindClose();
+    var vb=$('#vhBack');if(vb)vb.onclick=openVetHub;
+  }
+  function openVetRx(){
+    var h='<div class="row"><button class="ghost" id="vhBack">‹ Vet parceiro</button><button class="ghost" id="closeSheet">Fechar</button></div><h2 style="margin:0 0 6px">Minhas receitas</h2>';
+    var list=(D.myRx||[]).slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)});
+    if(!list.length)h+='<p class="hint">Você ainda não gerou receitas. Volte e toque em "Montar receita".</p>';
+    list.forEach(function(r){h+='<div class="acard"><div class="rowtight"><b>'+esc(r.code)+'</b><span class="st '+(r.status==='usada'?'ok':r.status==='cancelada'?'off':'info')+'">'+(r.status==='usada'?'Usada':r.status==='cancelada'?'Cancelada':'Aberta')+'</span></div><span class="muted">'+(r.items||[]).length+' ite'+((r.items||[]).length>1?'ns':'m')+(r.clientName?' · '+esc(r.clientName):'')+' · '+fmtTs(r.ts)+'</span><div class="rowtight"><button class="mini alt" data-rxpdf="'+esc(r.code)+'">PDF</button><button class="mini" data-rxshare="'+esc(r.code)+'">Código</button></div></div>'});
+    $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Minhas receitas');bindClose();
+    var vb=$('#vhBack');if(vb)vb.onclick=openVetHub;
+    $('#overlay').onclick=function(e){var a;
+      if((a=e.target.closest('[data-rxshare]'))){var rr=(D.myRx||[]).filter(function(x){return x.code===a.getAttribute('data-rxshare')})[0];if(rr)rxShareView(rr);return}
+      if((a=e.target.closest('[data-rxpdf]'))){var rp=(D.myRx||[]).filter(function(x){return x.code===a.getAttribute('data-rxpdf')})[0];if(rp)rxPdf(rp);return}
+    };
+  }
+  function renderRxBuilder(){
+    var h='<div class="row"><button class="ghost" id="vhBack">‹ Vet parceiro</button><button class="ghost" id="closeSheet">Fechar</button></div><h2 style="margin:0 0 4px">Montar receita</h2>';
+    h+='<p class="hint" style="margin-top:0">Adicione os medicamentos, a orientação de cada um e uma observação geral se precisar.</p>';
+    if(!vetApproved())h+='<div class="combobar">⏳ <span>Seu cadastro de veterinário está <b>em análise</b>. Você já pode montar receitas; o <b>desconto do cliente e a sua comissão</b> começam quando a loja aprovar seu cadastro.</span></div>';
     h+='<div class="acard"><div class="rowtight"><b>Paciente</b><button class="mini alt" id="rxclinic">Dados da clínica</button></div><div class="two"><label class="fld">Nome do pet<input class="in" id="rxpet" value="'+esc(RXD.petName||'')+'" placeholder="Ex.: Rex"></label><label class="fld">Espécie<select class="in" id="rxpk">'+['Cão','Gato','Outro'].map(function(k){return '<option'+(RXD.petKind===k?' selected':'')+'>'+k+'</option>'}).join('')+'</select></label></div><div class="two"><label class="fld">Raça<input class="in" id="rxbreed" value="'+esc(RXD.petBreed||'')+'" placeholder="Ex.: SRD"></label><label class="fld">Peso<input class="in" id="rxweight" value="'+esc(RXD.petWeight||'')+'" placeholder="Ex.: 8,5 kg"></label></div></div>';
     h+='<div class="acard"><div class="rowtight"><b>Para um cliente específico</b><button class="sw" id="rxfc" role="switch" aria-checked="'+(RXD.forClient?'true':'false')+'"></button></div>'+
       (RXD.forClient?'<label class="fld">Nome do cliente<input class="in" id="rxcn" value="'+esc(RXD.clientName)+'" placeholder="Nome do tutor"></label><label class="fld">WhatsApp do cliente<input class="in" id="rxcp" inputmode="tel" value="'+esc(RXD.clientPhone)+'" placeholder="(21) 90000-0000"></label><p class="hint">A receita aparece no app dele (quando ele usa o mesmo telefone) e você também recebe o código.</p>':'<p class="hint">Sem cliente: gera um código que você passa pra qualquer pessoa usar no app.</p>')+'</div>';
@@ -5167,13 +5202,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='</div>';
     h+='<div class="acard"><b>Observação geral</b><textarea class="in" id="rxobs" rows="3" maxlength="500" placeholder="Observação avulsa para o tutor (ex.: retornar em 15 dias, jejum antes do exame...)">'+esc(RXD.obs||'')+'</textarea></div>';
     h+='<button class="primary" id="rxgen"'+(RXD.order.length?'':' disabled')+'>Gerar receita'+(RXD.order.length?' · '+RXD.order.length+' ite'+(RXD.order.length>1?'ns':'m'):'')+'</button>';
-    if((D.myRx||[]).length){
-      h+='<div class="sec"><h2>Minhas receitas</h2><span>'+D.myRx.length+'</span></div>';
-      D.myRx.slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)}).slice(0,10).forEach(function(r){
-        h+='<div class="acard"><div class="rowtight"><b>'+esc(r.code)+'</b><span class="st '+(r.status==='usada'?'ok':r.status==='cancelada'?'off':'info')+'">'+(r.status==='usada'?'Usada':r.status==='cancelada'?'Cancelada':'Aberta')+'</span></div><span class="muted">'+(r.items||[]).length+' ite'+((r.items||[]).length>1?'ns':'m')+(r.clientName?' · '+esc(r.clientName):'')+' · '+fmtTs(r.ts)+'</span><div class="rowtight"><button class="mini alt" data-rxpdf="'+esc(r.code)+'">PDF</button><button class="mini" data-rxshare="'+esc(r.code)+'">Código</button></div></div>';
-      });
-    }
     $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Montar receita');bindClose();
+    var vb0=$('#vhBack');if(vb0)vb0.onclick=openVetHub;
     var fc=$('#rxfc');if(fc)fc.onclick=function(){rxGrabFields();RXD.forClient=!RXD.forClient;renderRxBuilder()};
     var cn=$('#rxcn');if(cn)cn.oninput=function(){RXD.clientName=cn.value};
     var cp=$('#rxcp');if(cp)cp.oninput=function(){RXD.clientPhone=cp.value};
@@ -7887,7 +7917,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     else if(h.indexOf('produto/')===0){state.tab='loja';PV.pending=decodeURIComponent(h.slice(8))}
     else if(h==='cart'){state.tab='loja';setTimeout(function(){try{if(cartCount())openCart()}catch(e){}},400)}
     else if(h.indexOf('rx/')===0){state.tab='loja';var _rxc=decodeURIComponent(h.slice(3));setTimeout(function(){try{openRxRedeem(_rxc)}catch(e){}},700)}
-    else if(h==='receitas'||h==='parceiro'){state.tab='pet';setTimeout(function(){try{if(isVet())openRxBuilder(true)}catch(e){}},700)}
+    else if(h==='receitas'||h==='parceiro'){state.tab='pet';setTimeout(function(){try{if(isVet())openVetHub()}catch(e){}},700)}
     renderCats();persist();render();
     try{
       if(!window.claude||!window.claude.use)throw new Error('sem runtime');
@@ -7922,7 +7952,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var ab=nc.querySelector('[data-add]');if(ab)ab.onclick=function(){addToCart(ab.getAttribute('data-add'))};
     return true;
   }
-  var CACT={installApp:installApp,legalPriv:function(){openLegal('priv')},legalTermos:function(){openLegal('termos')},lojaInfo:openLoja,rxOpen:function(){openRxBuilder(true)},rxRedeem:function(){openRxRedeem('')},
+  var CACT={installApp:installApp,legalPriv:function(){openLegal('priv')},legalTermos:function(){openLegal('termos')},lojaInfo:openLoja,rxOpen:function(){openVetHub()},rxRedeem:function(){openRxRedeem('')},
     mais_inbox:function(){openInbox()},
     mais_fav:function(){state.cat='Todos';state.fCat='Todos';state.showAll=true;state.f={fav:true};renderCats();go('loja')},
     mais_ref:function(){go('vantagens')},
@@ -8003,7 +8033,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var t=location.hash.slice(1);
     if(t.indexOf('produto/')===0){var pid=decodeURIComponent(t.slice(8));if(pid!==PV.id){if(D.ready.products)showProduct(pid,true);else PV.pending=pid}return}
     if(t.indexOf('rx/')===0){openRxRedeem(decodeURIComponent(t.slice(3)));return}
-    if(t==='receitas'||t==='parceiro'){if(isVet())openRxBuilder(true);return}
+    if(t==='receitas'||t==='parceiro'){if(isVet())openVetHub();return}
     if(t==='balcao'||t==='balcao-banho'){if(PV.id)hidePview();MB.fromCaixa=true;MB.tab=(t==='balcao-banho'?'banho':'venda');state.tab='gestao';state.adm.tab='balcao';render();return}
     if(t.indexOf('caixa')===0){if(PV.id)hidePview();if(state.tab!=='caixa'){state.tab='caixa';render()}return}
     if(PV.id){hidePview();var a=PV.after;PV.after=null;if(a){a();return}}
