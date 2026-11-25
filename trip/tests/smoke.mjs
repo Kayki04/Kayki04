@@ -131,6 +131,49 @@ test('videosTelaCheia', async b => {
   assert(second === ids[1], 'rolar não levou ao segundo reel: ' + second);
 });
 
+
+// ---------- Task 4 ----------
+async function assinar(p, creator, plan) {
+  await p.evaluate(c => T.go('creator', c), creator);
+  await p.click(`.plan[data-plan="${plan}"]`);
+  assert(await p.isVisible('#pix-pay'), 'tela do Pix não apareceu');
+  await p.click('#pix-done');
+}
+test('abrePerfil', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('.post[data-id="p3"] [data-open-creator]');
+  assert((await view(p)) === 'creator', 'não abriu perfil');
+  assert(await p.locator('.plan').count() === 2, 'Bia deveria ter 2 planos');
+  assert(await p.locator('.grade .locked-thumb').count() > 0, 'grade sem exclusivos bloqueados');
+});
+test('fluxoAssinar', async b => {
+  const p = await open(b); await enter(p);
+  await assinar(p, 'bia', 'bia-noite');
+  assert(await p.isVisible('#toast'), 'sem toast');
+  assert(await p.locator('.grade .locked-thumb').count() === 0, 'grade continua bloqueada');
+  await p.click('nav#tabs button[data-view="home"]');
+  assert(await p.locator('.post[data-id="p3"] .locked').count() === 0, 'feed continua bloqueado');
+});
+test('assinarDuasVezes', async b => {
+  const p = await open(b); await enter(p);
+  await assinar(p, 'bia', 'bia-noite');
+  await p.evaluate(() => T.subscribe('bia', 'bia-noite'));
+  await p.click('nav#tabs button[data-view="subs"]');
+  assert(await p.locator('.sub-item[data-creator="bia"]').count() === 1, 'assinatura duplicada');
+});
+test('minhasAssinaturas', async b => {
+  const p = await open(b); await enter(p);
+  await assinar(p, 'luna', 'luna-vip');
+  await p.click('nav#tabs button[data-view="subs"]');
+  const item = p.locator('.sub-item[data-creator="luna"]');
+  const txt = (await item.innerText()).replace(/\u00a0/g, ' ');
+  assert(txt.includes('VIP'), 'sem nome do plano');
+  assert(txt.includes('R$ 49,90'), 'sem valor: ' + txt);
+  const d = new Date(); d.setDate(d.getDate() + 30);
+  const esperado = d.toLocaleDateString('pt-BR');
+  assert(txt.includes(esperado), `sem renovação ${esperado}: ` + txt);
+});
+
 // ---------- runner ----------
 const filter = process.argv[2];
 const browser = await chromium.launch();

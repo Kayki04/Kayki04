@@ -476,3 +476,191 @@ const reel = (r, k) => {
 T.views.videos = () => T.data.reels.map(reel).join('');
 })();
 </script>
+
+<!-- ================= Perfil do criador e assinaturas ================= -->
+<style>
+.capa{height:120px;position:relative}
+.perfil-topo{padding:0 16px;margin-top:-44px;position:relative;display:flex;flex-direction:column;gap:10px}
+.perfil-topo .av{border:4px solid var(--branco)}
+.perfil-topo h1{margin:0;font-size:22px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.perfil-topo .handle{color:var(--cinza);margin:-8px 0 0}
+.perfil-topo .bio{margin:0;overflow-wrap:anywhere}
+.numeros{display:flex;gap:22px}
+.numeros div{display:flex;flex-direction:column;font-size:12px;color:var(--cinza)}
+.numeros b{font-size:17px;color:var(--tinta);font-variant-numeric:tabular-nums}
+.botoes-perfil{display:flex;gap:8px}
+.botoes-perfil .btn{flex:1}
+.voltar{width:38px;height:38px;border-radius:12px;display:grid;place-items:center}
+.voltar svg{width:24px;height:24px}
+.planos{display:flex;flex-direction:column;gap:10px}
+.plan{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1.5px solid var(--linha);border-radius:16px;padding:14px;background:var(--branco)}
+.plan:hover{border-color:var(--roxo)}
+.plan .pn{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.plan .pn b{font-size:16px}
+.plan .pn small{color:var(--cinza);font-size:12px}
+.plan .preco{font-weight:800;font-size:16px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.plan .preco small{font-weight:600;color:var(--cinza);font-size:12px}
+.plan.atual{border-color:#9bc400;background:#f6ffd6}
+.grade{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
+.grade .thumb{position:relative;aspect-ratio:1;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:8px;color:#fff;font-size:11px;font-weight:700;text-align:center;overflow-wrap:anywhere}
+.grade .thumb .tt{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.grade .locked-thumb::after{content:"";position:absolute;inset:0;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);background:rgba(20,18,26,.3)}
+.grade .locked-thumb .cad{position:absolute;z-index:1;width:22px;height:18px;border:2.5px solid #fff;border-radius:5px;top:50%;left:50%;translate:-50% -30%}
+.grade .locked-thumb .cad::before{content:"";position:absolute;width:11px;height:10px;border:2.5px solid #fff;border-bottom:0;border-radius:7px 7px 0 0;left:3px;top:-11px}
+.grade .ic{position:absolute;right:6px;top:6px;z-index:1;width:16px;height:16px}
+
+#pix-pay{display:flex;flex-direction:column;gap:14px}
+.resumo{display:flex;align-items:center;gap:12px;background:var(--nevoa);border-radius:14px;padding:12px}
+.resumo .total{margin-left:auto;font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
+.qr{align-self:center;width:200px;max-width:100%;aspect-ratio:1;padding:10px;border:1.5px solid var(--linha);border-radius:16px;background:#fff}
+.qr svg{display:block;width:100%;height:100%}
+.copia{display:flex;gap:8px;align-items:center}
+.copia code{flex:1;min-width:0;background:var(--nevoa);border-radius:10px;padding:10px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aviso-sim{font-size:12px;color:var(--cinza);text-align:center;margin:0}
+
+.total-mes{display:flex;justify-content:space-between;align-items:center;background:var(--tinta);color:#fff;border-radius:16px;padding:16px}
+.total-mes b{font-size:22px;font-variant-numeric:tabular-nums}
+.total-mes small{color:#b9b4c4}
+.sub-item{display:flex;align-items:center;gap:12px;border:1.5px solid var(--linha);border-radius:16px;padding:12px}
+.sub-item .si{display:flex;flex-direction:column;min-width:0;flex:1;gap:1px}
+.sub-item .si small{color:var(--cinza);font-size:12px}
+.sub-item .cancel{font-size:12px;color:var(--cinza);font-weight:600;padding:6px}
+.sugestoes{display:flex;flex-direction:column;gap:8px;width:100%;text-align:left}
+.sugestao{display:flex;align-items:center;gap:10px;padding:10px;border-radius:14px;background:var(--nevoa)}
+.sugestao .si{flex:1;min-width:0;display:flex;flex-direction:column}
+.sugestao small{color:var(--cinza)}
+</style>
+<script>
+(function(){
+const { $, esc, brl, num } = T.util;
+const VOLTAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>';
+const PERKS = { 'luna-fa': 'Ensaios completos e bastidores', 'luna-vip': 'Tudo do Fã + vídeos completos e chat', 'caio-pro': 'Treinos completos e plano alimentar', 'bia-noite': 'Fotos e vídeos exclusivos', 'bia-mais': 'Tudo do Noite + lives e chat', 'duda-atelie': 'Vote no próximo quadro e veja o processo', 'rafa-cozinha': 'Aulas completas de sábado' };
+const fmtDate = d => new Date(d).toLocaleDateString('pt-BR');
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+
+T.isSubscribed = id => !!T.state.subs[id];
+T.planOf = (c, planId) => (c.plans || []).find(p => p.id === planId);
+T.subscribe = (creatorId, planId) => {
+  const c = T.creator(creatorId); if (!c || !T.planOf(c, planId)) return false;
+  const cur = T.state.subs[creatorId];
+  if (cur && cur.plan === planId) return false;        // já assina este plano: nada muda
+  T.state.subs[creatorId] = { plan: planId, since: cur ? cur.since : new Date().toISOString() };
+  T.save();
+  return true;
+};
+T.renewDate = s => { const since = new Date(s.since); let r = addDays(since, 30); while (r < new Date()) r = addDays(r, 30); return r; };
+
+/* QR de exemplo (padrão fixo derivado do texto) */
+const qr = text => {
+  const n = 25; let h = 2166136261;
+  for (const ch of text) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  const rnd = () => (h = Math.imul(h ^ (h >>> 13), 1274126177), (h >>> 0) / 4294967296);
+  const finder = (x, y) => [[0, 0], [n - 7, 0], [0, n - 7]].some(([a, b]) => x >= a && x < a + 7 && y >= b && y < b + 7);
+  const fon = (x, y) => { for (const [a, b] of [[0, 0], [n - 7, 0], [0, n - 7]]) { const dx = x - a, dy = y - b; if (dx >= 0 && dx < 7 && dy >= 0 && dy < 7) return dx === 0 || dx === 6 || dy === 0 || dy === 6 || (dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4); } return false; };
+  let r = '';
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (finder(x, y) ? fon(x, y) : rnd() > 0.52) r += `<rect x="${x}" y="${y}" width="1.02" height="1.02"/>`;
+  return `<svg viewBox="0 0 ${n} ${n}" fill="#14121A" shape-rendering="crispEdges" role="img" aria-label="QR Code Pix de exemplo">${r}</svg>`;
+};
+T.qr = qr;
+
+T.payPix = ({ title, sub, amount, code, onDone, doneLabel }) => {
+  T.sheet(`<div id="pix-pay">
+    <div><h2>${esc(title)}</h2><p class="sub">${esc(sub)}</p></div>
+    <div class="resumo"><span>Total no Pix</span><span class="total">${brl(amount)}</span></div>
+    <div class="qr">${qr(code)}</div>
+    <div class="copia"><code id="pix-code">${esc(code)}</code><button class="btn btn-linha btn-p" id="pix-copy">Copiar</button></div>
+    <button class="btn btn-lima btn-bloco" id="pix-done">${esc(doneLabel || 'Já paguei')}</button>
+    <p class="aviso-sim">Pagamento simulado. No app real, a confirmação do Pix chega sozinha.</p>
+  </div>`);
+  $('#pix-copy').onclick = async () => { try { await navigator.clipboard.writeText(code); T.toast('Código Pix copiado'); } catch (e) { const r = document.createRange(); r.selectNodeContents($('#pix-code')); getSelection().removeAllRanges(); getSelection().addRange(r); T.toast('Selecionado. Copie com o menu do celular.'); } };
+  $('#pix-done').onclick = () => { T.closeSheet(); onDone(); };
+};
+
+T.startSubscribe = (creatorId, planId) => {
+  const c = T.creator(creatorId), p = T.planOf(c, planId); if (!p) return;
+  T.payPix({
+    title: `Assinar ${c.name}`, sub: `Plano ${p.name} · renova a cada 30 dias. Cancele quando quiser.`, amount: p.price,
+    code: `00020126trip.pix/${c.handle}/${p.id}/${p.price.toFixed(2)}5303986BR`,
+    onDone: () => { T.subscribe(creatorId, planId); T.toast(`Pronto! Você assina ${c.name}. Conteúdo liberado.`); T.refresh(); }
+  });
+};
+
+const thumb = (p, c) => {
+  const locked = p.exclusive && c.id !== 'me' && !T.isSubscribed(c.id);
+  const bg = p.type === 'text' && (!p.bg || p.bg === 'none') ? 'var(--tinta)' : p.bg;
+  const ic = p.type === 'video' ? '<svg class="ic" viewBox="0 0 24 24" fill="#fff"><path d="M7 4.5v15l13-7.5z"/></svg>' : '';
+  return `<div class="thumb${locked ? ' locked-thumb' : ''}" style="background:${esc(bg)}">${p.type === 'text' && !locked ? `<span class="tt">${esc(p.text)}</span>` : ''}${locked ? '<span class="cad"></span>' : ic}</div>`;
+};
+
+T.views.creator = id => {
+  const c = T.creator(id); if (!c) return T.views.home();
+  const mine = c.id === 'me';
+  const posts = T.allPosts().filter(p => p.creatorId === c.id);
+  const sub = T.state.subs[c.id];
+  const plans = (c.plans || []).map(p => `<button class="plan${sub && sub.plan === p.id ? ' atual' : ''}" data-plan="${esc(p.id)}" data-creator="${esc(c.id)}" ${mine ? 'disabled' : ''}>
+      <span class="pn"><b>${esc(p.name)}</b><small>${esc(p.perks || PERKS[p.id] || 'Conteúdo exclusivo para assinantes')}</small></span>
+      <span class="preco">${brl(p.price)}<small>/mês</small></span></button>`).join('');
+  return `<header class="cab"><button class="voltar" data-back aria-label="Voltar">${VOLTAR}</button><h1>${esc(c.handle)}</h1></header>
+    <div class="capa" style="background:linear-gradient(120deg,${esc(c.color)},var(--roxo) 60%,var(--ciano))"></div>
+    <div class="perfil-topo">
+      ${T.avatar(c, 88)}
+      <h1>${esc(c.name)} ${c.plans && c.plans.length ? '<span class="selo">criador</span>' : ''}</h1>
+      <p class="handle">@${esc(c.handle)}</p>
+      ${c.bio ? `<p class="bio">${esc(c.bio)}</p>` : ''}
+      <div class="numeros"><div><b>${posts.length}</b>posts</div><div><b>${num(c.subscribers || 0)}</b>assinantes</div></div>
+      ${mine ? '' : `<div class="botoes-perfil">${sub ? `<button class="btn btn-linha" disabled>Você assina ✓</button>` : (c.plans && c.plans.length ? `<button class="btn btn-lima" id="assinar-top" data-creator="${esc(c.id)}">Assinar ${brl(T.minPrice(c))}/mês</button>` : '')}<button class="btn btn-linha" id="seguir">Seguir</button></div>`}
+    </div>
+    ${plans ? `<div class="secao"><p class="rotulo">Planos de assinatura</p><div class="planos">${plans}</div></div>` : ''}
+    <div class="secao" style="padding-bottom:6px"><p class="rotulo">Postagens</p></div>
+    ${posts.length ? `<div class="grade">${posts.map(p => thumb(p, c)).join('')}</div>` : '<div class="vazio">Nenhuma postagem ainda.</div>'}`;
+};
+
+T.views.subs = () => {
+  const ids = Object.keys(T.state.subs).filter(id => T.creator(id));
+  if (!ids.length) {
+    const sug = T.data.creators.slice(0, 4).map(c => `<button class="sugestao" data-open-creator="${esc(c.id)}">${T.avatar(c)}<span class="si"><b>${esc(c.name)}</b><small>a partir de ${brl(T.minPrice(c))}/mês</small></span></button>`).join('');
+    return `<header class="cab"><h1>Minhas assinaturas</h1></header>
+      <div class="vazio"><b style="color:var(--tinta);font-size:17px">Você ainda não assina ninguém</b><span>Quando assinar um criador, ele aparece aqui com o valor e a data de renovação.</span><div class="sugestoes">${sug}</div></div>`;
+  }
+  let total = 0;
+  const items = ids.map(id => {
+    const c = T.creator(id), s = T.state.subs[id], p = T.planOf(c, s.plan);
+    total += p.price;
+    return `<div class="sub-item" data-creator="${esc(c.id)}">
+      <button data-open-creator="${esc(c.id)}" aria-label="Abrir perfil de ${esc(c.name)}">${T.avatar(c, 46)}</button>
+      <span class="si"><b>${esc(c.name)}</b><span>Plano ${esc(p.name)} · ${brl(p.price)}/mês</span><small>Renova em ${fmtDate(T.renewDate(s))}</small></span>
+      <button class="cancel" data-cancel="${esc(c.id)}">Cancelar</button></div>`;
+  }).join('');
+  return `<header class="cab"><h1>Minhas assinaturas</h1></header>
+    <div class="secao">
+      <div class="total-mes"><span><small>Você paga por mês</small><br><b>${brl(total)}</b></span><span class="selo" style="background:var(--lima);color:var(--tinta)">${ids.length} ${ids.length > 1 ? 'criadores' : 'criador'}</span></div>
+      ${items}
+    </div>`;
+};
+
+$('#view').addEventListener('click', e => {
+  const plan = e.target.closest('.plan[data-plan]');
+  if (plan && !plan.disabled) {
+    const s = T.state.subs[plan.dataset.creator];
+    if (s && s.plan === plan.dataset.plan) { T.toast('Você já assina este plano.'); return; }
+    T.startSubscribe(plan.dataset.creator, plan.dataset.plan); return;
+  }
+  const top = e.target.closest('#assinar-top');
+  if (top) { const c = T.creator(top.dataset.creator); const cheap = c.plans.reduce((a, b) => a.price <= b.price ? a : b); T.startSubscribe(c.id, cheap.id); return; }
+  if (e.target.closest('[data-back]')) { T.go(T.prev && T.prev.view !== 'creator' ? T.prev.view : 'home'); return; }
+  const seg = e.target.closest('#seguir');
+  if (seg) { const on = seg.textContent === 'Seguir'; seg.textContent = on ? 'Seguindo' : 'Seguir'; return; }
+  const cancel = e.target.closest('[data-cancel]');
+  if (cancel) {
+    const c = T.creator(cancel.dataset.cancel);
+    T.sheet(`<h2>Cancelar assinatura de ${esc(c.name)}?</h2><p class="sub">Você perde o acesso ao conteúdo exclusivo no fim do período já pago.</p>
+      <div style="display:flex;flex-direction:column;gap:8px"><button class="btn btn-escuro btn-bloco" id="cancel-ok">Cancelar assinatura</button><button class="btn btn-linha btn-bloco" id="cancel-no">Manter</button></div>`);
+    $('#cancel-ok').onclick = () => { delete T.state.subs[c.id]; T.save(); T.closeSheet(); T.toast('Assinatura cancelada.'); T.refresh(); };
+    $('#cancel-no').onclick = T.closeSheet;
+  }
+});
+/* lembrar a view anterior para o botão Voltar */
+const go = T.go;
+T.go = (view, arg) => { if (T.current.view !== view) T.prev = { ...T.current }; go(view, arg); };
+})();
+</script>
