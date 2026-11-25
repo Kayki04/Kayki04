@@ -2319,24 +2319,24 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
 (function(){
 'use strict';
   var ICONS={
-    all:'<circle cx="14" cy="14" r="6"/><circle cx="34" cy="14" r="6"/><circle cx="14" cy="34" r="6"/><circle cx="34" cy="34" r="6"/>',
-    paw:'<ellipse cx="10" cy="22" rx="4.5" ry="6"/><ellipse cx="19" cy="12" rx="4.5" ry="6"/><ellipse cx="31" cy="12" rx="4.5" ry="6"/><ellipse cx="38" cy="22" rx="4.2" ry="5.8" transform="rotate(20 38 22)"/><path d="M24.500 22c7 0 12 6 12 11.500 0 4-3 5.500-6.400 4.800-2.400-.5-3.800-1-5.600-1s-3.200.5-5.600 1C15.500 39.500 12.500 37.500 12.500 33.500 12.500 28 17.500 22 24.500 22z"/>',
-    cat:'<path d="M6 6l9 7a18 18 0 0118 0l9-7v21a18 18 0 01-36 0z"/><circle cx="18" cy="28" r="2.600" fill="#fff"/><circle cx="30" cy="28" r="2.600" fill="#fff"/><path d="M21.500 34h5l-2.500 3z" fill="#fff"/>',
-    bag:'<path d="M12 14h24l4 7v19a4 4 0 01-4 4H12a4 4 0 01-4-4V21z"/><path d="M13 14l3-7h16l3 7" opacity=".55"/><circle cx="24" cy="31" r="6" fill="#fff" opacity=".9"/>',
-    bone:'<g transform="rotate(-35 24 24)"><rect x="10" y="20.500" width="28" height="7" rx="3"/><circle cx="10" cy="19" r="5.200"/><circle cx="10" cy="29" r="5.200"/><circle cx="38" cy="19" r="5.200"/><circle cx="38" cy="29" r="5.200"/></g>',
-    drop:'<path d="M24 4c9 11 15 17 15 25a15 15 0 01-30 0c0-8 6-14 15-25z"/><path d="M16 30a8 8 0 008 8" stroke="#fff" stroke-width="3.200" fill="none" stroke-linecap="round" opacity=".85"/>',
-    ball:'<circle cx="24" cy="24" r="18"/><path d="M8 19c9 5 23 5 32 0M8 29c9-5 23-5 32 0" stroke="#fff" stroke-width="2.800" fill="none" opacity=".85"/>',
-    tag:'<path d="M6 6h19l17 17-19 19L6 25z"/><circle cx="16" cy="16" r="3.800" fill="#fff"/>',
-    bowl:'<path d="M5 24h38a19 19 0 01-19 17A19 19 0 015 24z"/><circle cx="17" cy="16" r="3.600"/><circle cx="25" cy="12" r="3.600"/><circle cx="33" cy="17" r="3.600"/>',
-    bed:'<rect x="5" y="25" width="38" height="15" rx="7"/><rect x="9" y="14" width="30" height="13" rx="6" opacity=".55"/>',
-    scissor:'<g fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><circle cx="13" cy="35" r="6"/><circle cx="35" cy="35" r="6"/><path d="M17 30L38 7M31 30L10 7"/></g>',
-    gift:'<rect x="6" y="21" width="36" height="21" rx="3"/><rect x="4" y="12" width="40" height="10" rx="3" opacity=".6"/><path d="M24 12v30" stroke="#fff" stroke-width="3.500"/><path d="M24 12c-6-1-10-4-8-7s9 2 8 7zM24 12c6-1 10-4 8-7s-9 2-8 7z" opacity=".85"/>',
-    star:'<path d="M24 4l6 13 14 2-10 10 2.500 14L24 36l-12.500 7L14 29 4 19l14-2z"/>',
-    spark:'<path d="M24 4l5 14 14 5-14 5-5 14-5-14-14-5 14-5z"/>',
-    pill:'<g transform="rotate(-45 24 24)"><rect x="6" y="15" width="36" height="18" rx="9"/><rect x="24" y="15" width="18" height="18" rx="0" fill="#fff" opacity=".35"/></g>',
-    shield:'<path d="M24 3l17 6v13c0 11-7.500 19-17 23C14.500 41 7 33 7 22V9z"/><path d="M16 24l6 6 10-11" stroke="#fff" stroke-width="3.800" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+    all:'<rect x="7" y="7" width="14" height="14" rx="3.5"/><rect x="27" y="7" width="14" height="14" rx="3.5"/><rect x="7" y="27" width="14" height="14" rx="3.5"/><rect x="27" y="27" width="14" height="14" rx="3.5"/>',
+    paw:'<ellipse cx="12" cy="21" rx="3.4" ry="4.4"/><ellipse cx="20" cy="13" rx="3.4" ry="4.4"/><ellipse cx="28" cy="13" rx="3.4" ry="4.4"/><ellipse cx="36" cy="21" rx="3.4" ry="4.4"/><path d="M24 25c-5 0-9 4.3-9 8.2 0 2.8 2.4 4.3 4.8 3.8 1.9-.4 2.6-.8 4.2-.8s2.3.4 4.2.8c2.4.5 4.8-1 4.8-3.8C33 29.3 29 25 24 25z"/>',
+    cat:'<path d="M11 11l6 5a15 15 0 0114 0l6-5v17a13 13 0 01-26 0z"/><path d="M20 26h.02M28 26h.02"/><path d="M22.5 31h3l-1.5 2z"/>',
+    bag:'<path d="M13 16h22l3 6v16a3 3 0 01-3 3H13a3 3 0 01-3-3V22z"/><path d="M17 16a7 7 0 0114 0"/>',
+    bone:'<path d="M17 24h14"/><circle cx="14" cy="21" r="4"/><circle cx="14" cy="27" r="4"/><circle cx="34" cy="21" r="4"/><circle cx="34" cy="27" r="4"/>',
+    drop:'<path d="M24 7c8 10 13 15 13 21.5A13 13 0 0111 28.5C11 22 16 17 24 7z"/><path d="M18 29a6 6 0 006 6"/>',
+    ball:'<circle cx="24" cy="24" r="16"/><path d="M24 8v32"/><path d="M10 18c8 4 20 4 28 0M10 30c8-4 20-4 28 0"/>',
+    tag:'<path d="M9 9h16l16 16-16 16L9 25z"/><circle cx="17" cy="17" r="2.4"/>',
+    bowl:'<path d="M9 24h30a15 15 0 01-30 0z"/><circle cx="18" cy="17" r="2.2"/><circle cx="24" cy="14" r="2.2"/><circle cx="30" cy="17" r="2.2"/>',
+    bed:'<rect x="9" y="24" width="30" height="14" rx="6"/><path d="M13 24v-3a5 5 0 015-5h12a5 5 0 015 5v3"/>',
+    scissor:'<circle cx="14" cy="34" r="5"/><circle cx="34" cy="34" r="5"/><path d="M18 31L38 9M30 31L10 9"/>',
+    gift:'<rect x="10" y="22" width="28" height="17" rx="2.5"/><path d="M8 15h32v7H8z"/><path d="M24 15v24"/><path d="M24 15c-4.5-1-7.5-3-6-5.5S24 11 24 15zM24 15c4.5-1 7.5-3 6-5.5S24 11 24 15z"/>',
+    star:'<path d="M24 7l5 11 12 1.6-8.7 8 2.2 11.9L24 33.6 11.3 39.5l2.2-11.9-8.7-8L17 18z"/>',
+    spark:'<path d="M24 8l4 12 12 4-12 4-4 12-4-12-12-4 12-4z"/>',
+    pill:'<g transform="rotate(-45 24 24)"><rect x="8" y="16" width="32" height="16" rx="8"/><path d="M24 16v16"/></g>',
+    shield:'<path d="M24 6l15 5v10.5C39 31 32.5 38 24 41 15.5 38 9 31 9 21.5V11z"/><path d="M18 24l4.5 4.5L31 20"/>'
   };
-  function svg(name,cls){return '<svg class="'+(cls||'')+'" viewBox="0 0 48 48" fill="currentColor" aria-hidden="true">'+ICONS[name]+'</svg>'}
+  function svg(name,cls){return '<svg class="'+(cls||'')+'" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+ICONS[name]+'</svg>'}
   var HERO_ART='<svg class="art" viewBox="0 0 160 160" aria-hidden="true"><circle cx="86" cy="92" r="60" fill="#fff" opacity=".28"/><path d="M34 40l26 20a52 52 0 0148 0l26-20v60a50 50 0 01-100 0z" fill="#fff"/><path d="M34 40l14 11v18l-14-4zM134 40l-14 11v18l14-4z" fill="#FFB866"/><circle cx="62" cy="96" r="7" fill="#0B2A5B"/><circle cx="106" cy="96" r="7" fill="#0B2A5B"/><circle cx="64" cy="94" r="2" fill="#fff"/><circle cx="108" cy="94" r="2" fill="#fff"/><path d="M76 112h16l-8 9z" fill="#FF7A00"/><path d="M84 121q-8 9-18 5M84 121q8 9 18 5" stroke="#0B2A5B" stroke-width="3" fill="none" stroke-linecap="round"/></svg>';
 
   /* ---------- utilidades ---------- */
@@ -3113,7 +3113,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     for(var i=0;i<8;i++){var d=(wd+i)%7,row=hrs[d];if(!row||!row.on)continue;var o2=hm2min(row.o);if(o2==null)continue;if(i===0){if(cur<o2)return {open:false,label:'Fechada · abre hoje às '+min2hm(o2)};continue;}return {open:false,label:'Fechada · abre '+(i===1?'amanhã':WD_SHORT[d])+' às '+min2hm(o2)};}
     return {open:false,label:'Fechada no momento'};
   }
-  function storeStrip(){var s=storeStatus();if(!s)return '';return '<div class="delbar'+(s.open?' live':'')+'" style="margin-top:10px"><span style="font-size:20px;flex:none">'+(s.open?'🟢':'🔴')+'</span><span><b>'+(s.open?'Loja aberta':'Loja fechada')+'</b>'+esc(s.label)+'</span></div>';}
+  function storeStrip(){var s=storeStatus();if(!s)return '';return '<div class="delbar'+(s.open?' live':'')+'" style="margin-top:10px"><span style="width:11px;height:11px;border-radius:50%;flex:none;background:'+(s.open?'#1F9D55':'#C2412D')+'"></span><span><b>'+(s.open?'Loja aberta':'Loja fechada')+'</b>'+esc(s.label)+'</span></div>';}
   function hoursPretty(){var hrs=storeHours();if(!hrs)return '';var out=[];[1,2,3,4,5,6,0].forEach(function(d){var r=hrs[d],o=r&&r.on?hm2min(r.o):null,c=r&&r.on?hm2min(r.c):null;out.push(WD_SHORT[d]+': '+(o!=null&&c!=null?min2hm(o)+' às '+min2hm(c):'fechado'));});return out.join('\n');}
   async function cepFill(cep){
     try{
@@ -3202,7 +3202,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     sugg=sugg.slice(0,8);
     if(sugg.length)h+='<div class="cartx"><div class="co-h">Leve junto</div><div class="hscroll">'+sugg.map(function(x){var pr=priced(x);return '<article class="card"><div class="tile t1">'+tileInner(x)+'</div><div class="cbody"><div class="nm" style="font-size:13px">'+esc(pName(x))+'</div><div class="pr"><span class="price">'+brl(pr.price)+'</span></div><button class="add" data-cadd="'+esc(x.id)+'">+ Adicionar</button></div></article>'}).join('')+'</div></div>';
     var _cst=storeStatus();
-    if(_cst&&!_cst.open)h+='<div class="delnote" style="background:#FFF3E6;border-color:#FFD2A1;color:#7a4a12"><span style="font-size:20px">⏰</span><span>Estamos fechados agora ('+esc(_cst.label.replace(/^Fechada · /,''))+'). Você pode fazer o pedido — vamos preparar assim que a loja abrir.</span></div>';
+    if(_cst&&!_cst.open)h+='<div class="delnote" style="background:#FFF3E6;border-color:#FFD2A1;color:#7a4a12">'+IC_MOTO+'<span>Estamos fechados agora ('+esc(_cst.label.replace(/^Fechada · /,''))+'). Você pode fazer o pedido — vamos preparar assim que a loja abrir.</span></div>';
     h+='<div class="co-h">Como receber</div><div class="opts">';
     ['Retirada na loja','Entrega'].forEach(function(m){h+='<button class="opt" data-mode="'+m+'" aria-pressed="'+(state.co.mode===m)+'"><b>'+m+'</b><span class="muted">'+(m==='Entrega'?(etaText()?etaText()+' · ':'')+'grátis acima de '+brl(freeMin):'Sem custo')+'</span></button>'});
     h+='</div><div class="co-h">Pagamento</div><div class="opts">';
@@ -3436,7 +3436,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var addr=S('lojaAddr',''),hours=hoursPretty()||S('lojaHours',''),about=S('lojaAbout',''),area=S('lojaArea',''),ig=igUrl(S('lojaIg','')),wa=waUrl('Olá, Gatecão! Vim pelo app.'),sst=storeStatus();
     var h='<div class="mpcard lgcard lojacard"><div class="mphd"><b>A loja</b><button class="ghost" id="mpX">Fechar</button></div><div class="lgbody">';
     h+='<div class="lojahd">'+svg('paw','')+'<div><b>Gatecão Pet Shop</b>'+(about?'<span>'+esc(about)+'</span>':'')+'</div></div>';
-    if(sst)h+='<div class="lojarow"><span class="st '+(sst.open?'ok':'bad')+'" style="justify-self:start">'+(sst.open?'🟢 ':'🔴 ')+esc(sst.label)+'</span></div>';
+    if(sst)h+='<div class="lojarow"><span class="st '+(sst.open?'ok':'bad')+'" style="justify-self:start">'+esc(sst.label)+'</span></div>';
     if(addr)h+='<div class="lojarow"><span class="lojak">Endereço</span><a href="https://maps.google.com/?q='+encodeURIComponent(addr)+'" target="_blank" rel="noopener">'+esc(addr)+'</a></div>';
     if(hours)h+='<div class="lojarow"><span class="lojak">Horários</span><div class="lojahours">'+esc(hours).replace(/\n/g,'<br>')+'</div></div>';
     if(area)h+='<div class="lojarow"><span class="lojak">Entrega</span><span>'+esc(area)+'</span></div>';
