@@ -417,3 +417,62 @@ T.openStory = id => {
 };
 })();
 </script>
+
+<!-- ================= Vídeos (tela cheia) ================= -->
+<style>
+#view[data-view="videos"]{scroll-snap-type:y mandatory;overscroll-behavior:contain}
+.reel{position:relative;height:100%;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden;color:#fff;background:var(--noite)}
+.reel .cena{position:absolute;inset:-20%;filter:saturate(1.15)}
+.reel .cena i{position:absolute;border-radius:50%;filter:blur(40px);opacity:.85;animation:flutua 9s ease-in-out infinite alternate}
+.reel .cena i:nth-child(1){width:60%;aspect-ratio:1;left:10%;top:15%}
+.reel .cena i:nth-child(2){width:50%;aspect-ratio:1;right:5%;top:40%;animation-duration:7s;animation-delay:-3s}
+.reel .cena i:nth-child(3){width:45%;aspect-ratio:1;left:25%;bottom:10%;animation-duration:11s}
+@keyframes flutua{to{transform:translate(12%,-10%) scale(1.15)}}
+.reel::after{content:"";position:absolute;inset:auto 0 0 0;height:45%;background:linear-gradient(0deg,rgba(11,10,16,.85),transparent);pointer-events:none}
+.reel .topo-r{position:absolute;z-index:2;top:0;left:0;right:0;display:flex;justify-content:center;gap:18px;padding:14px;font-weight:700;font-size:15px}
+.reel .topo-r span{opacity:.6}.reel .topo-r span.on{opacity:1;border-bottom:2px solid #fff;padding-bottom:4px}
+.reel .lado{position:absolute;z-index:2;right:8px;bottom:110px;display:flex;flex-direction:column;gap:14px;align-items:center}
+.reel .lado .acao{flex-direction:column;gap:2px;color:#fff;font-size:12px}
+.reel .lado .acao svg{width:30px;height:30px}
+.reel .lado .like-btn[aria-pressed="true"]{color:var(--magenta)}
+.reel .info{position:absolute;z-index:2;left:16px;right:72px;bottom:18px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.reel .info .quem-r{display:flex;align-items:center;gap:10px;font-weight:800}
+.reel .info p{margin:0;font-size:14px;overflow-wrap:anywhere}
+.aovivo{align-self:flex-start;background:var(--laranja);color:var(--noite);font-weight:800;font-size:11px;padding:3px 8px;border-radius:6px;letter-spacing:.05em}
+.reel .sub-btn{align-self:flex-start}
+.reel .sub-btn.ja{background:rgba(255,255,255,.16);color:#fff}
+</style>
+<script>
+(function(){
+const { esc, brl, num } = T.util;
+T.data.reels = [
+  { id: 'r1', creatorId: 'duda', colors: ['#ffd166', '#ef476f', '#118ab2'], text: 'Pintando ao vivo. Quem assina escolhe a próxima cor 🎨', likes: 8200, comments: 540, live: true },
+  { id: 'r2', creatorId: 'caio', colors: ['#56708f', '#00D4FF', '#1f2d3d'], text: 'Agachamento do jeito certo em 30 segundos.', likes: 3100, comments: 120 },
+  { id: 'r3', creatorId: 'bia', colors: ['#a24b6b', '#FF0A78', '#2b1422'], text: 'Prévia do vídeo de hoje. O completo está no Noite+.', likes: 21400, comments: 1300 },
+  { id: 'r4', creatorId: 'rafa', colors: ['#c97b3d', '#f6d6a8', '#5b3218'], text: 'O segredo do torresmo pururuca.', likes: 5400, comments: 260 },
+  { id: 'r5', creatorId: 'luna', colors: ['#8a6fb3', '#f3c9a8', '#2c1f45'], text: 'Bastidor em Floripa ☀️', likes: 15800, comments: 700 }
+];
+const I = () => T.icon;
+const reel = (r, k) => {
+  const c = T.creator(r.creatorId);
+  const liked = !!T.state.likes[r.id], count = r.likes + (liked ? 1 : 0);
+  const sub = T.isSubscribed(c.id);
+  return `<section class="reel" data-id="${esc(r.id)}" aria-label="Vídeo de ${esc(c.handle)}">
+    <div class="cena" aria-hidden="true">${r.colors.map(col => `<i style="background:${esc(col)}"></i>`).join('')}</div>
+    ${k === 0 ? '<div class="topo-r"><span>Seguindo</span><span class="on">Para você</span></div>' : ''}
+    <div class="lado">
+      <button class="acao like-btn" data-id="${esc(r.id)}" data-count="${count}" aria-pressed="${liked}" aria-label="Curtir">${I().heart}<span>${num(count)}</span></button>
+      <button class="acao" aria-label="Comentários">${I().chat}<span>${num(r.comments)}</span></button>
+      <button class="acao" aria-label="Enviar">${I().send}<span>Enviar</span></button>
+    </div>
+    <div class="info">
+      ${r.live ? '<span class="aovivo">AO VIVO</span>' : ''}
+      <button class="quem-r" data-open-creator="${esc(c.id)}">${T.avatar(c, 36)}<span>${esc(c.handle)}</span><span class="selo">criador</span></button>
+      <p>${esc(r.text)}</p>
+      <button class="btn btn-p sub-btn ${sub ? 'ja' : 'btn-lima'}" data-creator="${esc(c.id)}">${sub ? 'Você assina ✓' : 'Assinar ' + brl(T.minPrice(c)) + '/mês'}</button>
+    </div>
+  </section>`;
+};
+T.views.videos = () => T.data.reels.map(reel).join('');
+})();
+</script>

@@ -106,6 +106,31 @@ test('textoLongo360', async b => {
   assert(w <= 360, 'largura estourou: ' + w);
 });
 
+
+// ---------- Task 3 ----------
+test('videosTelaCheia', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('nav#tabs button[data-view="videos"]');
+  const info = await p.evaluate(() => {
+    const v = document.getElementById('view');
+    const reels = [...v.querySelectorAll('.reel')];
+    return { n: reels.length, vh: v.clientHeight, hs: reels.map(r => r.getBoundingClientRect().height),
+      btns: reels.map(r => !!r.querySelector('.sub-btn')), bg: getComputedStyle(v).backgroundColor };
+  });
+  assert(info.n >= 4, 'menos de 4 reels: ' + info.n);
+  assert(info.hs.every(h => Math.abs(h - info.vh) <= 2), 'altura errada: ' + info.hs + ' vs ' + info.vh);
+  assert(info.btns.every(Boolean), 'reel sem botão Assinar');
+  assert(info.bg === 'rgb(11, 10, 16)', 'fundo não é escuro: ' + info.bg);
+  const second = await p.evaluate(() => {
+    const v = document.getElementById('view'); v.scrollTop = v.clientHeight;
+    const r = v.getBoundingClientRect();
+    const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return el && el.closest('.reel') ? el.closest('.reel').dataset.id : null;
+  });
+  const ids = await p.$$eval('.reel', rs => rs.map(r => r.dataset.id));
+  assert(second === ids[1], 'rolar não levou ao segundo reel: ' + second);
+});
+
 // ---------- runner ----------
 const filter = process.argv[2];
 const browser = await chromium.launch();
