@@ -76,7 +76,8 @@ service cloud.firestore {
     // Veterinários parceiros: cada vet vê a sua ficha e pode se cadastrar (sempre inativo,
     // sem saldo, aguardando aprovação). Só a loja aprova, edita comissão e paga.
     match /partners/{uid} {
-      allow read: if own(uid) || isAdmin();
+      // A clínica responsável lê os vets vinculados a ela (clinicUid == uid da clínica).
+      allow read: if own(uid) || isAdmin() || (signed() && resource.data.clinicUid == request.auth.uid);
       allow create: if isAdmin() || (own(uid)
         && request.resource.data.active == false
         && request.resource.data.approved == false
@@ -90,7 +91,15 @@ service cloud.firestore {
         && request.resource.data.pct == resource.data.pct
         && request.resource.data.saldo == resource.data.saldo
         && request.resource.data.mov == resource.data.mov
-        && request.resource.data.pays == resource.data.pays);
+        && request.resource.data.pays == resource.data.pays)
+        // A clínica aprova/pausa seus próprios vets (sem tocar em dinheiro nem roubar o vínculo).
+        || (signed() && resource.data.clinicUid == request.auth.uid
+        && request.resource.data.clinicUid == resource.data.clinicUid
+        && request.resource.data.saldo == resource.data.saldo
+        && request.resource.data.mov == resource.data.mov
+        && request.resource.data.pays == resource.data.pays
+        && request.resource.data.pct == resource.data.pct
+        && request.resource.data.selfReg == resource.data.selfReg);
       allow delete: if isAdmin();
     }
 

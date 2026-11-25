@@ -2380,7 +2380,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   var APPT_ST=['Agendado','Aguardando','Em atendimento','Pronto para buscar','A caminho de casa','Concluído','Cancelado','Faltou'];
 
   /* ---------- estado ---------- */
-  var D={reviews:[],coupons:[],myOrd:[],myRec:[],banners:[],products:[],promos:[],tables:[],services:[],settings:{},slots:{},status:{},orders:[],appts:[],ready:{},nodb:false,slow:false,customers:[],wallets:{},crm:{},rewards:[],redeems:[],me:null,myRedeems:[],partners:[],rxAll:[],partner:null,myRx:[],rxForMe:[],quotes:[],vets:[],vetledger:null};
+  var D={reviews:[],coupons:[],myOrd:[],myRec:[],banners:[],products:[],promos:[],tables:[],services:[],settings:{},slots:{},status:{},orders:[],appts:[],ready:{},nodb:false,slow:false,customers:[],wallets:{},crm:{},rewards:[],redeems:[],me:null,myRedeems:[],partners:[],rxAll:[],partner:null,myRx:[],rxForMe:[],quotes:[],vets:[],vetledger:null,clinicVets:[]};
   var X={db:null,user:null,assets:null,uid:null,isAdmin:false,checked:false};
   var state={tab:'loja',cat:'Todos',q:'',cart:load('gc_cart',{}),cartRec:load('gc_cartrec',{}),myOrders:load('gc_orders',[]),myAppts:load('gc_appts',[]),
     ag:Object.assign({svc:'',extras:[],lt:'loja',ltAddr:'',ltBairro:'',ltComp:'',ltPhone:'',day:'',slot:'',pet:'',kind:'Cachorro',size:'',weight:'',coat:'',breed:'',tutor:'',obs:''},load('gc_ag',{})),co:{mode:'Retirada na loja',pay:'Pix',name:''},
@@ -5221,7 +5221,28 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     else h+='<p class="hint" style="margin-top:8px">Ainda não há comissões neste período.</p>';
     h+='</div>';
     var pays=(p.pays||[]);if(pays.length)h+='<p class="hint" style="margin:6px 2px">Último pagamento recebido: <b>'+brl(num(pays[0].amount))+'</b> em '+fmtTs(pays[0].ts)+'.</p>';
+    if(vetApproved()){
+      var vets=(D.clinicVets||[]).slice().sort(function(a,b){var pa=(a.active===false&&a.selfReg)?0:(a.active===false?2:1),pb=(b.active===false&&b.selfReg)?0:(b.active===false?2:1);return pa-pb||String(a.name||'').localeCompare(String(b.name||''),'pt-BR')});
+      var npend=vets.filter(function(v){return v.active===false&&v.selfReg}).length;
+      h+='<div class="sec" style="margin-top:14px"><h2 style="font-size:19px">Meus veterinários</h2><span>'+vets.length+'</span></div>';
+      if(npend)h+='<div class="combobar">⏳ <span><b>'+npend+'</b> aguardando sua aprovação.</span></div>';
+      if(!vets.length)h+='<p class="hint" style="margin-top:0">Nenhum veterinário entrou ainda. Passe o código <b>'+esc(p.clinCode||'')+'</b> para a sua equipe se cadastrar como "Sou de uma clínica".</p>';
+      vets.forEach(function(v){
+        var pend=v.active===false,waiting=pend&&v.selfReg;
+        h+='<div class="acard'+(waiting?' rxnew':'')+'"><div class="rowtight"><b>'+esc(v.name||'Veterinário')+'</b><span class="st '+(pend?(waiting?'warn':'off'):'ok')+'">'+(pend?(waiting?'Aguardando':'Pausado'):'Ativo')+'</span></div>'+
+          '<span class="muted">'+(v.crmv?'CRMV '+esc(v.crmv)+(v.especialidade?' · ':''):'')+(v.especialidade?esc(v.especialidade):'')+(v.phone?' · '+esc(fmtPhone(v.phone)):'')+'</span>'+
+          '<div class="rowtight" style="gap:8px;flex-wrap:wrap;justify-content:flex-start;margin-top:4px">'+
+          (pend?'<button class="btn" data-act="clinVetApprove" data-id="'+esc(v.id)+'">'+(waiting?'Aprovar':'Reativar')+'</button>':'')+
+          (pend?(waiting?'<button class="mini danger" data-act="clinVetPause" data-id="'+esc(v.id)+'">Recusar</button>':''):'<button class="mini danger" data-act="clinVetPause" data-id="'+esc(v.id)+'">Pausar</button>')+
+          '</div></div>';
+      });
+    }
     view.innerHTML=h;
+  }
+  async function clinSetVet(vetId,on){
+    var v=(D.clinicVets||[]).filter(function(x){return x.id===vetId})[0];if(!v)return;
+    var data=Object.assign({},v);delete data.id;data.active=!!on;if(on)data.approved=true;
+    try{await X.db.doc('partners/'+vetId).set(data);toast(on?'Veterinário aprovado':'Veterinário pausado')}catch(e){wfail(e)}
   }
   function renderVetPage(){
     if(D.nodb){view.innerHTML=noDbBox();return}
@@ -8040,8 +8061,9 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       X.db.doc('wallet/'+X.uid).onSnapshot(function(s){D.wallets[X.uid]=s.exists?s.data():{};D.ready.wallet=true;schedule()},function(){D.ready.wallet=true});
       X.db.doc('customers/'+X.uid).onSnapshot(function(s){D.me=s.exists?s.data():null;D.ready.me=true;schedule()},function(){D.ready.me=true});
       X.db.doc('redeems/'+X.uid).onSnapshot(function(s){var r=s.exists&&s.data().r?s.data().r:{};D.myRedeems=Object.keys(r).map(function(k){return r[k]}).sort(function(a,b){return b.ts-a.ts});schedule()},function(){});
-      X.db.doc('partners/'+X.uid).onSnapshot(function(s){D.partner=s.exists?Object.assign({uid:X.uid},s.data()):null;D.ready.partner=true;schedule()},function(){D.ready.partner=true});
-      X.db.doc('vetledger/'+X.uid).onSnapshot(function(s){D.vetledger=s.exists?s.data():null;schedule()},function(){});
+      X.db.doc('partners/'+X.uid).onSnapshot(function(s){D.partner=s.exists?Object.assign({uid:X.uid},s.data()):null;D.ready.partner=true;
+        if(D.partner&&D.partner.ptype==='clinic'&&!X._clinSub){X._clinSub=1;try{X.db.collection('partners').where('clinicUid','==',X.uid).onSnapshot(function(cs){D.clinicVets=cs.docs.map(function(d){return Object.assign({id:d.id},d.data())});schedule()},function(){})}catch(e){}}
+        schedule()},function(){D.ready.partner=true});
       // Receitas que o vet montou (como parceiro) e receitas enviadas para este cliente.
       try{X.db.collection('rx').where('vetUid','==',X.uid).onSnapshot(function(s){D.myRx=s.docs.map(function(d){return Object.assign({id:d.id},d.data())});schedule()},function(){})}catch(e){}
       try{X.db.collection('rx').where('clientUid','==',X.uid).onSnapshot(function(s){D.rxForMe=s.docs.map(function(d){return Object.assign({id:d.id},d.data())});schedule()},function(){})}catch(e){}
@@ -8111,9 +8133,11 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     mais_ref:function(){go('vantagens')},
     mais_wa:function(){var u=waUrl('Olá, Gatecão! Vim pelo app.');if(u)window.open(u,'_blank')},
     mais_vets:function(){go('vetdir')},
+    clinVetApprove:function(id){clinSetVet(id,true)},
+    clinVetPause:function(id){clinSetVet(id,false)},
     mais_logout:function(){if(window.GCFB&&GCFB.logout)GCFB.logout()}};
   view.addEventListener('click',function(e){
-    var ca=e.target.closest('[data-act]');if(ca&&CACT[ca.getAttribute('data-act')]){e.preventDefault();CACT[ca.getAttribute('data-act')]();return}
+    var ca=e.target.closest('[data-act]');if(ca&&CACT[ca.getAttribute('data-act')]){e.preventDefault();CACT[ca.getAttribute('data-act')](ca.getAttribute('data-id'),ca);return}
     var rg=e.target.closest('[data-rxget]');if(rg){e.preventDefault();openRxRedeem(rg.getAttribute('data-rxget'));return}
     var cr=e.target.closest('[data-cron]');if(cr){e.preventDefault();openCronograma(cr.getAttribute('data-cron'));return}
     var pc=e.target.closest('[data-rxpdfc]');if(pc){e.preventDefault();var rpc=(D.rxForMe||[]).filter(function(x){return x.code===pc.getAttribute('data-rxpdfc')})[0];if(rpc)rxPdf(rpc);return}
