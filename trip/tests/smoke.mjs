@@ -241,6 +241,49 @@ test('impulsionarOk', async b => {
   assert((await first.locator('.tag').allInnerTexts()).includes('Impulsionado'), 'sem selo Impulsionado');
 });
 
+
+// ---------- Task 6 ----------
+const nb = s => s.replace(/ /g, ' ');
+test('alternaCriador', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('nav#tabs button[data-view="me"]');
+  assert(!(await p.isVisible('#dash')), 'painel visível antes de virar criador');
+  await p.click('#toggle-creator');
+  assert(await p.isVisible('#dash'), 'painel não apareceu');
+  await p.click('#toggle-creator');
+  assert(!(await p.isVisible('#dash')), 'painel não sumiu');
+});
+test('painelTaxa', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('nav#tabs button[data-view="me"]');
+  await p.click('#toggle-creator');
+  assert(nb(await p.innerText('#dash-gross')).includes('R$ 4.800,00'), 'bruto errado');
+  assert(nb(await p.innerText('#dash-fee')).includes('R$ 480,00'), 'taxa errada');
+  assert(nb(await p.innerText('#dash-net')).includes('R$ 4.320,00'), 'líquido errado');
+  assert(nb(await p.innerText('#dash')).includes('No OnlyFans você ficaria com R$ 3.840,00'), 'sem comparação');
+});
+test('criaPlano', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('nav#tabs button[data-view="me"]');
+  await p.click('#toggle-creator');
+  await p.click('#plan-add');
+  await p.fill('#plan-name', 'Ouro');
+  await p.fill('#plan-price', '39,90');
+  await p.click('#plan-save');
+  assert(nb(await p.innerText('#dash')).includes('Ouro'), 'plano não aparece no painel');
+  await p.evaluate(() => T.go('creator', 'me'));
+  assert(nb(await p.innerText('#view')).includes('R$ 39,90'), 'plano não aparece no perfil público');
+});
+test('denunciar', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('.post[data-id="p5"] .report-btn');
+  await p.click('.report-reason[data-reason="menor"]');
+  await p.click('#report-send');
+  assert((await p.innerText('#sheet')).includes('Recebemos. O post foi ocultado enquanto analisamos.'), 'sem confirmação');
+  await p.evaluate(() => T.closeSheet());
+  assert(await p.locator('.post[data-id="p5"]').count() === 0, 'post não sumiu do feed');
+});
+
 // ---------- runner ----------
 const filter = process.argv[2];
 const browser = await chromium.launch();

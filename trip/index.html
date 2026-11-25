@@ -828,3 +828,135 @@ function publish() {
 }
 })();
 </script>
+
+<!-- ================= Meu perfil, painel do criador e denúncia ================= -->
+<style>
+.eu{display:flex;align-items:center;gap:14px}
+.eu .si{display:flex;flex-direction:column;min-width:0;flex:1}
+.eu .si small{color:var(--cinza)}
+.link{color:var(--roxo);font-weight:700;font-size:14px;text-align:left}
+.revisao{background:#fff4e5;color:#7a4300;border-radius:14px;padding:12px 14px;font-size:13px;display:flex;flex-direction:column;gap:2px}
+.revisao b{font-size:14px}
+.convite{border-radius:18px;padding:18px;color:#fff;background:var(--marca);display:flex;flex-direction:column;gap:6px}
+.convite b{font-size:18px;text-wrap:balance}
+.convite span{opacity:.92;font-size:14px}
+#dash{display:flex;flex-direction:column;gap:12px}
+.ganhos{border-radius:18px;background:var(--tinta);color:#fff;padding:16px;display:flex;flex-direction:column;gap:10px}
+.ganhos .linha{display:flex;justify-content:space-between;gap:12px;font-size:14px;color:#cfcad9;font-variant-numeric:tabular-nums}
+.ganhos .linha b{color:#fff}
+.ganhos .liq{border-top:1px solid #2e2a38;padding-top:10px;font-size:15px}
+.ganhos .liq b{font-size:22px;color:var(--lima)}
+.compara{border-radius:14px;background:#f6ffd6;color:#3d4f00;padding:12px 14px;font-size:14px;display:flex;flex-direction:column;gap:2px}
+.compara b{font-size:15px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stats div{background:var(--nevoa);border-radius:14px;padding:12px;display:flex;flex-direction:column;font-size:12px;color:var(--cinza)}
+.stats b{font-size:19px;color:var(--tinta);font-variant-numeric:tabular-nums}
+.meu-plano{display:flex;align-items:center;gap:10px;border:1.5px solid var(--linha);border-radius:14px;padding:12px}
+.meu-plano span{flex:1;min-width:0;overflow-wrap:anywhere}
+.meu-plano .preco{flex:none;font-weight:800;font-variant-numeric:tabular-nums}
+.meu-plano .rm{color:var(--cinza);font-size:12px;font-weight:600;padding:4px}
+#plan-form{display:flex;flex-direction:column;gap:10px;border:1.5px dashed var(--roxo);border-radius:14px;padding:12px}
+#plan-form .lin{display:grid;grid-template-columns:1fr 120px;gap:8px}
+#plan-erro{color:var(--perigo);font-size:13px;margin:0}
+.boost-item{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:10px 12px;border-radius:12px;background:var(--nevoa)}
+.motivos{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.report-reason{text-align:left;border:1.5px solid var(--linha);border-radius:14px;padding:12px 14px;font-weight:600}
+.report-reason small{display:block;font-weight:400;color:var(--cinza);font-size:12px}
+.report-reason[aria-pressed="true"]{border-color:var(--perigo);background:#fdebee}
+.ok-denuncia{display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center;padding:10px 0}
+.ok-denuncia .check{width:56px;height:56px;border-radius:50%;background:var(--lima);display:grid;place-items:center}
+.opcoes{display:flex;flex-direction:column;gap:8px}
+</style>
+<script>
+(function(){
+const { $, $$, esc, brl } = T.util;
+const TAXA = 0.10, TAXA_OF = 0.20, BRUTO_EXEMPLO = 4800, ASSINANTES_EXEMPLO = 160;
+let planFormOpen = false;
+
+T.views.me = () => {
+  const s = T.state, creator = s.isCreator;
+  const fee = BRUTO_EXEMPLO * TAXA, net = BRUTO_EXEMPLO - fee, of = BRUTO_EXEMPLO * (1 - TAXA_OF);
+  const plans = s.myPlans.map(p => `<div class="meu-plano"><span><b>${esc(p.name)}</b></span><span class="preco">${brl(p.price)}/mês</span><button class="rm" data-rm-plan="${esc(p.id)}">Remover</button></div>`).join('');
+  const boosts = s.boosts.map(b => { const p = T.allPosts().find(x => x.id === b.postId); return p ? `<div class="boost-item"><span>${esc((p.text || 'Post').slice(0, 32))}${(p.text || '').length > 32 ? '…' : ''}</span><b>${brl(b.perDay)}/dia · ${b.days}d</b></div>` : ''; }).join('');
+  return `<header class="cab"><h1>Meu perfil</h1></header>
+  <div class="secao">
+    <div class="eu">${T.avatar(T.me(), 64)}<span class="si"><b style="font-size:18px">Você</b><small>@voce · ${s.myPosts.length} ${s.myPosts.length === 1 ? 'post' : 'posts'}</small><button class="link" data-open-creator="me">Ver meu perfil público</button></span></div>
+    ${s.underReview ? '<div class="revisao"><b>Perfil em revisão</b><span>Uma postagem sua foi bloqueada. Nossa equipe está analisando suas outras postagens.</span></div>' : ''}
+    <label class="chave" for="toggle-creator"><span><b>Sou criador</b><small>Venda assinaturas e conteúdo exclusivo.</small></span><input type="checkbox" id="toggle-creator" ${creator ? 'checked' : ''}></label>
+    ${creator ? '' : `<div class="convite"><b>Fique com 90% do que você ganha</b><span>Na Trip a taxa é de 10%. No OnlyFans é 20%. Ative "Sou criador" para criar seus planos.</span></div>`}
+  </div>
+  <div class="secao" id="dash" ${creator ? '' : 'hidden'}>
+    <p class="rotulo">Painel do criador · exemplo deste mês</p>
+    <div class="stats"><div><b>${ASSINANTES_EXEMPLO}</b>assinantes</div><div><b>+12</b>esta semana</div><div><b>${s.myPlans.length}</b>${s.myPlans.length === 1 ? 'plano' : 'planos'}</div></div>
+    <div class="ganhos">
+      <div class="linha"><span>Ganhos brutos</span><b id="dash-gross">${brl(BRUTO_EXEMPLO)}</b></div>
+      <div class="linha"><span>Taxa da Trip (10%)</span><b id="dash-fee">${brl(fee)}</b></div>
+      <div class="linha liq"><span>Você recebe</span><b id="dash-net">${brl(net)}</b></div>
+    </div>
+    <div class="compara"><b>No OnlyFans você ficaria com ${brl(of)}</b><span>Na Trip você ganha ${brl(net - of)} a mais por mês.</span></div>
+    <p class="rotulo">Meus planos</p>
+    ${plans || '<p class="dica">Você ainda não tem planos. Crie um para começar a vender assinaturas.</p>'}
+    ${planFormOpen ? `<div id="plan-form">
+        <div class="lin"><div class="campo"><label for="plan-name">Nome do plano</label><input type="text" id="plan-name" maxlength="30" placeholder="Ex.: VIP"></div>
+        <div class="campo"><label for="plan-price">R$ por mês</label><input type="text" id="plan-price" inputmode="decimal" placeholder="19,90"></div></div>
+        <p id="plan-erro" hidden></p>
+        <div style="display:flex;gap:8px"><button class="btn btn-lima" id="plan-save" style="flex:1">Salvar plano</button><button class="btn btn-linha" id="plan-cancel">Cancelar</button></div>
+      </div>` : '<button class="btn btn-linha btn-bloco" id="plan-add">+ Criar plano</button>'}
+    <p class="rotulo">Impulsionamentos</p>
+    ${boosts || '<p class="dica">Nenhum post impulsionado. Use o botão Impulsionar nos seus posts do feed.</p>'}
+  </div>`;
+};
+
+T.after.me = v => {
+  $('#toggle-creator', v).addEventListener('change', e => { T.state.isCreator = e.target.checked; T.save(); T.refresh(); });
+};
+
+$('#view').addEventListener('click', e => {
+  if (e.target.closest('#plan-add')) { planFormOpen = true; T.refresh(); $('#plan-name').focus(); return; }
+  if (e.target.closest('#plan-cancel')) { planFormOpen = false; T.refresh(); return; }
+  if (e.target.closest('#plan-save')) {
+    const name = $('#plan-name').value.trim(), price = Number($('#plan-price').value.trim().replace(/\./g, '').replace(',', '.'));
+    const err = $('#plan-erro');
+    if (!name) { err.hidden = false; err.textContent = 'Dê um nome ao plano.'; return; }
+    if (!(price >= 4.9 && price <= 999)) { err.hidden = false; err.textContent = 'O preço precisa ficar entre R$ 4,90 e R$ 999,00.'; return; }
+    T.state.myPlans.push({ id: 'me-' + Date.now(), name, price: Math.round(price * 100) / 100 }); T.save();
+    planFormOpen = false; T.refresh(); T.toast('Plano criado.'); return;
+  }
+  const rm = e.target.closest('[data-rm-plan]');
+  if (rm) { T.state.myPlans = T.state.myPlans.filter(p => p.id !== rm.dataset.rmPlan); T.save(); T.refresh(); return; }
+  const rep = e.target.closest('.report-btn');
+  if (rep) { openOptions(rep.dataset.id); }
+});
+
+const MOTIVOS = [
+  ['menor', 'Envolve menor de idade', 'Vai direto para a equipe de segurança.'],
+  ['consentimento', 'Sem consentimento ou vazamento', 'Alguém aparece sem ter concordado.'],
+  ['violencia', 'Violência, sangue ou morte', 'Cenas fortes sem aviso.'],
+  ['spam', 'Golpe ou spam', ''],
+  ['outro', 'Outro motivo', '']
+];
+function openOptions(postId) {
+  const p = T.allPosts().find(x => x.id === postId); if (!p) return;
+  if (p.creatorId === 'me') {
+    T.sheet(`<h2>Seu post</h2><div class="opcoes"><button class="btn btn-marca btn-bloco" id="opt-boost">Impulsionar</button><button class="btn btn-linha btn-bloco" id="opt-del">Excluir post</button></div>`);
+    $('#opt-boost').onclick = () => T.openBoost(postId);
+    $('#opt-del').onclick = () => { T.state.myPosts = T.state.myPosts.filter(x => x.id !== postId); T.save(); T.closeSheet(); T.refresh(); T.toast('Post excluído.'); };
+    return;
+  }
+  let motivo = null;
+  T.sheet(`<h2>Denunciar post</h2><p class="sub">Sua denúncia é anônima. Por que este post não deveria estar na Trip?</p>
+    <div class="motivos">${MOTIVOS.map(([k, l, d]) => `<button class="report-reason" data-reason="${k}" aria-pressed="false">${l}${d ? `<small>${d}</small>` : ''}</button>`).join('')}</div>
+    <button class="btn btn-escuro btn-bloco" id="report-send" disabled>Enviar denúncia</button>`);
+  $$('.report-reason').forEach(b => b.onclick = () => { motivo = b.dataset.reason; $$('.report-reason').forEach(x => x.setAttribute('aria-pressed', x === b)); $('#report-send').disabled = false; });
+  $('#report-send').onclick = () => {
+    if (!motivo) return;
+    T.state.reported[postId] = motivo; T.save(); T.refresh();
+    $('#sheet').innerHTML = `<div class="alca"></div><div class="ok-denuncia"><span class="check"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#14121A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+      <h2>Recebemos. O post foi ocultado enquanto analisamos.</h2>
+      <p class="sub">${motivo === 'menor' ? 'Denúncias que envolvem menores vão direto para a equipe de segurança. Se confirmado, o post é removido, o perfil é suspenso e o caso vai para as autoridades.' : 'Você recebe uma notificação quando a análise terminar.'}</p>
+      <button class="btn btn-linha btn-bloco" id="report-close">Fechar</button></div>`;
+    $('#report-close').onclick = T.closeSheet;
+  };
+}
+})();
+</script>
