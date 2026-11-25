@@ -77,6 +77,18 @@
     recaptcha = new firebase.auth.RecaptchaVerifier('gcRecap', { size: 'invisible' });
     return recaptcha;
   }
+  var emailMode = 'in';
+  function emailErrText(e){
+    var c = (e && e.code) || '';
+    return c === 'auth/invalid-email' ? 'E-mail inválido. Confira e tente de novo.' :
+      c === 'auth/email-already-in-use' ? 'Este e-mail já tem conta. Toque em "Já tenho conta · Entrar".' :
+      c === 'auth/weak-password' ? 'A senha precisa ter ao menos 6 caracteres.' :
+      c === 'auth/wrong-password' ? 'Senha incorreta. Tente de novo ou toque em "Esqueci minha senha".' :
+      c === 'auth/user-not-found' ? 'Não achamos conta com esse e-mail. Crie uma conta nova.' :
+      c === 'auth/too-many-requests' ? 'Muitas tentativas. Espere um pouco e tente de novo.' :
+      c === 'auth/operation-not-allowed' ? 'O login por e-mail ainda não foi ativado no Firebase (Authentication › Sign-in method).' :
+      'Não foi possível. Tente de novo.';
+  }
   var cdT = null, cdLeft = 0, lastPhone = '';
   function updCd(){ var b = document.getElementById('gcResend'); if (!b) return; if (cdLeft > 0) { b.disabled = true; b.textContent = 'Reenviar código em ' + cdLeft + 's'; } else { b.disabled = false; b.textContent = 'Reenviar código por SMS'; } }
   function startCd(){ cdLeft = 60; updCd(); clearInterval(cdT); cdT = setInterval(function(){ cdLeft--; if (cdLeft <= 0) { clearInterval(cdT); cdT = null; } updCd(); }, 1000); }
@@ -125,10 +137,22 @@
         '<small>O SMS pode levar até 1 minuto. Não chegou? Reenvie ou entre com o Google.</small>' +
         '<button class="g" id="gcGoogle2">' + G_ICON + 'Entrar com Google</button>' +
         '<button class="l" id="gcBack">Usar outro número</button>';
+    } else if (step === 'email') {
+      h += '<h1>' + (emailMode === 'up' ? 'Criar conta' : 'Entrar com e-mail') + '</h1>' +
+        '<p>' + (emailMode === 'up' ? 'É rápido e grátis. Guarde seu e-mail e senha.' : 'Use o e-mail e a senha que você cadastrou.') + '</p>' +
+        (emailMode === 'up' ? '<input id="gcENome" type="text" autocomplete="name" placeholder="Seu nome" style="text-align:left">' : '') +
+        '<input id="gcEMail" type="email" inputmode="email" autocomplete="email" placeholder="seu@email.com" style="text-align:left">' +
+        '<input id="gcEPass" type="password" autocomplete="' + (emailMode === 'up' ? 'new-password' : 'current-password') + '" placeholder="Senha (mínimo 6 letras ou números)" style="text-align:left">' +
+        '<button class="o" id="gcEGo">' + (emailMode === 'up' ? 'Criar conta' : 'Entrar') + '</button>' +
+        '<div class="err" id="gcErr">' + (msg || '') + '</div>' +
+        (emailMode === 'in' ? '<button class="l" id="gcEForgot">Esqueci minha senha</button>' : '') +
+        '<button class="l" id="gcEToggle">' + (emailMode === 'up' ? 'Já tenho conta · Entrar' : 'Não tenho conta · Criar agora') + '</button>' +
+        '<button class="l" id="gcBack">Voltar</button>';
     } else {
       h += '<h1>' + (closable ? 'Entrar ou cadastrar' : 'Bem-vindo à Gatecão') + '</h1><p>' + (ctxMsg || 'Entre para comprar, agendar banho e tosa e ganhar pontos no clube.') + '</p>' +
         '<button class="g" id="gcG">' + G_ICON + 'Entrar com Google</button>' +
         '<button class="o" id="gcP">Entrar com celular</button>' +
+        '<button class="g" id="gcE">✉️ Entrar com e-mail</button>' +
         '<div class="err" id="gcErr">' + (msg || '') + '</div>' +
         (closable ? '<button class="l" id="gcX">Agora não</button>' : '<button class="l" id="gcGuest">Ver o app sem cadastro</button>') +
         '<small>O cadastro é grátis. Ao entrar, você recebe avisos dos seus pedidos e agendamentos.</small>';
@@ -138,6 +162,27 @@
     if ($('gcG')) $('gcG').onclick = googleSignIn;
     if ($('gcGoogle2')) $('gcGoogle2').onclick = googleSignIn;
     if ($('gcP')) $('gcP').onclick = function(){ showLogin('phone'); };
+    if ($('gcE')) $('gcE').onclick = function(){ emailMode = 'in'; showLogin('email'); };
+    if ($('gcEToggle')) $('gcEToggle').onclick = function(){ emailMode = emailMode === 'up' ? 'in' : 'up'; showLogin('email'); };
+    if ($('gcEForgot')) $('gcEForgot').onclick = function(){
+      var em = String(($('gcEMail') || {}).value || '').trim();
+      if (!em || em.indexOf('@') < 0) { $('gcErr').textContent = 'Digite seu e-mail acima para enviar o link de nova senha.'; return; }
+      auth.sendPasswordResetEmail(em).then(function(){ var e = $('gcErr'); if (e) { e.style.color = '#1D7F53'; e.textContent = 'Enviamos um e-mail para você criar uma nova senha.'; } })
+        .catch(function(err){ var e = $('gcErr'); if (e) e.textContent = emailErrText(err); });
+    };
+    if ($('gcEGo')) $('gcEGo').onclick = function(){
+      var em = String($('gcEMail').value || '').trim(), pw = String($('gcEPass').value || '');
+      if (!em || em.indexOf('@') < 0) { $('gcErr').textContent = 'Digite um e-mail válido'; return; }
+      if (pw.length < 6) { $('gcErr').textContent = 'A senha precisa ter ao menos 6 caracteres'; return; }
+      var self = this; self.disabled = true;
+      function fail(err){ var e = $('gcErr'); if (e) e.textContent = emailErrText(err); self.disabled = false; }
+      if (emailMode === 'up') {
+        var nome = String(($('gcENome') || {}).value || '').trim();
+        auth.createUserWithEmailAndPassword(em, pw).then(function(cred){ if (nome && cred && cred.user) return cred.user.updateProfile({ displayName: nome }); }).catch(fail);
+      } else {
+        auth.signInWithEmailAndPassword(em, pw).catch(fail);
+      }
+    };
     if ($('gcX')) $('gcX').onclick = function(){ hideLogin(); };
     if ($('gcGuest')) $('gcGuest').onclick = function(){ try { localStorage.setItem('gc_guest', '1'); } catch (e) {} hideLogin(); if (guestResolve) guestResolve(null); };
     if ($('gcBack')) $('gcBack').onclick = function(){ showLogin(step === 'code' ? 'phone' : ''); };
