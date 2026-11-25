@@ -20,7 +20,7 @@ async function open(browser, { width = 400, height = 800, blockStorage = false }
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  await page.goto(URL_APP);
+  await page.goto(URL_APP, { waitUntil: 'domcontentloaded' });
   page.errors = errors;
   return page;
 }
@@ -315,6 +315,59 @@ test('planoNomeLongo360', async b => {
     return { sw: v.scrollWidth, right: pr.right, vw: v.clientWidth };
   });
   assert(r.sw <= 360 && r.right <= r.vw, 'plano estourou: ' + JSON.stringify(r));
+});
+
+
+// ---------- Mensagens ----------
+async function abrirChat(p, c) { await p.click('#open-inbox'); await p.click(`.chat-item[data-creator="${c}"]`); }
+test('inboxAbre', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('#open-inbox');
+  assert((await view(p)) === 'inbox', 'não abriu mensagens');
+  assert(await p.locator('.chat-item').count() >= 3, 'poucas conversas');
+});
+test('enviaMensagem', async b => {
+  const p = await open(b); await enter(p);
+  await abrirChat(p, 'caio');
+  const them0 = await p.locator('.msg.them').count();
+  await p.fill('#chat-input', 'Oi Caio, quanto custa o Pro?');
+  await p.click('#chat-send');
+  assert((await p.locator('.msg.me').last().innerText()).includes('quanto custa o Pro'), 'mensagem não apareceu');
+  await p.waitForFunction(n => document.querySelectorAll('.msg.them').length > n, them0, { timeout: 4000 });
+});
+test('mensagemProibida', async b => {
+  const p = await open(b); await enter(p);
+  await abrirChat(p, 'caio');
+  const me0 = await p.locator('.msg.me').count();
+  await p.fill('#chat-input', 'tenho 15 anos');
+  await p.click('#chat-send');
+  assert(await p.isVisible('#chat-blocked'), 'sem aviso de bloqueio');
+  assert(await p.locator('.msg.me').count() === me0, 'enviou mesmo assim');
+});
+test('ppvDesbloqueia', async b => {
+  const p = await open(b); await enter(p);
+  await abrirChat(p, 'luna');
+  const ppv = p.locator('.ppv').first();
+  assert(await ppv.locator('.locked-msg').count() === 1, 'mensagem paga não está bloqueada');
+  await ppv.locator('.ppv-unlock').click();
+  await p.click('#pix-done');
+  assert(await p.locator('.ppv').first().locator('.locked-msg').count() === 0, 'não desbloqueou');
+});
+test('chatSoAssinante', async b => {
+  const p = await open(b); await enter(p);
+  await abrirChat(p, 'bia');
+  assert(await p.isVisible('#chat-locked'), 'chat da Bia deveria estar travado');
+  assert(await p.locator('#chat-input').count() === 0, 'campo de mensagem visível');
+  await p.evaluate(() => { T.subscribe('bia', 'bia-noite'); T.refresh(); });
+  assert(await p.isVisible('#chat-locked'), 'plano Noite não libera chat');
+  await p.evaluate(() => { T.subscribe('bia', 'bia-mais'); T.refresh(); });
+  assert(await p.locator('#chat-input').count() === 1, 'Noite+ deveria liberar chat');
+});
+test('perfilMensagem', async b => {
+  const p = await open(b); await enter(p);
+  await p.evaluate(() => T.go('creator', 'duda'));
+  await p.click('#msg-btn');
+  assert((await view(p)) === 'chat', 'não abriu conversa');
 });
 
 // ---------- runner ----------
