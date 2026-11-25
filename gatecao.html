@@ -2783,8 +2783,9 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(home){
       if(isVet())h+=vetHomeCard();
       h+=loyStrip();
+      h+=storeStrip();
       h+=bnCarousel();
-      h+=delStrip();
+      var _sst=storeStatus();if(!_sst||_sst.open)h+=delStrip();
       h+=quickTiles(all);
       var sv=D.services.filter(function(s){return s.active!==false&&!isExtra(s)});
       if(sv.length){
@@ -3040,6 +3041,19 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function sameDayPromise(){var c=cutHour();if(!(c>0))return '';return 'Pedidos feitos até as '+c+'h têm entrega no mesmo dia.';}
   function sameDayLive(){var c=cutHour();if(!(c>0))return '';var d=new Date(),h=d.getHours()+d.getMinutes()/60,wd=d.getDay();if(wd!==0&&h<c)return 'Peça agora e receba ainda hoje! 🛵 Pedidos até as '+c+'h chegam no mesmo dia.';return 'Pedidos feitos até as '+c+'h têm entrega no mesmo dia.';}
   function delStrip(){var c=cutHour();if(!(c>0))return '';var d=new Date(),h=d.getHours()+d.getMinutes()/60,wd=d.getDay(),hoje=wd!==0&&h<c;return '<div class="delbar'+(hoje?' live':'')+'">'+IC_MOTO+'<span><b>'+(hoje?'Entrega no mesmo dia':'Entrega rápida')+'</b>Pedidos feitos até as '+c+'h chegam no mesmo dia.</span></div>';}
+  var WD_SHORT=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  function storeHours(){var h=S('hours',null);return (Array.isArray(h)&&h.length===7)?h:null;}
+  function hm2min(s){var m=String(s||'').match(/^(\d{1,2}):?(\d{2})$/);if(!m)return null;var H=+m[1],M=+m[2];if(H>23||M>59)return null;return H*60+M;}
+  function min2hm(x){var H=Math.floor(x/60),M=x%60;return H+'h'+(M?(M<10?'0'+M:''+M):'');}
+  function storeStatus(){
+    var hrs=storeHours();if(!hrs)return null;
+    var now=new Date(),wd=now.getDay(),cur=now.getHours()*60+now.getMinutes(),td=hrs[wd];
+    if(td&&td.on){var o=hm2min(td.o),c=hm2min(td.c);if(o!=null&&c!=null&&cur>=o&&cur<c)return {open:true,label:'Aberta agora · até '+min2hm(c)};}
+    for(var i=0;i<8;i++){var d=(wd+i)%7,row=hrs[d];if(!row||!row.on)continue;var o2=hm2min(row.o);if(o2==null)continue;if(i===0){if(cur<o2)return {open:false,label:'Fechada · abre hoje às '+min2hm(o2)};continue;}return {open:false,label:'Fechada · abre '+(i===1?'amanhã':WD_SHORT[d])+' às '+min2hm(o2)};}
+    return {open:false,label:'Fechada no momento'};
+  }
+  function storeStrip(){var s=storeStatus();if(!s)return '';return '<div class="delbar'+(s.open?' live':'')+'" style="margin-top:10px"><span style="font-size:20px;flex:none">'+(s.open?'🟢':'🔴')+'</span><span><b>'+(s.open?'Loja aberta':'Loja fechada')+'</b>'+esc(s.label)+'</span></div>';}
+  function hoursPretty(){var hrs=storeHours();if(!hrs)return '';var out=[];[1,2,3,4,5,6,0].forEach(function(d){var r=hrs[d],o=r&&r.on?hm2min(r.o):null,c=r&&r.on?hm2min(r.c):null;out.push(WD_SHORT[d]+': '+(o!=null&&c!=null?min2hm(o)+' às '+min2hm(c):'fechado'));});return out.join('\n');}
   async function cepFill(cep){
     try{
       var r=await fetch('https://viacep.com.br/ws/'+cep+'/json/');if(!r.ok)return false;var j=await r.json();if(j.erro)return false;
@@ -3126,6 +3140,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     lines.forEach(function(l){relatedOf(l.p,12).forEach(function(x){var g=varOf(x),k=g?g.key:x.id;if(inC[x.id]||seenS[k]||stockOf(x)<=0)return;seenS[k]=1;sugg.push(x)})});
     sugg=sugg.slice(0,8);
     if(sugg.length)h+='<div class="cartx"><div class="co-h">Leve junto</div><div class="hscroll">'+sugg.map(function(x){var pr=priced(x);return '<article class="card"><div class="tile t1">'+tileInner(x)+'</div><div class="cbody"><div class="nm" style="font-size:13px">'+esc(pName(x))+'</div><div class="pr"><span class="price">'+brl(pr.price)+'</span></div><button class="add" data-cadd="'+esc(x.id)+'">+ Adicionar</button></div></article>'}).join('')+'</div></div>';
+    var _cst=storeStatus();
+    if(_cst&&!_cst.open)h+='<div class="delnote" style="background:#FFF3E6;border-color:#FFD2A1;color:#7a4a12"><span style="font-size:20px">⏰</span><span>Estamos fechados agora ('+esc(_cst.label.replace(/^Fechada · /,''))+'). Você pode fazer o pedido — vamos preparar assim que a loja abrir.</span></div>';
     h+='<div class="co-h">Como receber</div><div class="opts">';
     ['Retirada na loja','Entrega'].forEach(function(m){h+='<button class="opt" data-mode="'+m+'" aria-pressed="'+(state.co.mode===m)+'"><b>'+m+'</b><span class="muted">'+(m==='Entrega'?(etaText()?etaText()+' · ':'')+'grátis acima de '+brl(freeMin):'Sem custo')+'</span></button>'});
     h+='</div><div class="co-h">Pagamento</div><div class="opts">';
@@ -3147,7 +3163,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='<label class="f">Seu nome<input class="in" id="cname" value="'+esc(state.co.name||(D.me&&D.me.name)||'')+'" placeholder="Nome para o pedido" autocomplete="name"></label>';
     if(state.co.mode==='Entrega'){
       var A=state.ag;if(!A.ltPhone&&D.me&&D.me.phone)A.ltPhone=fmtPhone(D.me.phone);
-      h+='<div class="co-h">Endereço de entrega</div>'+(sameDayPromise()?'<div class="delnote">'+IC_MOTO+'<span>'+esc(sameDayLive())+'</span></div>':'')+'<div class="addrbox co-addr">'+
+      h+='<div class="co-h">Endereço de entrega</div>'+((_cst&&!_cst.open)?'':(sameDayPromise()?'<div class="delnote">'+IC_MOTO+'<span>'+esc(sameDayLive())+'</span></div>':''))+'<div class="addrbox co-addr">'+
         '<label class="f co-f">CEP<input class="in" id="ccep" inputmode="numeric" maxlength="9" value="'+esc(state.co.cep||'')+'" placeholder="00000-000 (preenche sozinho)" autocomplete="postal-code"></label>'+
         '<label class="f co-f">Rua e número<input class="in" id="caddr" value="'+esc(A.ltAddr)+'" placeholder="Rua das Flores, 120" autocomplete="street-address"></label>'+
         '<div class="two"><label class="f co-f">Bairro'+(zones().length?'<select class="in" id="cbairro"><option value="">Escolha</option>'+zones().map(function(z){return '<option'+(normTxt(z.b)===normTxt(A.ltBairro)?' selected':'')+' value="'+esc(z.b)+'">'+esc(z.b)+(z.fee!==''&&z.fee!=null?' · '+(num(z.fee)?brl(num(z.fee)):'grátis'):'')+'</option>'}).join('')+(A.ltBairro&&!zoneOf(A.ltBairro)?'<option selected value="'+esc(A.ltBairro)+'">'+esc(A.ltBairro)+' (consultar)</option>':'')+'</select>':'<input class="in" id="cbairro" value="'+esc(A.ltBairro)+'" autocomplete="address-level3">')+'</label><label class="f co-f">Complemento<input class="in" id="ccomp" value="'+esc(A.ltComp)+'" placeholder="Apto, bloco"></label></div>'+
@@ -3353,12 +3369,13 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     bindBox();
     $$('.lgtab',document.getElementById('mpov')).forEach(function(b){b.onclick=function(){openLegal(b.getAttribute('data-lg'))}});
   }
-  function hasLojaInfo(){return !!(S('lojaAddr','')||S('lojaHours','')||S('lojaAbout','')||S('lojaIg','')||waNum())}
+  function hasLojaInfo(){return !!(S('lojaAddr','')||S('lojaHours','')||storeHours()||S('lojaAbout','')||S('lojaIg','')||waNum())}
   function igUrl(v){v=String(v||'').trim();if(!v)return '';if(/^https?:\/\//i.test(v))return v;return 'https://instagram.com/'+v.replace(/^@/,'')}
   function openLoja(){
-    var addr=S('lojaAddr',''),hours=S('lojaHours',''),about=S('lojaAbout',''),area=S('lojaArea',''),ig=igUrl(S('lojaIg','')),wa=waUrl('Olá, Gatecão! Vim pelo app.');
+    var addr=S('lojaAddr',''),hours=hoursPretty()||S('lojaHours',''),about=S('lojaAbout',''),area=S('lojaArea',''),ig=igUrl(S('lojaIg','')),wa=waUrl('Olá, Gatecão! Vim pelo app.'),sst=storeStatus();
     var h='<div class="mpcard lgcard lojacard"><div class="mphd"><b>A loja</b><button class="ghost" id="mpX">Fechar</button></div><div class="lgbody">';
     h+='<div class="lojahd">'+svg('paw','')+'<div><b>Gatecão Pet Shop</b>'+(about?'<span>'+esc(about)+'</span>':'')+'</div></div>';
+    if(sst)h+='<div class="lojarow"><span class="st '+(sst.open?'ok':'bad')+'" style="justify-self:start">'+(sst.open?'🟢 ':'🔴 ')+esc(sst.label)+'</span></div>';
     if(addr)h+='<div class="lojarow"><span class="lojak">Endereço</span><a href="https://maps.google.com/?q='+encodeURIComponent(addr)+'" target="_blank" rel="noopener">'+esc(addr)+'</a></div>';
     if(hours)h+='<div class="lojarow"><span class="lojak">Horários</span><div class="lojahours">'+esc(hours).replace(/\n/g,'<br>')+'</div></div>';
     if(area)h+='<div class="lojarow"><span class="lojak">Entrega</span><span>'+esc(area)+'</span></div>';
@@ -5679,9 +5696,13 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       '<label class="fld">Prazo que aparece para o cliente (opcional)<input class="in" id="lem" maxlength="60" value="'+esc(S('etaMsg',''))+'" placeholder="Ex.: Entrega em até 1 hora"></label><p class="hint" style="margin:0 0 6px">Deixe em branco para o app calcular sozinho (chega hoje/amanhã pela hora de corte abaixo).</p>'+
       '<label class="fld">Pedidos até que horas chegam no mesmo dia<input class="in" id="ldc" inputmode="numeric" value="'+esc(S('delCut',15))+'" placeholder="Ex.: 15"></label><p class="hint">Use 0 para não mostrar prazo. Aos domingos o app mostra o próximo dia útil.</p>'+
       '<label class="fld">Taxa por bairro (opcional)<textarea class="in" id="lzn" rows="5" placeholder="Um bairro por linha. Ex.:&#10;Centro; 0&#10;Jardim América; 6,90&#10;Vila Nova; 9,90">'+esc(zones().map(function(z){return z.b+'; '+String(z.fee).replace('.',',')}).join('\n'))+'</textarea></label><p class="hint">Com a lista, o cliente escolhe o bairro e a taxa entra sozinha. Sem a lista, vale a taxa única acima.</p></div>';
-    h+='<div class="acard"><b>A loja (aparece para o cliente)</b><p class="hint">Preencha para mostrar a página "A loja" no app, com endereço, horários e redes. Deixe tudo em branco para esconder.</p>'+
+    h+='<div class="acard"><b>Horário de funcionamento</b><p class="hint">Define quando o app mostra a loja como <b>aberta</b> ou <b>fechada</b>. Fora do horário o cliente ainda pode pedir, mas o app avisa que o pedido será preparado quando a loja abrir.</p>';
+    var HR=storeHours();
+    [1,2,3,4,5,6,0].forEach(function(d){var r=(HR&&HR[d])||{on:(d>=1&&d<=5),o:'09:00',c:'18:00'};
+      h+='<div class="rowtight" style="gap:8px;justify-content:flex-start;margin:4px 0"><label style="flex:none;width:58px;display:flex;align-items:center;gap:5px;font-weight:700"><input type="checkbox" data-hd="'+d+'"'+(r.on?' checked':'')+'>'+WD_SHORT[d]+'</label><input class="in" type="time" data-ho="'+d+'" value="'+esc(r.o||'09:00')+'" style="flex:1;min-width:0;text-align:center"><span class="muted">às</span><input class="in" type="time" data-hc="'+d+'" value="'+esc(r.c||'18:00')+'" style="flex:1;min-width:0;text-align:center"></div>';});
+    h+='<p class="hint" style="margin:6px 0 0">Desmarque o dia para fechado. Deixe todos os dias desmarcados para não mostrar o status de aberto/fechado.</p></div>';
+    h+='<div class="acard"><b>A loja (aparece para o cliente)</b><p class="hint">Preencha para mostrar a página "A loja" no app, com endereço e redes. Deixe tudo em branco para esconder. O horário vem do quadro acima.</p>'+
       '<label class="fld">Endereço<input class="in" id="lsAddr" value="'+esc(S('lojaAddr',''))+'" placeholder="Rua, número, bairro, cidade"></label>'+
-      '<label class="fld">Horário de atendimento<textarea class="in" id="lsHours" rows="3" placeholder="Seg a Sex: 9h às 19h&#10;Sábado: 9h às 17h&#10;Domingo: fechado">'+esc(S('lojaHours',''))+'</textarea></label>'+
       '<div class="two"><label class="fld">Instagram (@ ou link)<input class="in" id="lsIg" value="'+esc(S('lojaIg',''))+'" placeholder="@gatecaopetshop"></label>'+
       '<label class="fld">Área de entrega (opcional)<input class="in" id="lsArea" value="'+esc(S('lojaArea',''))+'" placeholder="Ex.: até 5 km da loja"></label></div>'+
       '<label class="fld">Sobre a loja<textarea class="in" id="lsAbout" rows="3" maxlength="400" placeholder="Uma frase sobre a Gatecão: o que vocês oferecem e o diferencial no atendimento.">'+esc(S('lojaAbout',''))+'</textarea></label></div>';
@@ -5706,7 +5727,9 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       data.zones=$('#lzn').value.split('\n').map(function(l){var a=l.split(/[;\t]/);var b=(a[0]||'').trim();if(!b)return null;var f=(a[1]||'').trim();return{b:b.slice(0,60),fee:f===''?'':num(f)}}).filter(Boolean).slice(0,80);
       var cl=function(id,d){var v=Math.round(num($(id).value));return v>=5&&v<=180?v:d};
       data.bathC=cl('#lbc',30);data.bathM=cl('#lbm',21);data.bathL=cl('#lbl',15);data.tosaDays=cl('#ltd',45);
-      data.lojaAddr=$('#lsAddr').value.trim().slice(0,160);data.lojaHours=$('#lsHours').value.trim().slice(0,300);data.lojaIg=$('#lsIg').value.trim().slice(0,120);data.lojaArea=$('#lsArea').value.trim().slice(0,120);data.lojaAbout=$('#lsAbout').value.trim().slice(0,400);
+      var hrs=[];for(var _d=0;_d<7;_d++){var ck=$('[data-hd="'+_d+'"]'),oo=$('[data-ho="'+_d+'"]'),cc=$('[data-hc="'+_d+'"]');hrs[_d]={on:!!(ck&&ck.checked),o:(oo&&oo.value)||'',c:(cc&&cc.value)||''};}
+      data.hours=hrs.some(function(x){return x.on})?hrs:null;
+      data.lojaAddr=$('#lsAddr').value.trim().slice(0,160);data.lojaIg=$('#lsIg').value.trim().slice(0,120);data.lojaArea=$('#lsArea').value.trim().slice(0,120);data.lojaAbout=$('#lsAbout').value.trim().slice(0,400);
       this.disabled=true;
       try{await X.db.doc('settings/store').set(Object.assign({},D.settings,data));toast('Loja atualizada')}catch(e){wfail(e)}
       this.disabled=false;
