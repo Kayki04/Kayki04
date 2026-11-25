@@ -1,0 +1,60 @@
+html,body,#root{height:100%;margin:0}
+html{background:var(--nevoa)}
+body{background:var(--nevoa);color:var(--tinta);font-family:var(--f-texto);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+a{color:inherit;text-decoration:none}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid var(--roxo);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+.app{position:relative;max-width:480px;height:100%;margin:0 auto;background:var(--branco);display:flex;flex-direction:column;overflow:hidden}
+.view{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
+.view.cinza{background:var(--nevoa)}
+.view.escura{background:var(--noite)}
+
+.tabs{flex:none;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;height:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);border-top:1px solid var(--linha);background:var(--branco)}
+.tabs a{height:var(--nav-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10px;font-weight:600;color:var(--cinza)}
+.tabs a svg{width:24px;height:24px}
+.tabs a.active{color:var(--tinta)}
+.tabs .mais{width:44px;height:32px;border-radius:10px;background:var(--marca);display:grid;place-items:center;color:#fff}
+.tabs .mais svg{width:20px;height:20px}
+.app.escuro .tabs{background:var(--noite);border-top-color:#25222e}
+.app.escuro .tabs a{color:#8c8798}
+.app.escuro .tabs a.active{color:#fff}
+
+.age-gate{position:absolute;inset:0;z-index:50;background:var(--noite);color:#fff;display:flex;flex-direction:column;justify-content:center;gap:22px;padding:32px max(24px,env(safe-area-inset-right,0px)) 32px max(24px,env(safe-area-inset-left,0px));overflow-y:auto}
+.age-gate::before{content:"";position:absolute;inset:-30% -30% auto auto;width:120%;aspect-ratio:1;background:radial-gradient(circle,rgba(255,10,120,.45),transparent 60%);pointer-events:none}
+.age-gate::after{content:"";position:absolute;inset:auto auto -30% -40%;width:120%;aspect-ratio:1;background:radial-gradient(circle,rgba(0,212,255,.28),transparent 60%);pointer-events:none}
+.age-gate > *{position:relative;z-index:1}
+.age-gate .logo{font-size:72px}
+.age-gate h1{font-size:24px;line-height:1.2;margin:0;text-wrap:balance}
+.age-gate p{margin:0;color:#c9c4d4;max-width:36ch}
+.age-gate .regras{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:13px;color:#c9c4d4}
+.age-gate .regras li{display:flex;gap:8px}
+.age-gate .regras li::before{content:"";flex:none;width:6px;height:6px;margin-top:7px;border-radius:50%;background:var(--lima)}
+.age-gate .acoes-gate{display:flex;flex-direction:column;gap:10px}
+.age-gate .aviso{font-size:13px;color:#ffb3c9}
+
+.logo{font-family:var(--f-logo);font-weight:900;letter-spacing:-.04em;line-height:1;background:var(--marca);-webkit-background-clip:text;background-clip:text;color:transparent;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:700;border-radius:12px;padding:12px 18px;font-size:15px;line-height:1.1;transition:transform .12s}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-lima{background:var(--lima);color:var(--tinta)}
+.btn-marca{background:var(--marca);color:#fff}
+.btn-linha{background:var(--branco);color:var(--tinta);border:1.5px solid var(--linha)}
+.btn-escuro{background:var(--tinta);color:#fff}
+.btn-perigo{background:var(--perigo);color:#fff}
+.btn-fantasma{color:#c9c4d4;padding:10px}
+.btn-bloco{width:100%}
+.btn-p{padding:8px 12px;font-size:13px;border-radius:10px}
+
+.cab{position:sticky;top:0;z-index:5;background:var(--branco);display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--linha)}
+.cab h1{font-size:18px;margin:0;font-weight:800}
+.cab .logo{font-size:28px}
+.cab .dir{margin-left:auto;display:flex;gap:8px;align-items:center}
+.secao{padding:16px;display:flex;flex-direction:column;gap:12px}
+.rotulo{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--cinza);font-weight:700;margin:0}
+.vazio{padding:40px 24px;text-align:center;color:var(--cinza);display:flex;flex-direction:column;gap:12px;align-items:center}
+.dica{font-size:12px;color:var(--cinza);margin:0}
+.erro{color:var(--perigo);font-size:13px;margin:0}

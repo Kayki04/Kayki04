@@ -1,0 +1,12 @@
+/* Tokens da Trip (iguais ao protótipo trip/index.html) */
+:root{
+  --magenta:#FF0A78; --roxo:#8A2BE2; --ciano:#00D4FF;
+  --lima:#C6FF00; --laranja:#FF8A00;
+  --branco:#FFFFFF; --nevoa:#F4F3F7; --linha:#E6E3EC;
+  --tinta:#14121A; --cinza:#6E6A78; --noite:#0B0A10; --perigo:#E5243B;
+  --marca:linear-gradient(120deg,var(--magenta),var(--roxo) 55%,var(--ciano));
+  --f-logo:"Unbounded","Arial Black",system-ui,sans-serif;
+  --f-texto:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --nav-h:60px;
+  color-scheme:light;
+}
