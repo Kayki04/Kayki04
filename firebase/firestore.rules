@@ -44,6 +44,12 @@ service cloud.firestore {
     // Diretório público de veterinários parceiros (só dados públicos). Todos leem; só a loja publica.
     match /vets/{id} { allow read: if true; allow write: if isAdmin(); }
 
+    // Códigos de convite das clínicas (código -> uid da clínica). Público para o vet validar; só a loja escreve.
+    match /clinics/{code} { allow read: if true; allow write: if isAdmin(); }
+
+    // Extrato de comissão por veterinário de clínica (cada vet vê o seu; a loja escreve).
+    match /vetledger/{uid} { allow read: if own(uid) || isAdmin(); allow write: if isAdmin(); }
+
     // Dados de cada cliente (o cliente vê o que é dele; a loja vê tudo).
     match /orders/{uid}    { allow read, write: if own(uid) || isAdmin(); }
     match /appts/{uid}     { allow read, write: if own(uid) || isAdmin(); }

@@ -2380,7 +2380,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   var APPT_ST=['Agendado','Aguardando','Em atendimento','Pronto para buscar','A caminho de casa','Concluído','Cancelado','Faltou'];
 
   /* ---------- estado ---------- */
-  var D={reviews:[],coupons:[],myOrd:[],myRec:[],banners:[],products:[],promos:[],tables:[],services:[],settings:{},slots:{},status:{},orders:[],appts:[],ready:{},nodb:false,slow:false,customers:[],wallets:{},crm:{},rewards:[],redeems:[],me:null,myRedeems:[],partners:[],rxAll:[],partner:null,myRx:[],rxForMe:[],quotes:[],vets:[]};
+  var D={reviews:[],coupons:[],myOrd:[],myRec:[],banners:[],products:[],promos:[],tables:[],services:[],settings:{},slots:{},status:{},orders:[],appts:[],ready:{},nodb:false,slow:false,customers:[],wallets:{},crm:{},rewards:[],redeems:[],me:null,myRedeems:[],partners:[],rxAll:[],partner:null,myRx:[],rxForMe:[],quotes:[],vets:[],vetledger:null};
   var X={db:null,user:null,assets:null,uid:null,isAdmin:false,checked:false};
   var state={tab:'loja',cat:'Todos',q:'',cart:load('gc_cart',{}),cartRec:load('gc_cartrec',{}),myOrders:load('gc_orders',[]),myAppts:load('gc_appts',[]),
     ag:Object.assign({svc:'',extras:[],lt:'loja',ltAddr:'',ltBairro:'',ltComp:'',ltPhone:'',day:'',slot:'',pet:'',kind:'Cachorro',size:'',weight:'',coat:'',breed:'',tutor:'',obs:''},load('gc_ag',{})),co:{mode:'Retirada na loja',pay:'Pix',name:''},
@@ -3549,31 +3549,60 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var c=$('#roleCli');if(c)c.onclick=function(){try{save('gc_rolechosen',1)}catch(e){}mpClose()};
     var v=$('#roleVet');if(v)v.onclick=function(){mpClose();openVetSignup()};
   }
+  var VS={mode:'vet'};
   function openVetSignup(){
     var phone='';try{phone=(window.GCFB&&GCFB.auth&&GCFB.auth.currentUser&&GCFB.auth.currentUser.phoneNumber)||'';}catch(e){}
     phone=String(phone).replace(/^\+55/,'').replace(/\D/g,'');
-    var h='<div class="row"><h2>Cadastro de veterinário</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
-    h+='<p class="hint" style="margin-top:0">Preencha seus dados. A loja revisa e aprova — depois disso suas receitas já saem com desconto pro cliente e você ganha comissão e pontos.</p>';
-    h+='<label class="fld">Nome completo<input class="in" id="vsn" value="'+esc((D.me&&D.me.name)||'')+'" placeholder="Seu nome"></label>';
-    h+='<div class="two"><label class="fld">CRMV<input class="in" id="vsc" placeholder="Ex.: SP-12345"></label><label class="fld">Especialidade<input class="in" id="vse" placeholder="Ex.: Dermatologia"></label></div>';
-    h+='<label class="fld">Clínica / consultório<input class="in" id="vscl" placeholder="Nome da clínica"></label>';
-    h+='<div class="two"><label class="fld">WhatsApp<input class="in" id="vsp" inputmode="tel" value="'+esc(phone?fmtPhone(phone):'')+'" placeholder="(21) 90000-0000"></label><label class="fld">E-mail<input class="in" id="vsm" inputmode="email" placeholder="Opcional"></label></div>';
+    var ph0=phone?fmtPhone(phone):'',nm0=esc((D.me&&D.me.name)||'');
+    var h='<div class="row"><h2>Cadastro de parceiro</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
+    h+='<div class="seg"><button data-vsmode="vet" aria-pressed="'+(VS.mode==='vet')+'">Veterinário</button><button data-vsmode="clinic" aria-pressed="'+(VS.mode==='clinic')+'">Clínica</button><button data-vsmode="cvet" aria-pressed="'+(VS.mode==='cvet')+'">Sou de uma clínica</button></div>';
+    if(VS.mode==='clinic'){
+      h+='<p class="hint" style="margin-top:0">Cadastre sua clínica. A loja aprova e você recebe um <b>código de convite</b> para os veterinários da clínica entrarem. O repasse das comissões é feito pela clínica.</p>';
+      h+='<label class="fld">Nome da clínica<input class="in" id="vscl" value="'+esc(VS.cl||'')+'" placeholder="Ex.: Clínica Vet Amigo"></label>';
+      h+='<div class="two"><label class="fld">Responsável<input class="in" id="vsn" value="'+(VS.n!=null?esc(VS.n):nm0)+'" placeholder="Nome do responsável"></label><label class="fld">CNPJ ou CRMV <small class="muted">(opcional)</small><input class="in" id="vsc" value="'+esc(VS.c||'')+'" placeholder="CNPJ ou CRMV"></label></div>';
+    }else if(VS.mode==='cvet'){
+      h+='<p class="hint" style="margin-top:0">Você faz parte de uma clínica parceira. Peça o <b>código da clínica</b> ao responsável e cole abaixo. Suas receitas têm o seu código; o repasse é feito pela clínica.</p>';
+      h+='<label class="fld">Código da clínica<input class="in" id="vsclin" value="'+esc(VS.code||'')+'" placeholder="Ex.: CL1A2B99" autocapitalize="characters" autocomplete="off" maxlength="12"></label>';
+      h+='<label class="fld">Seu nome<input class="in" id="vsn" value="'+(VS.n!=null?esc(VS.n):nm0)+'" placeholder="Seu nome"></label>';
+      h+='<div class="two"><label class="fld">CRMV<input class="in" id="vsc" value="'+esc(VS.c||'')+'" placeholder="Ex.: SP-12345"></label><label class="fld">Especialidade<input class="in" id="vse" value="'+esc(VS.e||'')+'" placeholder="Ex.: Dermatologia"></label></div>';
+    }else{
+      h+='<p class="hint" style="margin-top:0">Veterinário autônomo (atende a domicílio ou só você). A loja aprova e suas receitas saem com desconto; você ganha comissão e pontos.</p>';
+      h+='<label class="fld">Nome completo<input class="in" id="vsn" value="'+(VS.n!=null?esc(VS.n):nm0)+'" placeholder="Seu nome"></label>';
+      h+='<div class="two"><label class="fld">CRMV<input class="in" id="vsc" value="'+esc(VS.c||'')+'" placeholder="Ex.: SP-12345"></label><label class="fld">Especialidade<input class="in" id="vse" value="'+esc(VS.e||'')+'" placeholder="Ex.: Dermatologia"></label></div>';
+      h+='<label class="fld">Clínica / consultório <small class="muted">(opcional)</small><input class="in" id="vscl" value="'+esc(VS.cl||'')+'" placeholder="Nome da clínica"></label>';
+    }
+    h+='<div class="two"><label class="fld">WhatsApp<input class="in" id="vsp" inputmode="tel" value="'+esc(VS.p!=null?VS.p:ph0)+'" placeholder="(21) 90000-0000"></label><label class="fld">E-mail<input class="in" id="vsm" inputmode="email" value="'+esc(VS.m||'')+'" placeholder="Opcional"></label></div>';
     h+='<button class="primary" id="vssave">Enviar cadastro</button>';
     h+='<button class="ghost" id="vscli">Na verdade sou cliente</button>';
-    $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Cadastro de veterinário');bindClose();
+    $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Cadastro de parceiro');bindClose();
+    function grab(){var g=function(id){var e=$('#'+id);return e?e.value:undefined};VS.n=g('vsn');VS.c=g('vsc');VS.e=g('vse');VS.cl=g('vscl');VS.p=g('vsp');VS.m=g('vsm');VS.code=g('vsclin')}
+    $$('[data-vsmode]').forEach(function(b){b.onclick=function(){grab();VS.mode=b.getAttribute('data-vsmode');openVetSignup()}});
     var cl=$('#vscli');if(cl)cl.onclick=function(){try{save('gc_rolechosen',1)}catch(e){}closeSheet()};
     $('#vssave').onclick=async function(){
-      var nm=$('#vsn').value.trim();if(!nm){toast('Informe seu nome');$('#vsn').focus();return}
-      if(!$('#vsc').value.trim()){toast('Informe seu CRMV');$('#vsc').focus();return}
-      var ph=String($('#vsp').value).replace(/\D/g,'');
-      var data={name:nm,crmv:$('#vsc').value.trim().slice(0,40),especialidade:$('#vse').value.trim().slice(0,60),clinica:$('#vscl').value.trim().slice(0,80),email:$('#vsm').value.trim().slice(0,120),phone:ph,pct:'',active:false,approved:false,selfReg:true,saldo:0,mov:[],pays:[],ts:Date.now()};
-      this.disabled=true;
-      try{
-        await X.db.doc('partners/'+X.uid).set(data);
-        try{await X.db.doc('customers/'+X.uid).set(Object.assign({},D.me||{},{name:nm,phone:ph||((D.me&&D.me.phone)||''),email:data.email||((D.me&&D.me.email)||'')}))}catch(e){}
-        try{save('gc_rolechosen',1)}catch(e){}
-        closeSheet();toast('Cadastro enviado! A loja vai aprovar. Você já pode montar receitas.');render();
-      }catch(e){this.disabled=false;wfail(e)}
+      grab();
+      var nm=String(VS.n||'').trim(),ph=String(VS.p||'').replace(/\D/g,''),email=String(VS.m||'').trim().slice(0,120),crmv=String(VS.c||'').trim().slice(0,40),esp=String(VS.e||'').trim().slice(0,60),btn=this;
+      async function saveCustomer(){try{await X.db.doc('customers/'+X.uid).set(Object.assign({},D.me||{},{name:nm,phone:ph||((D.me&&D.me.phone)||''),email:email||((D.me&&D.me.email)||'')}))}catch(e){}}
+      if(VS.mode==='clinic'){
+        var cname=String(VS.cl||'').trim();if(!cname){toast('Informe o nome da clínica');return}if(!nm){toast('Informe o responsável');return}
+        var data={ptype:'clinic',name:cname.slice(0,80),clinica:cname.slice(0,80),responsavel:nm.slice(0,80),crmv:crmv,especialidade:'',clinCode:genClinCode(),email:email,phone:ph,pct:'',active:false,approved:false,selfReg:true,saldo:0,mov:[],pays:[],ts:Date.now()};
+        btn.disabled=true;
+        try{await X.db.doc('partners/'+X.uid).set(data);await saveCustomer();try{save('gc_rolechosen',1)}catch(e){}VS={mode:'vet'};closeSheet();toast('Clínica cadastrada! A loja vai aprovar e liberar seu código de convite.');render()}catch(e){btn.disabled=false;wfail(e)}
+        return;
+      }
+      if(VS.mode==='cvet'){
+        if(!nm){toast('Informe seu nome');return}if(!crmv){toast('Informe seu CRMV');return}
+        var ccode=String(VS.code||'').trim().toUpperCase();if(!ccode){toast('Informe o código da clínica');return}
+        btn.disabled=true;
+        var clin=null;try{var cs=await X.db.doc('clinics/'+ccode).get();if(cs&&cs.exists)clin=cs.data()}catch(e){}
+        if(!clin||clin.active===false){btn.disabled=false;toast('Código de clínica inválido. Confira com o responsável.');return}
+        var data2={ptype:'cvet',clinicUid:clin.uid,clinicName:clin.name||'',name:nm.slice(0,80),crmv:crmv,especialidade:esp,clinica:clin.name||'',email:email,phone:ph,pct:'',active:false,approved:false,selfReg:true,saldo:0,mov:[],pays:[],ts:Date.now()};
+        try{await X.db.doc('partners/'+X.uid).set(data2);await saveCustomer();try{save('gc_rolechosen',1)}catch(e){}VS={mode:'vet'};closeSheet();toast('Cadastro enviado! Você entrou na clínica '+(clin.name||'')+'. A loja vai aprovar.');render()}catch(e){btn.disabled=false;wfail(e)}
+        return;
+      }
+      if(!nm){toast('Informe seu nome');return}if(!crmv){toast('Informe seu CRMV');return}
+      var data3={ptype:'vet',name:nm.slice(0,80),crmv:crmv,especialidade:esp,clinica:String(VS.cl||'').trim().slice(0,80),email:email,phone:ph,pct:'',active:false,approved:false,selfReg:true,saldo:0,mov:[],pays:[],ts:Date.now()};
+      btn.disabled=true;
+      try{await X.db.doc('partners/'+X.uid).set(data3);await saveCustomer();try{save('gc_rolechosen',1)}catch(e){}VS={mode:'vet'};closeSheet();toast('Cadastro enviado! A loja vai aprovar. Você já pode montar receitas.');render()}catch(e){btn.disabled=false;wfail(e)}
     };
   }
   function openWelcome(force){
@@ -5156,6 +5185,15 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   var RX_CATS=['Rações','Petiscos','Antiparasitários','Farmácia','Higiene','Brinquedos','Acessórios'];
   function vetPartnerCard(){
     var w=X.uid?wal(X.uid):{points:0,cash:0};
+    if(partnerType(D.partner)==='cvet'){
+      var led=D.vetledger||{},a=num(led.saldoCycle),life=num(led.lifetime);
+      var hc='<div class="acard"><b>Minha parceria</b>';
+      hc+='<p class="hint" style="margin:4px 0 0">Você faz parte da clínica <b>'+esc((D.partner&&D.partner.clinicName)||'parceira')+'</b>. O repasse da sua comissão é feito pela clínica.</p>';
+      hc+='<div class="kpis3" style="margin-top:8px"><div><span>Meus pontos</span><b>'+w.points+'</b></div><div><span>A receber (pela clínica)</span><b>'+brl(a)+'</b></div><div><span>Gerado no total</span><b>'+brl(life)+'</b></div></div>';
+      var lm=(led.mov||[]);if(lm.length){hc+='<div class="lbl" style="margin-top:12px">Últimas comissões</div>';lm.slice(0,6).forEach(function(m){hc+='<div class="rowtight" style="font-size:12.5px;padding:7px 2px;border-bottom:1px solid var(--line)"><span class="muted">'+esc(m.desc||(m.client?('Receita · '+m.client):'Comissão'))+'<br>'+fmtTs(m.ts)+'</span><b style="color:'+(num(m.amount)>=0?'var(--brand)':'var(--danger)')+'">'+(num(m.amount)>=0?'+':'')+brl(num(m.amount))+'</b></div>'});}
+      else hc+='<p class="hint" style="margin-top:8px">Quando seus clientes comprarem com suas receitas, a comissão aparece aqui.</p>';
+      return hc+'</div>';
+    }
     var saldo=num(D.partner&&D.partner.saldo),pp=partnerPct(D.partner||{});
     var h='<div class="acard"><b>Minha parceria</b>';
     h+='<div class="kpis3" style="margin:6px 0 0"><div><span>Meus pontos</span><b>'+w.points+'</b></div><div><span>Cashback</span><b>'+brl(w.cash)+'</b></div><div><span>A receber</span><b>'+brl(saldo)+'</b></div></div>';
@@ -5171,10 +5209,27 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if(pays.length)h+='<p class="hint" style="margin:6px 0 0">Último pagamento recebido: <b>'+brl(num(pays[0].amount))+'</b> em '+fmtTs(pays[0].ts)+'.</p>';
     return h+'</div>';
   }
+  function renderClinicPage(){
+    var p=D.partner||{};
+    var h='<section class="phero"><h2>Clínica parceira</h2><p>'+esc(p.name||p.clinica||'Sua clínica')+'</p>'+svg('shield','art')+'</section>';
+    if(!vetApproved())h+='<div class="combobar">⏳ <span>Cadastro <b>em análise</b> pela loja. Após a aprovação você recebe o <b>código de convite</b> dos seus veterinários.</span></div>';
+    if(vetApproved()&&p.clinCode)h+='<div class="acard"><b>Código de convite da clínica</b><p class="hint" style="margin:4px 0 8px">Passe este código para os veterinários da sua clínica. Eles se cadastram como "Sou de uma clínica" e colam o código — as receitas ficam vinculadas à clínica.</p><div class="rxcode" style="text-align:center">'+esc(p.clinCode)+'</div></div>';
+    var saldo=num(p.saldo);
+    h+='<div class="acard"><b>A receber da loja</b><div class="kpis3" style="margin:6px 0 0"><div><span>Saldo da clínica</span><b>'+brl(saldo)+'</b></div></div><p class="hint" style="margin:6px 0 0">A loja paga este valor à clínica. Abaixo, quanto cada veterinário gerou desde o último pagamento.</p>';
+    var lastPay=(p.pays&&p.pays[0]&&p.pays[0].ts)||0,byvet={};
+    (p.mov||[]).forEach(function(m){if(num(m.ts)<=lastPay)return;var k=m.vetName||'Clínica';byvet[k]=(byvet[k]||0)+num(m.amount)});
+    var keys=Object.keys(byvet).filter(function(k){return r2(byvet[k])!==0});
+    if(keys.length){keys.sort(function(a,b){return byvet[b]-byvet[a]});h+='<div style="margin-top:10px;border:1px solid var(--line);border-radius:12px;overflow:hidden">';keys.forEach(function(k,i){h+='<div class="rowtight" style="padding:9px 12px'+(i<keys.length-1?';border-bottom:1px solid var(--line)':'')+'"><span>'+esc(k)+'</span><b style="color:var(--brand)">'+brl(r2(byvet[k]))+'</b></div>'});h+='</div>'}
+    else h+='<p class="hint" style="margin-top:8px">Ainda não há comissões neste período.</p>';
+    h+='</div>';
+    var pays=(p.pays||[]);if(pays.length)h+='<p class="hint" style="margin:6px 2px">Último pagamento recebido: <b>'+brl(num(pays[0].amount))+'</b> em '+fmtTs(pays[0].ts)+'.</p>';
+    view.innerHTML=h;
+  }
   function renderVetPage(){
     if(D.nodb){view.innerHTML=noDbBox();return}
     if(!X.checked){view.innerHTML=loadingBox();return}
     if(!isVet()){view.innerHTML='<div class="empty-card"><h2>Área do veterinário</h2><p class="muted">Esta área é só para veterinários parceiros. Se você é vet e quer entrar no programa, fale com a loja.</p><button class="btn" data-go2="pet">Voltar</button></div>';return}
+    if(partnerType(D.partner)==='clinic')return renderClinicPage();
     var nm=(D.partner&&D.partner.name)?('Dr(a). '+D.partner.name):'Veterinário parceiro';
     var h='<section class="phero"><h2>Vet parceiro</h2><p>'+esc(nm)+((D.partner&&D.partner.clinica)?' · '+esc(D.partner.clinica):'')+'</p>'+svg('pill','art')+'</section>';
     if(!vetApproved())h+='<div class="combobar">⏳ <span>Seu cadastro está <b>em análise</b> pela loja. Você já pode montar receitas; a comissão e o desconto do cliente começam após a aprovação.</span></div>';
@@ -5475,6 +5530,8 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function rxDiscForProd(p){if(!p)return rxDiscPct();var t=p.t||[];for(var i=0;i<t.length;i++){var m=rxDiscByCat();if(m[t[i]]!=null&&m[t[i]]!=='')return Math.max(0,Math.min(50,num(m[t[i]])))}return rxDiscPct()}
   function partnerOf(uid){return (D.partners||[]).filter(function(x){return x.id===uid})[0]||null}
   function partnerPct(p){return (p&&p.pct!=null&&p.pct!=='')?Math.max(0,Math.min(90,num(p.pct))):null}
+  function partnerType(p){return (p&&p.ptype)||'vet'}
+  function genClinCode(){return 'CL'+Math.random().toString(36).replace(/[^a-z0-9]/g,'').slice(0,4).toUpperCase()+String(Date.now()).slice(-2)}
   function isVet(){return !!D.partner}
   function vetApproved(){return !!(D.partner&&D.partner.active!==false&&D.partner.approved!==false)}
   function isPartner(){return vetApproved()}
@@ -5517,15 +5574,20 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     return {nRx:rx.length,paid:paid,comm:comm};
   }
   function rxCommOf(o){
-    if(!o||!o.rx)return 0;var part=partnerOf(o.rx.vetUid),pp=part?partnerPct(part):null,comm=0;
+    if(!o||!o.rx)return 0;var part=partnerOf(o.rx.vetUid),pp=null,comm=0;
+    if(part){if(part.ptype==='cvet'&&part.clinicUid){var cl=partnerOf(part.clinicUid);pp=cl?partnerPct(cl):null;}else pp=partnerPct(part);}
     (o.rx.items||[]).forEach(function(it){var p=byId(D.products,it.id),cat=(p&&p.t&&p.t[0])||'';var pct=pp!=null?pp:rxCommForCat(cat);comm+=num(it.q)*num(it.unit)*pct/100});
     return r2(comm);
   }
   async function rxAdjustVet(vetUid,delta,o,desc){
     if(!vetUid||!delta)return;
-    try{var ref=X.db.doc('partners/'+vetUid),s=await ref.get();if(!s.exists)return;var pd=s.data();
-      var mov=(pd.mov||[]).slice();mov.unshift({ts:Date.now(),amount:r2(delta),order:o&&o.id,client:(o&&o.name)||'',desc:desc||''});
-      await ref.set(Object.assign({},pd,{saldo:r2(Math.max(0,num(pd.saldo)+delta)),mov:mov.slice(0,200)}))}catch(e){}
+    var vp=partnerOf(vetUid)||{},payee=(vp.ptype==='cvet'&&vp.clinicUid)?vp.clinicUid:vetUid,vetName=vp.name||'';
+    try{var ref=X.db.doc('partners/'+payee),s=await ref.get();if(!s.exists)return;var pd=s.data();
+      var mov=(pd.mov||[]).slice();mov.unshift({ts:Date.now(),amount:r2(delta),order:o&&o.id,client:(o&&o.name)||'',desc:desc||'',vetUid:vetUid,vetName:vetName});
+      await ref.set(Object.assign({},pd,{saldo:r2(Math.max(0,num(pd.saldo)+delta)),mov:mov.slice(0,300)}))}catch(e){}
+    if(payee!==vetUid){try{var lref=X.db.doc('vetledger/'+vetUid),ls=await lref.get(),ld=(ls&&ls.exists)?ls.data():{saldoCycle:0,lifetime:0,mov:[]};
+      var lmov=(ld.mov||[]).slice();lmov.unshift({ts:Date.now(),amount:r2(delta),client:(o&&o.name)||'',desc:desc||''});
+      await lref.set({clinicUid:payee,clinicName:vp.clinicName||'',saldoCycle:r2(Math.max(0,num(ld.saldoCycle)+delta)),lifetime:r2(num(ld.lifetime)+Math.max(0,r2(delta))),mov:lmov.slice(0,200),upd:Date.now()})}catch(e){}}
   }
   function openPartner(uid){
     var cur=partnerOf(uid),cust=byId(D.customers,uid)||{};
@@ -6185,10 +6247,14 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       try{await X.db.doc('settings/store').set(Object.assign({},D.settings,data));toast('Regras da parceria salvas')}catch(e){wfail(e)}
     },
     partnerOpen:function(id){openPartner(id)},
-    partnerApprove:async function(id){var p=partnerOf(id);if(!p)return;try{var np=Object.assign({},p,{active:true,approved:true});await X.db.doc('partners/'+id).set(np);syncVetPublic(id,np);toast('Parceiro aprovado! Já pode dar desconto e ganhar comissão.');try{notifyUser(id,'Cadastro aprovado! 🎉','Seu cadastro de veterinário na Gatecão foi aprovado. Agora suas receitas saem com desconto pro cliente e você ganha comissão e pontos.','parceiro').catch(function(){})}catch(e){}}catch(e){wfail(e)}},
+    partnerApprove:async function(id){var p=partnerOf(id);if(!p)return;try{var np=Object.assign({},p,{active:true,approved:true});await X.db.doc('partners/'+id).set(np);syncVetPublic(id,np);
+      if(np.ptype==='clinic'&&np.clinCode){try{await X.db.doc('clinics/'+np.clinCode).set({uid:id,name:np.name||np.clinica||'',active:true})}catch(e){}}
+      toast('Parceiro aprovado!'+(np.ptype==='clinic'?' Código de convite: '+np.clinCode:' Já pode dar desconto e ganhar comissão.'));try{notifyUser(id,'Cadastro aprovado! 🎉',np.ptype==='clinic'?('Sua clínica foi aprovada na Gatecão. Seu código de convite para os veterinários é '+np.clinCode+'.'):'Seu cadastro de veterinário na Gatecão foi aprovado. Agora suas receitas saem com desconto pro cliente e você ganha comissão e pontos.','parceiro').catch(function(){})}catch(e){}}catch(e){wfail(e)}},
     partnerPay:async function(id,b){var p=partnerOf(id);if(!p)return;var v=num(p.saldo);if(!(v>0))return;
       if(b&&b.getAttribute&&b.getAttribute('data-sure')!=='1'){b.setAttribute('data-sure','1');b.textContent='Confirmar pagamento de '+brl(v);return}
-      try{var pays=(p.pays||[]).slice();pays.unshift({amount:r2(v),ts:Date.now()});await X.db.doc('partners/'+id).set(Object.assign({},p,{saldo:0,pays:pays.slice(0,100),lastPay:Date.now()}));toast('Pagamento de '+brl(v)+' registrado')}catch(e){wfail(e)}
+      try{var pays=(p.pays||[]).slice();pays.unshift({amount:r2(v),ts:Date.now()});await X.db.doc('partners/'+id).set(Object.assign({},p,{saldo:0,pays:pays.slice(0,100),lastPay:Date.now()}));
+        if(p.ptype==='clinic'){(D.partners||[]).filter(function(x){return x.ptype==='cvet'&&x.clinicUid===id}).forEach(function(cv){try{X.db.doc('vetledger/'+cv.id).update({saldoCycle:0,upd:Date.now()}).catch(function(){})}catch(e){}})}
+        toast('Pagamento de '+brl(v)+' registrado')}catch(e){wfail(e)}
     },
     mpSaveKey:async function(){var v=($('#mpPK')&&$('#mpPK').value||'').trim();try{await X.db.doc('settings/store').set(Object.assign({},D.settings,{mpPubKey:v}));toast(v?'Chave do cartão salva':'Chave removida');renderAdmin()}catch(e){wfail(e)}},
     printOrd:function(id){var a=String(id).split('|');printOrder(a[0],a[1])},
@@ -7955,6 +8021,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       X.db.doc('customers/'+X.uid).onSnapshot(function(s){D.me=s.exists?s.data():null;D.ready.me=true;schedule()},function(){D.ready.me=true});
       X.db.doc('redeems/'+X.uid).onSnapshot(function(s){var r=s.exists&&s.data().r?s.data().r:{};D.myRedeems=Object.keys(r).map(function(k){return r[k]}).sort(function(a,b){return b.ts-a.ts});schedule()},function(){});
       X.db.doc('partners/'+X.uid).onSnapshot(function(s){D.partner=s.exists?Object.assign({uid:X.uid},s.data()):null;D.ready.partner=true;schedule()},function(){D.ready.partner=true});
+      X.db.doc('vetledger/'+X.uid).onSnapshot(function(s){D.vetledger=s.exists?s.data():null;schedule()},function(){});
       // Receitas que o vet montou (como parceiro) e receitas enviadas para este cliente.
       try{X.db.collection('rx').where('vetUid','==',X.uid).onSnapshot(function(s){D.myRx=s.docs.map(function(d){return Object.assign({id:d.id},d.data())});schedule()},function(){})}catch(e){}
       try{X.db.collection('rx').where('clientUid','==',X.uid).onSnapshot(function(s){D.rxForMe=s.docs.map(function(d){return Object.assign({id:d.id},d.data())});schedule()},function(){})}catch(e){}
