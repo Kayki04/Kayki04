@@ -322,6 +322,21 @@ body.adm::before{background:#F1F5FB}
 .srctag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.4px;border-radius:6px;padding:3px 8px;white-space:nowrap}
 .srctag.bal{background:#EADDFB;color:#5B2DA8}
 .srctag.onl{background:#DDEBFC;color:#1C5BB8}
+.accthero{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0 4px;box-shadow:0 4px 14px rgba(11,42,91,.05)}
+.accthero b{font-family:var(--font-display);font-size:21px;display:block;line-height:1.1}
+.accthero span{color:var(--muted);font-size:13px}
+.acctlogin{flex:none;border:0;background:var(--accent);color:var(--accent-ink);font-weight:800;border-radius:999px;padding:10px 18px;box-shadow:0 3px 0 var(--accent-d)}
+.acctgrp{margin:16px 0 4px}
+.acctgrp>h3{font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 2px 8px;font-family:var(--font-body);font-weight:800}
+.acctrows{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 4px 14px rgba(11,42,91,.04)}
+.acctrow{display:flex;align-items:center;gap:14px;width:100%;background:none;border:0;border-bottom:1px solid var(--line);padding:15px 14px;text-align:left;font-weight:700;color:var(--ink);font-size:15px}
+.acctrow:last-child{border-bottom:0}
+.acctrow:active{background:var(--soft)}
+.acctrow .ai{width:34px;height:34px;flex:none;display:grid;place-items:center;color:var(--brand)}
+.acctrow .ai svg{width:23px;height:23px}
+.acctrow .al{flex:1;min-width:0}
+.acctrow .ac{color:var(--muted);font-size:20px;font-weight:800;flex:none}
+.acctrow.danger .ai,.acctrow.danger .al{color:var(--danger)}
 .sw{width:50px;height:28px;border-radius:999px;border:0;background:var(--line);position:relative;padding:0;flex:none}
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
 .sw[aria-checked="true"]{background:var(--accent)}
@@ -888,7 +903,7 @@ nav.bar button{font-size:10.5px;padding:7px 0;line-height:1.15;text-align:center
     <button data-go="banho"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3 4 6 6.5 6 10a6 6 0 01-12 0c0-3.5 3-6 6-10z"/></svg>Banho e tosa</button>
     <button data-go="pet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="10" r="1.8"/><circle cx="10" cy="5.8" r="1.8"/><circle cx="14" cy="5.8" r="1.8"/><circle cx="18" cy="10" r="1.8"/><path d="M12 11.5c-2.6 0-5.5 3.8-5.5 6.2 0 1.6 1.4 2.3 2.7 2.3 1.2 0 1.8-.6 2.8-.6s1.6.6 2.8.6c1.3 0 2.7-.7 2.7-2.3 0-2.4-2.9-6.2-5.5-6.2z"/></svg>Meu Pet</button>
     <button data-go="vantagens"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.500l6.100-.9z"/></svg>Vantagens</button>
-    <button data-go="pedidos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg>Pedidos</button>
+    <button data-go="mais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Conta</button>
   </nav>
 </div>
 <a class="wafab" id="waFab" hidden target="_blank" rel="noopener" aria-label="Falar com a Gatecão no WhatsApp"></a>
@@ -4142,6 +4157,48 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     $$('[data-recdel]',view).forEach(function(b){b.onclick=function(){if(b.getAttribute('data-sure')!=='1'){b.setAttribute('data-sure','1');b.textContent='Toque de novo';return}var id=b.getAttribute('data-recdel'),r=D.myRec.filter(function(x){return x.id===id})[0];recPatch(X.uid,id,{active:false,deleted:true}).then(function(){toast('Recompra cancelada');if(r&&typeof storeNotify==='function')storeNotify('pedido','Recompra cancelada',r.q+' x '+r.n)})}});
   }
   /* ---------- navegação ---------- */
+  var IC_M_USER='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
+  var IC_M_HEART='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.5-7-9.6A3.6 3.6 0 0112 7a3.6 3.6 0 017 3.4C19 15.5 12 20 12 20z"/></svg>';
+  var IC_M_STORE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9l1-4h14l1 4M4 9v11h16V9M4 9h16M9 20v-5h6v5"/></svg>';
+  var IC_M_DOC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7zM14 3v5h5M9 13h6M9 17h6"/></svg>';
+  var IC_M_GEAR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M18.4 5.6l-2 2M7.6 16.4l-2 2"/></svg>';
+  var IC_M_OUT='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H6a2 2 0 00-2 2v12a2 2 0 002 2h4M16 12H9M16 12l-3-3M16 12l-3 3"/></svg>';
+  function renderMais(){
+    if(D.nodb){view.innerHTML=noDbBox();return}
+    var nm=D.me&&D.me.name?firstName(D.me):'';
+    var h='<section class="accthero"><div><b>'+(X.uid?('Olá'+(nm?', '+esc(nm):'')+'! 👋'):'Olá! 👋')+'</b><span>'+(X.uid?'Bem-vindo à sua conta Gatecão':'Entre ou cadastre-se para aproveitar tudo')+'</span></div>'+(!X.uid&&window.GCFB?'<button class="acctlogin" data-login="1">Entrar</button>':'')+'</section>';
+    function grp(title,rows){rows=rows.filter(Boolean);if(!rows.length)return '';var s='<div class="acctgrp"><h3>'+esc(title)+'</h3><div class="acctrows">';rows.forEach(function(r){s+='<button class="acctrow'+(r.danger?' danger':'')+'" '+r.attr+'><span class="ai">'+r.icon+'</span><span class="al">'+esc(r.label)+'</span><span class="ac">›</span></button>'});return s+'</div></div>'}
+    function go2(t){return 'data-go2="'+t+'"'}
+    function act(a){return 'data-act="'+a+'"'}
+    h+=grp('Minha conta',[
+      {icon:IC_M_USER,label:'Meus dados e pets',attr:go2('pet')},
+      {icon:svg('bag'),label:'Meus pedidos',attr:go2('pedidos')},
+      {icon:svg('paw'),label:'Meu Pet e receitas',attr:go2('pet')},
+      {icon:IC_M_HEART,label:'Meus favoritos',attr:act('mais_fav')}
+    ]);
+    h+=grp('Vantagens',[
+      {icon:svg('star'),label:'Clube de vantagens',attr:go2('vantagens')},
+      {icon:svg('gift'),label:'Indicar amigos',attr:act('mais_ref')}
+    ]);
+    h+=grp('Serviços',[
+      {icon:svg('drop'),label:'Banho e tosa',attr:go2('banho')},
+      isVet()?{icon:svg('pill'),label:'Área do parceiro (veterinário)',attr:act('rxOpen')}:null
+    ]);
+    h+=grp('Loja e ajuda',[
+      hasLojaInfo()?{icon:IC_M_STORE,label:'A loja (endereço e horário)',attr:act('lojaInfo')}:null,
+      X.uid?{icon:BELL_SVG,label:'Avisos',attr:act('mais_inbox')}:null,
+      waNum()?{icon:IC_WA,label:'Falar no WhatsApp',attr:act('mais_wa')}:null
+    ]);
+    h+=grp('Aplicativo',[
+      {icon:IC_SHARE,label:'Instalar o app no celular',attr:act('installApp')},
+      {icon:IC_M_DOC,label:'Termos de uso',attr:act('legalTermos')},
+      {icon:IC_M_DOC,label:'Privacidade',attr:act('legalPriv')},
+      X.isAdmin?{icon:IC_M_GEAR,label:'Gestão da loja',attr:go2('gestao')}:null,
+      (X.uid&&window.GCFB)?{icon:IC_M_OUT,label:'Sair da conta',attr:act('mais_logout'),danger:true}:null
+    ]);
+    h+='<p class="note" style="margin:18px 0 4px">Gatecão Pet Shop</p>';
+    view.innerHTML=h;
+  }
   function render(){
     if(state.tab==='caixa'){var wf0=$('#waFab');if(wf0)wf0.hidden=true;if(window.GCPDV)GCPDV.show();return}
     if(window.GCPDV)GCPDV.hide();
@@ -4162,7 +4219,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     maybeRoleChoice();
     if(PV.pending&&D.ready.products){var pp=PV.pending;PV.pending=null;showProduct(pp,true)}
     else if(PV.id)renderPview();
-    if(state.tab==='loja'){renderCats();renderShop()}else if(state.tab==='banho')renderBanho();else if(state.tab==='vantagens')renderVantagens();else if(state.tab==='pet')renderPet();else renderPedidos();
+    if(state.tab==='loja'){renderCats();renderShop()}else if(state.tab==='banho')renderBanho();else if(state.tab==='vantagens')renderVantagens();else if(state.tab==='pet')renderPet();else if(state.tab==='mais')renderMais();else renderPedidos();
   }
   function go(tab){
     if(PV.id)hidePview();
@@ -7793,7 +7850,12 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var ab=nc.querySelector('[data-add]');if(ab)ab.onclick=function(){addToCart(ab.getAttribute('data-add'))};
     return true;
   }
-  var CACT={installApp:installApp,legalPriv:function(){openLegal('priv')},legalTermos:function(){openLegal('termos')},lojaInfo:openLoja,rxOpen:function(){openRxBuilder(true)},rxRedeem:function(){openRxRedeem('')}};
+  var CACT={installApp:installApp,legalPriv:function(){openLegal('priv')},legalTermos:function(){openLegal('termos')},lojaInfo:openLoja,rxOpen:function(){openRxBuilder(true)},rxRedeem:function(){openRxRedeem('')},
+    mais_inbox:function(){openInbox()},
+    mais_fav:function(){state.cat='Todos';state.fCat='Todos';state.showAll=true;state.f={fav:true};renderCats();go('loja')},
+    mais_ref:function(){go('vantagens')},
+    mais_wa:function(){var u=waUrl('Olá, Gatecão! Vim pelo app.');if(u)window.open(u,'_blank')},
+    mais_logout:function(){if(window.GCFB&&GCFB.logout)GCFB.logout()}};
   view.addEventListener('click',function(e){
     var ca=e.target.closest('[data-act]');if(ca&&CACT[ca.getAttribute('data-act')]){e.preventDefault();CACT[ca.getAttribute('data-act')]();return}
     var rg=e.target.closest('[data-rxget]');if(rg){e.preventDefault();openRxRedeem(rg.getAttribute('data-rxget'));return}
