@@ -3029,6 +3029,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function zones(){var z=S('zones',null);return Array.isArray(z)?z.filter(function(x){return x&&x.b}):[]}
   function zoneOf(b){var k=normTxt(b);return zones().filter(function(z){return normTxt(z.b)===k})[0]||null}
   function etaText(){
+    var custom=String(S('etaMsg','')||'').trim();if(custom)return custom;
     var cut=num(S('delCut',15)),d=new Date(),h=d.getHours()+d.getMinutes()/60,wd=d.getDay();
     if(!(cut>0))return '';
     if(wd!==0&&h<cut)return 'Chega hoje';
@@ -3926,7 +3927,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
         (PV.rec?'<div class="chips" style="flex-wrap:wrap" role="radiogroup" aria-label="Intervalo">'+recDays().map(function(d){return '<button class="chip" data-pvdays="'+d+'" aria-pressed="'+(PV.rec===d)+'">A cada '+d+' dias</button>'}).join('')+'</div>':'')+'</div>';
     }
 
-    h+='<div class="facts"><div class="fact"><span>Retirada</span><b>Grátis na loja</b></div><div class="fact"><span>Entrega</span><b>'+(freeMin?'Grátis acima de '+brl(freeMin):'Taxa de '+brl(fee))+'</b></div>';
+    h+='<div class="facts"><div class="fact"><span>Retirada</span><b>Grátis na loja</b></div><div class="fact"><span>Entrega</span><b>'+(etaText()?esc(etaText())+' · ':'')+(freeMin?'grátis acima de '+brl(freeMin):'taxa de '+brl(fee))+'</b></div>';
     if(X.uid&&typeof wal==='function'){var ev=earnFor(pr.price,wal(X.uid).life);if(ev.pts>0)h+='<div class="fact"><span>Você ganha</span><b>'+ev.pts+' pontos'+(ev.cash>0?' + '+brl(ev.cash):'')+'</b></div>'}
     if(p.code)h+='<div class="fact"><span>Código</span><b>'+esc(p.code)+'</b></div>';
     h+='</div>';
@@ -5674,7 +5675,9 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       '<label class="fld">Taxa por trajeto (R$)<input class="in" id="ltfee" inputmode="decimal" value="'+esc(ltFeeSet()?String(D.settings.ltFee).replace('.',','):'')+'" placeholder="Em branco: a combinar"></label>'+
       '<p class="hint">Buscar e devolver conta 2 trajetos. Use 0 para grátis ou deixe em branco para combinar com o cliente.</p>'+
       '<label class="fld">Aviso para o cliente (opcional)<input class="in" id="ltnote" maxlength="140" value="'+esc(S('ltNote',''))+'" placeholder="Ex.: Atendemos até 5 km da loja."></label></div>';
-    h+='<div class="acard"><b>Entrega</b><label class="fld">Pedidos até que horas chegam no mesmo dia<input class="in" id="ldc" inputmode="numeric" value="'+esc(S('delCut',15))+'" placeholder="Ex.: 15"></label><p class="hint">Use 0 para não mostrar prazo. Aos domingos o app mostra o próximo dia útil.</p>'+
+    h+='<div class="acard"><b>Entrega</b>'+
+      '<label class="fld">Prazo que aparece para o cliente (opcional)<input class="in" id="lem" maxlength="60" value="'+esc(S('etaMsg',''))+'" placeholder="Ex.: Entrega em até 1 hora"></label><p class="hint" style="margin:0 0 6px">Deixe em branco para o app calcular sozinho (chega hoje/amanhã pela hora de corte abaixo).</p>'+
+      '<label class="fld">Pedidos até que horas chegam no mesmo dia<input class="in" id="ldc" inputmode="numeric" value="'+esc(S('delCut',15))+'" placeholder="Ex.: 15"></label><p class="hint">Use 0 para não mostrar prazo. Aos domingos o app mostra o próximo dia útil.</p>'+
       '<label class="fld">Taxa por bairro (opcional)<textarea class="in" id="lzn" rows="5" placeholder="Um bairro por linha. Ex.:&#10;Centro; 0&#10;Jardim América; 6,90&#10;Vila Nova; 9,90">'+esc(zones().map(function(z){return z.b+'; '+String(z.fee).replace('.',',')}).join('\n'))+'</textarea></label><p class="hint">Com a lista, o cliente escolhe o bairro e a taxa entra sozinha. Sem a lista, vale a taxa única acima.</p></div>';
     h+='<div class="acard"><b>A loja (aparece para o cliente)</b><p class="hint">Preencha para mostrar a página "A loja" no app, com endereço, horários e redes. Deixe tudo em branco para esconder.</p>'+
       '<label class="fld">Endereço<input class="in" id="lsAddr" value="'+esc(S('lojaAddr',''))+'" placeholder="Rua, número, bairro, cidade"></label>'+
@@ -5699,6 +5702,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       if(wa&&(wa.length<10||wa.length>13)){toast('Confira o WhatsApp: use DDD e número');$('#lwa').focus();return}
       data.wa=wa;
       data.delCut=Math.max(0,Math.min(23,Math.round(num($('#ldc').value))));
+      data.etaMsg=$('#lem').value.trim().slice(0,60);
       data.zones=$('#lzn').value.split('\n').map(function(l){var a=l.split(/[;\t]/);var b=(a[0]||'').trim();if(!b)return null;var f=(a[1]||'').trim();return{b:b.slice(0,60),fee:f===''?'':num(f)}}).filter(Boolean).slice(0,80);
       var cl=function(id,d){var v=Math.round(num($(id).value));return v>=5&&v<=180?v:d};
       data.bathC=cl('#lbc',30);data.bathM=cl('#lbm',21);data.bathL=cl('#lbl',15);data.tosaDays=cl('#ltd',45);
