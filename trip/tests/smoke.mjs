@@ -524,6 +524,121 @@ test('seguir', async b => {
   assert((await p.innerText('#seguir')).includes('Seguindo'), 'não lembrou');
 });
 
+
+// ---------- Lives ----------
+test('liveAbre', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('.live-entry[data-creator="duda"]');
+  assert((await view(p)) === 'live', 'não abriu a live');
+  await p.waitForFunction(() => document.querySelectorAll('.live-msg').length >= 2, null, { timeout: 5000 });
+  await p.fill('#live-input', 'Pinta de azul!');
+  await p.click('#live-send');
+  assert((await p.locator('.live-msg.me').last().innerText()).includes('Pinta de azul'), 'comentário não apareceu');
+});
+test('liveGorjeta', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('.live-entry[data-creator="duda"]');
+  await p.click('#live-tip'); await p.click('.tip-amt[data-v="5"]'); await p.click('#tip-send'); await p.click('#pix-done');
+  assert(nb(await p.locator('.live-msg.me').last().innerText()).includes('R$ 5,00'), 'gorjeta não apareceu na live');
+});
+test('liveComentarioProibido', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('.live-entry[data-creator="duda"]');
+  await p.fill('#live-input', 'cadê a novinha');
+  await p.click('#live-send');
+  assert(await p.locator('.live-msg.me').count() === 0, 'enviou comentário proibido');
+  assert(await p.isVisible('#live-blocked'), 'sem aviso');
+});
+test('liveCriador', async b => {
+  const p = await open(b); await enter(p); await virarCriador(p);
+  await p.click('#live-start');
+  assert((await view(p)) === 'live', 'não iniciou live');
+  await p.click('#live-end');
+  assert(await p.isVisible('#live-summary'), 'sem resumo da live');
+});
+// ---------- Moderação ----------
+test('modFila', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('nav#tabs button[data-view="me"]'); await p.click('#open-mod');
+  assert((await view(p)) === 'mod', 'não abriu moderação');
+  assert(await p.locator('.case').count() >= 3, 'fila curta');
+  assert((await p.locator('.case').first().getAttribute('data-reason')) === 'menor', 'menor não está no topo');
+});
+async function denunciar(p, id, motivo) {
+  await p.click(`.post[data-id="${id}"] .report-btn`); await p.click(`.report-reason[data-reason="${motivo}"]`); await p.click('#report-send'); await p.evaluate(() => T.closeSheet());
+}
+test('modManter', async b => {
+  const p = await open(b); await enter(p);
+  await denunciar(p, 'p5', 'spam');
+  await p.evaluate(() => T.go('mod'));
+  await p.click('.case[data-id="p5"] .mod-keep');
+  await p.click('nav#tabs button[data-view="home"]');
+  assert(await p.locator('.post[data-id="p5"]').count() === 1, 'post não voltou');
+});
+test('modBorrar', async b => {
+  const p = await open(b); await enter(p);
+  await denunciar(p, 'p5', 'violencia');
+  await p.evaluate(() => T.go('mod'));
+  await p.click('.case[data-id="p5"] .mod-blur');
+  await p.click('nav#tabs button[data-view="home"]');
+  assert(await p.locator('.post[data-id="p5"] .blur').count() === 1, 'post não voltou borrado');
+});
+test('modRemover', async b => {
+  const p = await open(b); await enter(p);
+  await p.evaluate(() => T.go('mod'));
+  const n = await p.locator('.case').count();
+  await p.locator('.case').first().locator('.mod-remove').click();
+  assert(await p.locator('.case').count() === n - 1, 'caso não saiu da fila');
+  assert((await p.innerText('#toast')).includes('suspenso'), 'sem aviso de suspensão');
+});
+// ---------- Agendar ----------
+const amanha = () => { const d = new Date(Date.now() + 864e5); d.setSeconds(0, 0); const z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`; };
+test('agendar', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('nav#tabs button[data-view="post"]');
+  await p.click('#post-type button[data-type="text"]');
+  await p.fill('#post-text', 'Post agendado da Trip');
+  await p.check('#post-schedule');
+  await p.fill('#post-when', amanha());
+  await p.click('#post-publish');
+  assert((await view(p)) === 'me', 'deveria ir para o perfil');
+  await p.click('nav#tabs button[data-view="home"]');
+  assert(!(await p.locator('.feed .post').first().innerText()).includes('Post agendado'), 'publicou na hora');
+  await p.click('nav#tabs button[data-view="me"]');
+  assert(await p.locator('.agendado').count() === 1, 'não aparece em agendados');
+  await p.click('.agendado .ag-now');
+  await p.click('nav#tabs button[data-view="home"]');
+  assert((await p.locator('.feed .post').first().innerText()).includes('Post agendado'), 'publicar agora falhou');
+});
+test('agendarPassado', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('nav#tabs button[data-view="post"]');
+  await p.click('#post-type button[data-type="text"]');
+  await p.fill('#post-text', 'teste');
+  await p.check('#post-schedule');
+  await p.fill('#post-when', '2020-01-01T10:00');
+  await p.click('#post-publish');
+  assert((await p.innerText('#post-blocked')).includes('futuro'), 'aceitou data no passado');
+});
+// ---------- Mensagem em massa ----------
+test('massaEnvia', async b => {
+  const p = await open(b); await enter(p); await virarCriador(p);
+  await p.click('#mass-open');
+  await p.fill('#mass-text', 'Ensaio novo só pra vocês');
+  await p.check('#mass-paid'); await p.fill('#mass-price', '15');
+  await p.click('#mass-send');
+  const item = p.locator('.mass-item');
+  assert(await item.count() === 1, 'sem histórico');
+  assert(nb(await item.innerText()).includes('R$ 15,00'), 'sem preço no histórico');
+});
+test('massaPrecoInvalido', async b => {
+  const p = await open(b); await enter(p); await virarCriador(p);
+  await p.click('#mass-open');
+  await p.fill('#mass-text', 'oi');
+  await p.check('#mass-paid'); await p.fill('#mass-price', '0');
+  assert(await p.isDisabled('#mass-send'), 'aceitou preço zero');
+});
+
 // ---------- runner ----------
 const filter = process.argv[2];
 const browser = await chromium.launch();

@@ -201,7 +201,7 @@ T.go = (view, arg) => {
   v.dataset.view = view;
   v.innerHTML = T.views[view](arg);
   v.scrollTop = 0;
-  $('#app').classList.toggle('escuro', view === 'videos');
+  $('#app').classList.toggle('escuro', view === 'videos' || view === 'live');
   $$('#tabs button').forEach(b => b.toggleAttribute('aria-current', b.dataset.view === view));
   if (T.after[view]) T.after[view](v, arg);
 };
@@ -381,7 +381,7 @@ const storiesBar = () => {
   });
   const order = stories.map((s, i) => [T.state.seenStories[s.creatorId] ? 1 : 0, i]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => items[x[1]]);
   return `<div class="agora"><b>Agora</b><small>Some em 24h</small></div>
-    <div class="stories"><button class="story meu" data-view-go="post" aria-label="Criar story"><span class="mais-s">+</span><span>Seu story</span></button>${order.join('')}</div>`;
+    <div class="stories"><button class="story meu" data-view-go="post" aria-label="Criar story"><span class="mais-s">+</span><span>Seu story</span></button>${T.liveTile ? T.liveTile() : ''}${order.join('')}</div>`;
 };
 
 T.feedFilter = 'para-voce';
@@ -507,7 +507,7 @@ const reel = (r, k) => {
       <button class="acao tip-btn" data-creator="${esc(c.id)}" aria-label="Mandar gorjeta">${I().coin}<span>Gorjeta</span></button>
     </div>
     <div class="info">
-      ${r.live ? '<span class="aovivo">AO VIVO</span>' : ''}
+      ${r.live ? `<span class="aovivo">AO VIVO</span><button class="btn btn-marca btn-p live-entry" data-creator="${esc(c.id)}" style="align-self:flex-start">Entrar na live</button>` : ''}
       <button class="quem-r" data-open-creator="${esc(c.id)}">${T.avatar(c, 36)}<span>${esc(c.handle)}</span><span class="selo">criador</span></button>
       <p>${esc(r.text)}</p>
       <button class="btn btn-p sub-btn ${sub ? 'ja' : 'btn-lima'}" data-creator="${esc(c.id)}">${sub ? 'Você assina ✓' : 'Assinar ' + brl(T.minPrice(c)) + '/mês'}</button>
@@ -803,6 +803,7 @@ T.openBoost = postId => {
 /* ---------- Postar ---------- */
 const ARTES = ['linear-gradient(160deg,#f3c9a8,#d9876b 45%,#6e3b4f)', 'linear-gradient(160deg,#c3b1e1,#8a6fb3 50%,#2c1f45)', 'linear-gradient(140deg,#06d6a0,#118ab2 50%,#073b4c)',
   'linear-gradient(170deg,#f6d6a8,#c97b3d 55%,#5b3218)', 'linear-gradient(135deg,#ffd166,#ef476f 50%,#118ab2)', 'linear-gradient(160deg,#9fb3c8,#56708f 55%,#1f2d3d)'];
+T.ARTES = ARTES;
 const CORES = ['none', '#FF0A78', '#8A2BE2', '#14121A', '#FF8A00', '#0a7fa3'];
 T.draft = { type: 'photo', art: 0, bg: '#FF0A78', text: '', exclusive: false, sensitive: false };
 const D = () => T.draft;
@@ -1384,7 +1385,7 @@ const NOTIFS = [
   { c: 'luna', t: 'publicou um ensaio novo.', h: '1 h', go: ['creator', 'luna'] },
   { c: 'caio', t: 'respondeu sua mensagem.', h: '3 h', go: ['chat', 'caio'] },
   { c: 'nina', t: 'entrou na Trip. Veja o perfil.', h: 'ontem', go: ['creator', 'nina'] },
-  { c: 'duda', t: 'começou a pintar ao vivo.', h: 'ontem', go: ['videos'] }
+  { c: 'duda', t: 'está ao vivo agora. Entre na live.', h: 'agora', go: ['live', 'duda'] }
 ];
 T.views.notifs = () => {
   const novas = !T.state.notifsSeen;
@@ -1407,5 +1408,264 @@ $('#view').addEventListener('click', e => {
   if (e.target.closest('#withdraw')) { openWithdraw(); return; }
   const nt = e.target.closest('[data-notif]'); if (nt) { const n = NOTIFS.filter(x => T.visible(x.c))[Number(nt.dataset.notif)]; T.go(n.go[0], n.go[1]); return; }
 });
+})();
+</script>
+
+<!-- ================= Lives, moderação, agendar e mensagem em massa ================= -->
+<style>
+#view[data-view="live"]{background:var(--noite);overflow:hidden}
+.live{position:relative;height:100%;color:#fff;overflow:hidden;display:flex;flex-direction:column}
+.live .cena{position:absolute;inset:-20%}
+.live .cena i{position:absolute;border-radius:50%;filter:blur(40px);opacity:.8;animation:flutua 9s ease-in-out infinite alternate}
+.live .cena i:nth-child(1){width:60%;aspect-ratio:1;left:10%;top:15%}
+.live .cena i:nth-child(2){width:50%;aspect-ratio:1;right:5%;top:40%;animation-duration:7s;animation-delay:-3s}
+.live .cena i:nth-child(3){width:45%;aspect-ratio:1;left:25%;bottom:10%;animation-duration:11s}
+.live::after{content:"";position:absolute;inset:35% 0 0 0;background:linear-gradient(0deg,rgba(11,10,16,.9),transparent);pointer-events:none}
+.live > *:not(.cena){position:relative;z-index:2}
+.live-top{display:flex;align-items:center;gap:8px;padding:12px}
+.live-top .who{display:flex;align-items:center;gap:8px;min-width:0;background:rgba(11,10,16,.4);border-radius:99px;padding:4px 10px 4px 4px;font-weight:700;font-size:14px}
+.live-top .who span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#live-viewers{background:rgba(11,10,16,.4);border-radius:8px;padding:3px 8px;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+#live-exit{margin-left:auto;width:38px;height:38px;border-radius:50%;background:rgba(11,10,16,.4);display:grid;place-items:center}
+.host-tag{align-self:center;background:var(--magenta);border-radius:99px;padding:5px 12px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
+.live-chat{margin-top:auto;display:flex;flex-direction:column;gap:6px;padding:0 16px 8px;max-height:45%;overflow:hidden;mask-image:linear-gradient(0deg,#000 75%,transparent)}
+.live-msg{font-size:14px;line-height:1.3;overflow-wrap:anywhere;text-shadow:0 1px 6px rgba(0,0,0,.5);animation:entra .25s ease-out}
+.live-msg b{margin-right:6px}
+.live-msg.tip{align-self:flex-start;background:var(--lima);color:var(--tinta);border-radius:12px;padding:4px 10px;text-shadow:none;font-weight:700}
+.live-msg.me b{color:var(--lima)}
+@keyframes entra{from{opacity:0;transform:translateY(8px)}}
+.live-bottom{padding:8px 12px calc(12px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px}
+.live-bottom .lin{display:flex;gap:8px;align-items:center}
+.live-bottom input{flex:1;min-width:0;font:inherit;font-size:16px;border-radius:99px;border:1.5px solid rgba(255,255,255,.4);background:rgba(11,10,16,.35);color:#fff;padding:10px 14px}
+.live-bottom input::placeholder{color:rgba(255,255,255,.7)}
+#live-send{flex:none;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.18);display:grid;place-items:center}
+#live-send svg,#live-tip svg{width:20px;height:20px}
+#live-tip{flex:none;width:44px;height:44px;border-radius:50%;background:var(--lima);color:var(--tinta);display:grid;place-items:center}
+#live-blocked{background:#fdebee;color:#8a1022;border-radius:10px;padding:8px 10px;font-size:13px}
+.story.live-tile{background:linear-gradient(160deg,#ffd166,#ef476f 50%,#118ab2)}
+.story.live-tile .novo{background:var(--laranja);color:var(--noite)}
+.resumo-live{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.resumo-live div{background:var(--nevoa);border-radius:14px;padding:12px;font-size:12px;color:var(--cinza);display:flex;flex-direction:column}
+.resumo-live b{font-size:19px;color:var(--tinta);font-variant-numeric:tabular-nums}
+
+.mod-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mod-stats div{background:var(--nevoa);border-radius:14px;padding:12px;font-size:12px;color:var(--cinza);display:flex;flex-direction:column}
+.mod-stats b{font-size:20px;color:var(--tinta);font-variant-numeric:tabular-nums}
+.case{border:1.5px solid var(--linha);border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
+.case[data-reason="menor"]{border-color:var(--perigo)}
+.case .topo-c{display:flex;align-items:center;gap:8px;padding:10px 12px;flex-wrap:wrap}
+.prio{font-size:11px;font-weight:800;padding:3px 8px;border-radius:8px;letter-spacing:.03em}
+.prio.alta{background:var(--perigo);color:#fff}
+.prio.media{background:var(--laranja);color:var(--noite)}
+.prio.baixa{background:var(--nevoa);color:var(--cinza)}
+.case .topo-c small{color:var(--cinza);margin-left:auto;font-size:12px}
+.case .prev{position:relative;height:120px;overflow:hidden}
+.case .prev .arte{position:absolute;inset:0;filter:blur(18px);transform:scale(1.2)}
+.case .prev span{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;text-align:center;padding:12px;background:rgba(20,18,26,.35)}
+.case .info-c{padding:10px 12px;font-size:14px;display:flex;flex-direction:column;gap:2px}
+.case .info-c small{color:var(--cinza)}
+.case .auto{color:var(--perigo);font-weight:700;font-size:12px}
+.case .acoes-c{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:0 12px 12px}
+.case .acoes-c .btn{padding:10px 6px;font-size:13px}
+.btn-perigo{background:var(--perigo);color:#fff}
+
+.agendado,.mass-item{display:flex;flex-direction:column;gap:6px;border:1.5px solid var(--linha);border-radius:14px;padding:12px;font-size:14px}
+.agendado .t,.mass-item .t{overflow-wrap:anywhere}
+.agendado small,.mass-item small{color:var(--cinza);font-size:12px}
+.agendado .bts{display:flex;gap:8px}
+.ferramentas{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ferramentas .btn{padding:14px 10px}
+input[type="datetime-local"]{font:inherit;font-size:16px;color:var(--tinta);background:var(--branco);border:1.5px solid var(--linha);border-radius:12px;padding:12px;width:100%}
+#mass-est{background:var(--nevoa);border-radius:12px;padding:10px 12px;font-size:13px}
+</style>
+<script>
+(function(){
+const { $, $$, esc, brl, num } = T.util;
+const SEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/></svg>';
+const st = () => { const s = T.state; s.scheduled = s.scheduled || []; s.massMsgs = s.massMsgs || []; s.modDone = s.modDone || {}; s.forcedSensitive = s.forcedSensitive || {}; return s; };
+
+/* ---------- Posts: borrar por moderação e agendados ---------- */
+const baseAll = T.allPosts;
+T.flushScheduled = () => { const s = st(), now = Date.now(); const due = s.scheduled.filter(x => new Date(x.when) <= now); if (due.length) { s.scheduled = s.scheduled.filter(x => !due.includes(x)); due.forEach(x => { const { when, ...post } = x; s.myPosts.push(post); }); T.save(); } };
+T.allPosts = () => { T.flushScheduled(); return baseAll().map(p => st().forcedSensitive[p.id] ? { ...p, sensitive: true } : p); };
+
+/* ---------- Lives ---------- */
+T.liveTile = () => T.visible('duda') ? `<button class="story live-tile live-entry" data-creator="duda" aria-label="Live de duda.art"><span class="novo">AO VIVO</span>${T.avatar(T.creator('duda'))}<span class="h">duda.art</span></button>` : '';
+const NOMES = ['ana.lu', 'joao.p', 'carol.m', 'rafa_s', 'bru.na', 'gui.tz', 'lari.c', 'pedro.h'];
+const FALAS = { duda: ['que cor linda 😍', 'faz um pôr do sol!', 'primeira vez aqui', 'quanto custa o quadro?', 'arrasou demais', 'coloca mais rosa'], me: ['oiii', 'cheguei!', 'que live boa', 'manda um salve', 'te achei pelo explorar', '🔥🔥🔥'] };
+let tick = null;
+const stopLive = () => { clearInterval(tick); tick = null; };
+T.views.live = id => {
+  const host = id === 'me', c = host ? T.me() : T.creator(id);
+  if (!c) return T.views.home();
+  const cols = host ? ['#FF0A78', '#8A2BE2', '#00D4FF'] : ['#ffd166', '#ef476f', '#118ab2'];
+  return `<div class="live">
+    <div class="cena" aria-hidden="true">${cols.map(x => `<i style="background:${x}"></i>`).join('')}</div>
+    <div class="live-top"><span class="who">${T.avatar(c, 30)}<span>${esc(host ? 'Sua live' : c.handle)}</span></span><span class="aovivo">AO VIVO</span><span id="live-viewers">👁 ${host ? '0' : '1,2 mil'}</span><button id="live-exit" aria-label="Sair da live">${T.icon.close}</button></div>
+    ${host ? '<span class="host-tag">Você está ao vivo · <span id="live-timer">00:00</span></span>' : ''}
+    <div class="live-chat" id="live-chat" aria-live="polite"></div>
+    <div class="live-bottom"><div id="live-blocked" role="alert" hidden></div>
+      <div class="lin"><input type="text" id="live-input" maxlength="200" placeholder="Comente na live…" aria-label="Comentário na live"><button id="live-send" aria-label="Enviar">${SEND}</button>
+      ${host ? '<button class="btn btn-perigo btn-p" id="live-end">Encerrar</button>' : `<button id="live-tip" data-creator="${esc(c.id)}" aria-label="Mandar gorjeta">${T.icon.coin}</button>`}</div></div>
+  </div>`;
+};
+const addMsg = (who, text, cls = '') => { const ch = $('#live-chat'); if (!ch) return; ch.insertAdjacentHTML('beforeend', `<div class="live-msg ${cls}"><b>${esc(who)}</b>${esc(text)}</div>`); while (ch.children.length > 30) ch.firstElementChild.remove(); };
+let liveStats = null;
+T.after.live = (v, id) => {
+  stopLive();
+  const host = id === 'me', falas = FALAS[host ? 'me' : 'duda'] || FALAS.me;
+  let viewers = host ? 0 : 1240, n = 0; const t0 = Date.now();
+  liveStats = { max: 0, tips: 0, subs: 0 };
+  addMsg('Trip', host ? 'Sua live começou. Seus seguidores e assinantes foram avisados.' : 'Bem-vindo à live! Seja gentil 💜');
+  tick = setInterval(() => {
+    if (T.current.view !== 'live' || T.current.arg !== id) return stopLive();
+    n++;
+    viewers = Math.max(0, viewers + (host ? Math.round(Math.random() * 14) : Math.round(Math.random() * 40 - 15)));
+    liveStats.max = Math.max(liveStats.max, viewers);
+    $('#live-viewers').textContent = '👁 ' + num(viewers);
+    if (host) { const s = Math.floor((Date.now() - t0) / 1000); $('#live-timer').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+    const who = NOMES[Math.floor(Math.random() * NOMES.length)];
+    if (n % 5 === 0) { const v = [5, 10, 20][n % 3]; liveStats.tips += v; addMsg(who, `mandou ${brl(v)} 💸`, 'tip'); }
+    else addMsg(who, falas[Math.floor(Math.random() * falas.length)]);
+    if (host && n % 7 === 0) { liveStats.subs++; addMsg('Trip', `${who} assinou durante a live 🎉`); }
+  }, 1300);
+  $('#live-input', v).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendLive(); } });
+};
+function sendLive() {
+  const i = $('#live-input'), text = i.value.trim(); if (!text) return;
+  const mod = T.isBlocked(text), box = $('#live-blocked');
+  if (mod.blocked) { box.hidden = false; box.textContent = `Comentário bloqueado: termos ligados a menores (“${mod.term}”) são proibidos.`; T.state.underReview = true; T.save(); return; }
+  box.hidden = true; addMsg('você', text, 'me'); i.value = '';
+}
+const endLive = () => {
+  const s = liveStats || { max: 0, tips: 0, subs: 0 }; stopLive();
+  T.sheet(`<div id="live-summary"><h2>Live encerrada</h2><p class="sub">Resumo da sua live</p>
+    <div class="resumo-live"><div><b>${num(s.max)}</b>pico de espectadores</div><div><b>${brl(s.tips)}</b>em gorjetas</div><div><b>${s.subs}</b>novos assinantes</div><div><b>${brl(s.tips * 0.9)}</b>você recebe</div></div>
+    <button class="btn btn-escuro btn-bloco" id="live-done">Voltar ao perfil</button></div>`);
+  $('#live-done').onclick = () => { T.closeSheet(); T.go('me'); };
+};
+
+/* ---------- Moderação (equipe) ---------- */
+const PRIO = { menor: 0, consentimento: 1, violencia: 2, spam: 3, outro: 3 };
+const MOTIVO = { menor: 'Envolve menor de idade', consentimento: 'Sem consentimento / vazamento', violencia: 'Violência, sangue ou morte', spam: 'Golpe ou spam', outro: 'Outro motivo' };
+const SEED = [
+  { id: 'c1', reason: 'menor', handle: 'perfil.novo22', text: 'Legenda com termo proibido detectada automaticamente.', reports: 1, auto: true, bg: 'linear-gradient(160deg,#9a8478,#3d3430)' },
+  { id: 'c2', reason: 'consentimento', handle: 'anonimo.br', text: 'Vídeo denunciado como vazamento por quem aparece nele.', reports: 7, bg: 'linear-gradient(160deg,#a2697a,#2b1422)' },
+  { id: 'c3', reason: 'violencia', handle: 'noticias.urb', text: 'Foto de acidente publicada sem aviso de conteúdo sensível.', reports: 4, bg: 'linear-gradient(160deg,#9fb3c8,#1f2d3d)' }
+];
+const cases = () => {
+  const s = st();
+  const real = Object.entries(s.reported).map(([pid, reason]) => { const p = [...s.myPosts, ...T.data.posts].find(x => x.id === pid); const c = p && T.creator(p.creatorId); return p && c ? { id: pid, reason, handle: c.handle, text: p.text, reports: 1, bg: p.type === 'text' ? (p.bg && p.bg !== 'none' ? p.bg : '#14121A') : p.bg, real: true } : null; }).filter(Boolean);
+  return [...SEED, ...real].filter(x => !s.modDone[x.id]).sort((a, b) => PRIO[a.reason] - PRIO[b.reason] || b.reports - a.reports);
+};
+T.views.mod = () => {
+  const list = cases(), s = st(), done = Object.values(s.modDone).filter(v => v === 'removido').length;
+  return `<header class="cab"><button class="voltar" data-back-me aria-label="Voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M15 5l-7 7 7 7"/></svg></button><h1>Moderação</h1></header>
+  <div class="secao">
+    <div class="mod-stats"><div><b>${list.length}</b>na fila</div><div><b>${list.filter(x => x.reason === 'menor').length}</b>urgentes</div><div><b>${done}</b>removidos hoje</div></div>
+    ${s.underReview ? `<p class="rotulo">Perfis em revisão</p><div class="case"><div class="info-c"><b>@voce</b><small>Tentou publicar termo ligado a menores. Postagens antigas em análise.</small></div><div class="acoes-c" style="grid-template-columns:1fr 1fr"><button class="btn btn-linha" id="mod-clear">Liberar perfil</button><button class="btn btn-perigo" id="mod-suspend">Manter suspenso</button></div></div>` : ''}
+    <p class="rotulo">Fila de denúncias · mais graves primeiro</p>
+    ${list.length ? list.map(x => `<div class="case" data-id="${esc(x.id)}" data-reason="${esc(x.reason)}">
+      <div class="topo-c"><span class="prio ${x.reason === 'menor' ? 'alta' : x.reason === 'spam' || x.reason === 'outro' ? 'baixa' : 'media'}">${x.reason === 'menor' ? 'URGENTE' : x.reason === 'spam' || x.reason === 'outro' ? 'NORMAL' : 'ALTA'}</span><b>${esc(MOTIVO[x.reason])}</b><small>${x.reports} ${x.reports > 1 ? 'denúncias' : 'denúncia'}</small></div>
+      <div class="prev"><div class="arte" style="background:${esc(x.bg)}"></div><span>Prévia borrada para proteger a equipe.</span></div>
+      <div class="info-c"><b>@${esc(x.handle)}</b><span>${esc(x.text)}</span>${x.auto ? '<span class="auto">Detectado automaticamente pelo filtro de termos</span>' : ''}</div>
+      <div class="acoes-c"><button class="btn btn-perigo mod-remove" data-id="${esc(x.id)}">Remover</button><button class="btn btn-linha mod-blur" data-id="${esc(x.id)}">Borrar</button><button class="btn btn-linha mod-keep" data-id="${esc(x.id)}">Manter</button></div>
+    </div>`).join('') : '<div class="vazio">Fila vazia. Nenhuma denúncia pendente.</div>'}
+    <p class="dica">Casos que envolvem menores são removidos, o perfil é suspenso e o caso é enviado às autoridades.</p>
+  </div>`;
+};
+
+/* ---------- Agendar post ---------- */
+const basePost = T.views.post, basePostAfter = T.after.post;
+T.views.post = () => { const d = T.draft; return basePost().replace('<div id="post-blocked"', `<label class="chave" for="post-schedule"><span><b>Agendar</b><small>Escolha quando o post vai ao ar.</small></span><input type="checkbox" id="post-schedule" ${d.schedule ? 'checked' : ''}></label>
+  <div class="campo" id="when-box" ${d.schedule ? '' : 'hidden'}><label for="post-when">Data e hora</label><input type="datetime-local" id="post-when" value="${esc(d.when || '')}"></div>
+  <div id="post-blocked"`); };
+T.after.post = v => {
+  basePostAfter(v);
+  $('#post-schedule', v).addEventListener('change', e => { T.draft.schedule = e.target.checked; $('#when-box').hidden = !e.target.checked; });
+  $('#post-when', v).addEventListener('input', e => T.draft.when = e.target.value);
+};
+const fmtWhen = w => new Date(w).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+$('#view').addEventListener('click', e => {
+  if (T.current.view !== 'post' || !e.target.closest('#post-publish') || !T.draft.schedule) return;
+  const d = T.draft, text = $('#post-text').value.trim(), box = $('#post-blocked');
+  if (T.isBlocked(text).blocked) return;                       // a publicação normal mostra o bloqueio
+  e.stopPropagation();
+  const when = $('#post-when').value, t = new Date(when);
+  if (d.type === 'text' && !text) { box.hidden = false; box.innerHTML = '<b>Escreva alguma coisa</b>Post de texto precisa de texto.'; return; }
+  if (!when || isNaN(t) || t <= new Date()) { box.hidden = false; box.innerHTML = '<b>Data inválida</b>Escolha uma data e hora no futuro.'; return; }
+  if (d.exclusive) { T.state.isCreator = true; if (!T.state.myPlans.length) T.state.myPlans.push({ id: 'me-1', name: 'Assinantes', price: 9.9 }); }
+  st().scheduled.push({ id: 'm' + Date.now(), creatorId: 'me', type: d.type, bg: d.type === 'text' ? d.bg : T.ARTES[d.art], text, likes: 0, comments: 0, exclusive: d.exclusive, sensitive: d.sensitive, duration: d.type === 'video' ? '0:15' : undefined, when: t.toISOString() });
+  T.save();
+  T.draft = { type: 'photo', art: 0, bg: '#FF0A78', text: '', exclusive: false, sensitive: false };
+  T.go('me'); T.toast('Agendado para ' + fmtWhen(t) + '.');
+}, true);
+
+/* ---------- Mensagem em massa ---------- */
+const ASSINANTES = 160;
+const openMass = () => {
+  T.sheet(`<h2>Mensagem para assinantes</h2><p class="sub">Vai para a caixa de mensagens dos seus ${ASSINANTES} assinantes.</p>
+  <div class="form">
+    <div class="campo"><label for="mass-text">Mensagem</label><textarea id="mass-text" maxlength="1000" placeholder="Ex.: Ensaio novo saindo agora, só pra vocês!"></textarea></div>
+    <label class="chave" for="mass-paid"><span><b>Mensagem paga</b><small>Vai com uma foto ou vídeo bloqueado que a pessoa desbloqueia pagando.</small></span><input type="checkbox" id="mass-paid"></label>
+    <div class="campo" id="mass-price-box" hidden><label for="mass-price">Preço para desbloquear (R$)</label><input type="text" id="mass-price" inputmode="decimal" placeholder="15,00"></div>
+    <div id="mass-est"></div><p class="erro" id="mass-erro"></p>
+    <button class="btn btn-marca btn-bloco" id="mass-send" disabled>Enviar para ${ASSINANTES} assinantes</button>
+  </div>`);
+  const upd = () => {
+    const text = $('#mass-text').value.trim(), paid = $('#mass-paid').checked, price = T.parseMoney($('#mass-price').value);
+    $('#mass-price-box').hidden = !paid;
+    let ok = !!text, err = '';
+    if (paid && !(price >= 2 && price <= 500)) { ok = false; if ($('#mass-price').value.trim()) err = 'O preço vai de R$ 2,00 a R$ 500,00.'; }
+    $('#mass-erro').textContent = err; $('#mass-send').disabled = !ok;
+    $('#mass-est').innerHTML = paid && price >= 2 && price <= 500 ? `Se 30% desbloquearem: <b>${brl(Math.round(ASSINANTES * 0.3) * price)}</b> · você recebe ${brl(Math.round(ASSINANTES * 0.3) * price * 0.9)}` : `${ASSINANTES} assinantes recebem a mensagem.`;
+    return ok ? { text, paid, price: paid ? price : 0 } : null;
+  };
+  ['input', 'change'].forEach(ev => ['#mass-text', '#mass-paid', '#mass-price'].forEach(sel => $(sel).addEventListener(ev, upd))); upd();
+  $('#mass-send').onclick = () => {
+    const r = upd(); if (!r) return;
+    const mod = T.isBlocked(r.text); if (mod.blocked) { $('#mass-erro').textContent = `Mensagem bloqueada: termo proibido (“${mod.term}”).`; return; }
+    st().massMsgs.push({ ...r, at: new Date().toISOString() }); T.save(); T.closeSheet(); T.refresh(); T.toast(`Mensagem enviada para ${ASSINANTES} assinantes.`);
+  };
+};
+
+/* ---------- Meu perfil: ferramentas, agendados e equipe ---------- */
+const baseMe = T.views.me;
+T.views.me = () => {
+  const s = st();
+  const tools = !s.isCreator ? '' : `<div class="secao"><p class="rotulo">Ferramentas do criador</p>
+    <div class="ferramentas"><button class="btn btn-marca" id="live-start">Fazer uma live</button><button class="btn btn-escuro" id="mass-open">Mensagem para assinantes</button></div>
+    ${s.massMsgs.slice().reverse().map(m => `<div class="mass-item"><span class="t">${esc(m.text)}</span><small>${m.paid ? 'Paga · ' + brl(m.price) + ' para desbloquear · ' : 'Grátis · '}${ASSINANTES} assinantes · ${fmtWhen(m.at)}</small></div>`).join('')}
+  </div>`;
+  const sched = s.scheduled.length ? `<div class="secao"><p class="rotulo">Posts agendados</p>${s.scheduled.slice().sort((a, b) => a.when < b.when ? -1 : 1).map(x => `<div class="agendado"><span class="t">${esc(x.text || (x.type === 'video' ? 'Vídeo' : 'Foto'))}</span><small>Vai ao ar em ${fmtWhen(x.when)}${x.exclusive ? ' · só assinantes' : ''}</small><div class="bts"><button class="btn btn-lima btn-p ag-now" data-id="${esc(x.id)}">Publicar agora</button><button class="btn btn-linha btn-p ag-cancel" data-id="${esc(x.id)}">Cancelar</button></div></div>`).join('')}</div>` : '';
+  const team = `<div class="secao"><p class="rotulo">Equipe Trip · demonstração</p><button class="btn btn-linha btn-bloco" id="open-mod">Abrir painel de moderação</button></div>`;
+  const html = baseMe(), cfgMark = '<div class="secao"><p class="rotulo">Configurações</p>';
+  return html.includes(cfgMark) ? html.replace(cfgMark, tools + sched + cfgMark) + team : html + tools + sched + team;
+};
+
+/* ---------- Cliques ---------- */
+$('#view').addEventListener('click', e => {
+  const le = e.target.closest('.live-entry'); if (le) { e.stopPropagation(); T.go('live', le.dataset.creator); return; }
+  if (e.target.closest('#live-exit')) { stopLive(); T.go(T.prev && !['live'].includes(T.prev.view) ? T.prev.view : 'home', T.prev && T.prev.arg); return; }
+  if (e.target.closest('#live-send')) { sendLive(); return; }
+  if (e.target.closest('#live-end')) { endLive(); return; }
+  const lt = e.target.closest('#live-tip'); if (lt) { T.openTip(lt.dataset.creator, v => addMsg('você', `mandou ${brl(v)} 💸`, 'me tip')); return; }
+  if (e.target.closest('#live-start')) { T.go('live', 'me'); return; }
+  if (e.target.closest('#mass-open')) { openMass(); return; }
+  if (e.target.closest('#open-mod')) { T.go('mod'); return; }
+  if (e.target.closest('[data-back-me]')) { T.go('me'); return; }
+  const act = e.target.closest('.mod-remove, .mod-blur, .mod-keep');
+  if (act) {
+    const id = act.dataset.id, s = st(), real = !!s.reported[id];
+    if (act.classList.contains('mod-remove')) { s.modDone[id] = 'removido'; T.toast('Post removido e perfil suspenso para revisão.'); }
+    else if (act.classList.contains('mod-blur')) { s.modDone[id] = 'borrado'; if (real) { s.forcedSensitive[id] = true; delete s.reported[id]; } T.toast('Post liberado com aviso de conteúdo sensível.'); }
+    else { s.modDone[id] = 'mantido'; if (real) delete s.reported[id]; T.toast('Denúncia arquivada. O post continua no ar.'); }
+    T.save(); T.refresh(); return;
+  }
+  if (e.target.closest('#mod-clear')) { T.state.underReview = false; T.save(); T.refresh(); T.toast('Perfil liberado.'); return; }
+  if (e.target.closest('#mod-suspend')) { T.toast('Perfil continua suspenso.'); return; }
+  const an = e.target.closest('.ag-now'); if (an) { const s = st(), x = s.scheduled.find(y => y.id === an.dataset.id); if (x) { x.when = new Date(Date.now() - 1000).toISOString(); T.save(); T.flushScheduled(); T.refresh(); T.toast('Publicado!'); } return; }
+  const ac = e.target.closest('.ag-cancel'); if (ac) { st().scheduled = st().scheduled.filter(y => y.id !== ac.dataset.id); T.save(); T.refresh(); T.toast('Agendamento cancelado.'); return; }
+}, true);
 })();
 </script>
