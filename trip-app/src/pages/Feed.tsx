@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useFeed, useUrls } from '../lib/feed';
 import { PostList } from '../components/PostList';
+import { StoryBar } from '../components/Stories';
 
 const FILTROS = [['para-voce', 'Para você'], ['seguindo', 'Seguindo']] as const;
 
@@ -15,6 +16,7 @@ export default function Feed() {
       <div className="filtros" role="group" aria-label="Filtrar feed">
         {FILTROS.map(([k, l]) => <button key={k} aria-pressed={filter === k} onClick={() => setFilter(k)}>{l}</button>)}
       </div>
+      {filter === 'para-voce' && <StoryBar />}
       <div className="feed">
         {q.isLoading && <div className="vazio">Carregando…</div>}
         {q.isError && <div className="vazio">Não conseguimos carregar o feed. Tente de novo em instantes.</div>}
