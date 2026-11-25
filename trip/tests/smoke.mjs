@@ -284,6 +284,39 @@ test('denunciar', async b => {
   assert(await p.locator('.post[data-id="p5"]').count() === 0, 'post não sumiu do feed');
 });
 
+
+// ---------- Revisão final ----------
+async function criarPlano(p, nome, preco) {
+  await p.click('nav#tabs button[data-view="me"]');
+  if (!(await p.isChecked('#toggle-creator'))) await p.click('#toggle-creator');
+  await p.click('#plan-add'); await p.fill('#plan-name', nome); await p.fill('#plan-price', preco); await p.click('#plan-save');
+}
+test('planoPrecoComPonto', async b => {
+  const p = await open(b); await enter(p);
+  await criarPlano(p, 'A', '9.90');
+  await criarPlano(p, 'B', '19.90');
+  await criarPlano(p, 'C', '29,90');
+  const prices = await p.evaluate(() => T.state.myPlans.map(x => x.price));
+  assert(JSON.stringify(prices) === '[9.9,19.9,29.9]', 'preços errados: ' + prices);
+});
+test('naoBloqueiaInocente', async b => {
+  const p = await open(b);
+  for (const ok of ['10 anos de carreira', 'Moro aqui há 3 anos', 'Torpedo de chocolate', '3 anos de canal', 'depois de 2 anos de namoro'])
+    assert(!(await p.evaluate(t => T.isBlocked(t), ok)).blocked, 'bloqueou indevidamente: ' + ok);
+  for (const bad of ['tenho 15 anos', 'ela tem 12 anos', 'garota de 16 anos', 'com 14 anos', 'pedofilia'])
+    assert((await p.evaluate(t => T.isBlocked(t), bad)).blocked, 'deixou passar: ' + bad);
+});
+test('planoNomeLongo360', async b => {
+  const p = await open(b, { width: 360 }); await enter(p);
+  await criarPlano(p, 'X'.repeat(30), '10,00');
+  await p.evaluate(() => T.go('creator', 'me'));
+  const r = await p.evaluate(() => {
+    const v = document.getElementById('view'), pr = document.querySelector('.plan .preco').getBoundingClientRect();
+    return { sw: v.scrollWidth, right: pr.right, vw: v.clientWidth };
+  });
+  assert(r.sw <= 360 && r.right <= r.vw, 'plano estourou: ' + JSON.stringify(r));
+});
+
 // ---------- runner ----------
 const filter = process.argv[2];
 const browser = await chromium.launch();

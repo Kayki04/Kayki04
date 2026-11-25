@@ -496,7 +496,7 @@ T.views.videos = () => T.data.reels.map(reel).join('');
 .plan{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1.5px solid var(--linha);border-radius:16px;padding:14px;background:var(--branco)}
 .plan:hover{border-color:var(--roxo)}
 .plan .pn{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
-.plan .pn b{font-size:16px}
+.plan .pn b{font-size:16px;overflow-wrap:anywhere}
 .plan .pn small{color:var(--cinza);font-size:12px}
 .plan .preco{font-weight:800;font-size:16px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .plan .preco small{font-weight:600;color:var(--cinza);font-size:12px}
@@ -708,13 +708,16 @@ textarea{min-height:110px;resize:vertical}
 const { $, $$, esc, brl } = T.util;
 
 /* ---------- Moderação (demonstração) ---------- */
-const TERMOS = ['crianca', 'infantil', 'menor de idade', 'novinha', 'pedo', 'colegial', 'lolita'];
+const TERMOS = ['crianca', 'infantil', 'menor de idade', 'novinha', 'colegial', 'lolita'];
 const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 T.isBlocked = text => {
   const t = norm(text);
   const term = TERMOS.find(x => t.includes(x));
   if (term) return { blocked: true, term };
-  const m = t.match(/\b([1-9]|1[0-7])\s*anos\b/);
+  const pedo = t.match(/\bpedo\w*/);
+  if (pedo) return { blocked: true, term: pedo[0] };
+  // idade de menor só quando o texto fala da idade de alguém ("tenho 15 anos", "garota de 16 anos"), não de tempo ("3 anos de canal")
+  const m = t.match(/\b(tenho|tem|tinha|com|de|aos|fez|faz|fiz|idade)\s+([1-9]|1[0-7])\s*anos\b(?!\s+de\s)/);
   if (m) return { blocked: true, term: m[0] };
   return { blocked: false };
 };
@@ -915,7 +918,7 @@ $('#view').addEventListener('click', e => {
   if (e.target.closest('#plan-add')) { planFormOpen = true; T.refresh(); $('#plan-name').focus(); return; }
   if (e.target.closest('#plan-cancel')) { planFormOpen = false; T.refresh(); return; }
   if (e.target.closest('#plan-save')) {
-    const name = $('#plan-name').value.trim(), price = Number($('#plan-price').value.trim().replace(/\./g, '').replace(',', '.'));
+    const name = $('#plan-name').value.trim(), raw = $('#plan-price').value.trim(), price = Number(raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw);
     const err = $('#plan-erro');
     if (!name) { err.hidden = false; err.textContent = 'Dê um nome ao plano.'; return; }
     if (!(price >= 4.9 && price <= 999)) { err.hidden = false; err.textContent = 'O preço precisa ficar entre R$ 4,90 e R$ 999,00.'; return; }
