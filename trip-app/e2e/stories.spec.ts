@@ -31,7 +31,7 @@ test('storyViewerAvancaEFecha', async ({ page }) => {
 
 test('videosTelaCheia', async ({ page }) => {
   const u = await makeUser(); await loginAs(page, u);
-  const path = `${u.id}/${uniq()}.mp4`;
+  const path = `${u.id}/${crypto.randomUUID()}.mp4`;
   const up = await u.client.storage.from('media').upload(path, Buffer.from('00000000', 'hex'), { contentType: 'video/mp4' });
   expect(up.error).toBeNull();
   await u.client.rpc('create_post', { p_type: 'video', p_text: 'Vídeo ' + uniq(), p_bg: null, p_media_path: path, p_sensitive: false });

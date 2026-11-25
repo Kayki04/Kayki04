@@ -30,7 +30,7 @@ export function CommentsSheet({ postId, onClose }: { postId: string; onClose: ()
     qc.invalidateQueries({ queryKey: ['comments', postId] });
     qc.invalidateQueries({ queryKey: ['feed'] });
   };
-  const del = async (id: string) => { await supabase.rpc('delete_comment', { p_id: id }); qc.invalidateQueries({ queryKey: ['comments', postId] }); qc.invalidateQueries({ queryKey: ['feed'] }); };
+  const del = async (id: string) => { const { error } = await supabase.rpc('delete_comment', { p_id: id }); if (error) { setErr('Não foi possível apagar o comentário.'); return; } qc.invalidateQueries({ queryKey: ['comments', postId] }); qc.invalidateQueries({ queryKey: ['feed'] }); };
   return (
     <Sheet title="Comentários" onClose={onClose}>
       <div className="comments">

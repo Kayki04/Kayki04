@@ -35,3 +35,24 @@ export async function signedUrls(paths: string[]): Promise<Record<string, string
   for (const d of data) if (d.path && d.signedUrl) out[d.path] = d.signedUrl;
   return out;
 }
+
+/** Remove arquivos da própria pasta (o banco não apaga arquivos sozinho). */
+export async function removeMedia(paths: (string | null | undefined)[]) {
+  const list = paths.filter((p): p is string => !!p);
+  if (!list.length) return;
+  await supabase.storage.from('media').remove(list);
+}
+
+/** Apaga todos os arquivos da pessoa logada (usado ao excluir a conta). */
+export async function removeAllMyMedia(): Promise<boolean> {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return false;
+  for (let i = 0; i < 50; i++) {
+    const { data, error } = await supabase.storage.from('media').list(u.user.id, { limit: 100 });
+    if (error) return false;
+    if (!data.length) return true;
+    const { error: e2 } = await supabase.storage.from('media').remove(data.map(f => `${u.user!.id}/${f.name}`));
+    if (e2) return false;
+  }
+  return false;
+}

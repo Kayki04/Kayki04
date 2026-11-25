@@ -93,3 +93,34 @@ test('adultoDesabilitado', async ({ page }) => {
   await expect(chave).toBeDisabled();
   await expect(page.getByText('Disponível na próxima etapa da Trip.')).toBeVisible();
 });
+
+test('excluirContaApagaArquivos', async ({ page }) => {
+  const u = await makeUser(); await loginAs(page, u);
+  const path = `${u.id}/${crypto.randomUUID()}.png`;
+  const up = await u.client.storage.from('media').upload(path, Buffer.from('89504e47', 'hex'), { contentType: 'image/png' });
+  expect(up.error).toBeNull();
+  await page.goto('/perfil');
+  await page.getByRole('button', { name: 'Excluir conta' }).click();
+  await page.getByLabel('Digite seu @ para confirmar').fill(u.handle!);
+  await page.getByRole('button', { name: 'Excluir para sempre' }).click();
+  await expect(page).toHaveURL(/\/entrar/);
+  const { admin } = await import('./helpers');
+  const { data } = await admin.storage.from('media').list(u.id);
+  expect(data ?? []).toHaveLength(0);
+});
+
+test('excluirPostApagaArquivo', async ({ page }) => {
+  const u = await makeUser(); await loginAs(page, u);
+  const path = `${u.id}/${crypto.randomUUID()}.png`;
+  await u.client.storage.from('media').upload(path, Buffer.from('89504e47', 'hex'), { contentType: 'image/png' });
+  const leg = 'Apagar ' + uniq();
+  await u.client.rpc('create_post', { p_type: 'photo', p_text: leg, p_bg: null, p_media_path: path, p_sensitive: false });
+  await page.goto('/');
+  await page.locator('article.post', { hasText: leg }).getByRole('button', { name: 'Mais opções' }).click();
+  await page.getByRole('button', { name: 'Excluir post' }).click();
+  await page.getByRole('button', { name: 'Excluir', exact: true }).click();
+  await expect(page.locator('article.post', { hasText: leg })).toHaveCount(0);
+  const { admin } = await import('./helpers');
+  const { data } = await admin.storage.from('media').list(u.id);
+  expect(data ?? []).toHaveLength(0);
+});

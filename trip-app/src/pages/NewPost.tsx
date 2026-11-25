@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { uploadMedia, validateFile, type MediaKind } from '../lib/media';
+import { removeMedia, uploadMedia, validateFile, type MediaKind } from '../lib/media';
 import { blockedTerm } from '../lib/moderation';
 import { useToast } from '../components/Toast';
 
@@ -44,9 +44,10 @@ export default function NewPost() {
       // o banco decide; se o filtro local já pegou, ainda chamamos o banco para registrar a revisão
       const media_path = type !== 'text' && file && !local ? await uploadMedia(file, type as MediaKind) : null;
       const { data, error } = await supabase.rpc('create_post', { p_type: type, p_text: text, p_bg: type === 'text' ? (bg || null) : null, p_media_path: media_path ?? (type === 'text' ? null : 'x'), p_sensitive: sensitive });
-      if (error) throw error;
+      if (error) { await removeMedia([media_path]); throw error; }
       const r = data as { ok: boolean; error?: string; term?: string };
       if (!r.ok) {
+        await removeMedia([media_path]);
         if (r.error === 'blocked_term' || local) { setBlocked(blockMsg(r.term ?? local!)); qc.invalidateQueries({ queryKey: ['me'] }); }
         else setBlocked('Não foi possível publicar. Confira os campos.');
         return;

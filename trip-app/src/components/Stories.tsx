@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { signedUrls, uploadMedia, validateFile } from '../lib/media';
+import { removeMedia, signedUrls, uploadMedia, validateFile } from '../lib/media';
 import { blockedTerm } from '../lib/moderation';
 import { useSession } from '../lib/auth';
 import { Avatar } from './Avatar';
@@ -43,9 +43,9 @@ function NewStory({ onClose }: { onClose: () => void }) {
     try {
       const path = file && !local ? await uploadMedia(file, file.type.startsWith('video') ? 'video' : 'photo') : null;
       const { data, error } = await supabase.rpc('create_story', { p_media_path: path, p_bg: bg, p_text: text });
-      if (error) throw error;
+      if (error) { await removeMedia([path]); throw error; }
       const r = data as { ok: boolean; error?: string; term?: string };
-      if (!r.ok) { setErr(r.error === 'blocked_term' ? `Termo proibido (“${r.term}”). O story não foi publicado e seu perfil entrou em revisão.` : 'Escreva algo ou escolha uma foto.'); return; }
+      if (!r.ok) { await removeMedia([path]); setErr(r.error === 'blocked_term' ? `Termo proibido (“${r.term}”). O story não foi publicado e seu perfil entrou em revisão.` : 'Escreva algo ou escolha uma foto.'); return; }
       await qc.invalidateQueries({ queryKey: ['stories'] }); toast('Story publicado. Some em 24 horas.'); onClose();
     } catch { setErr('Não foi possível publicar. Tente de novo.'); } finally { setBusy(false); }
   };

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { removeMedia } from '../lib/media';
 import { Sheet } from './Sheet';
 import { useToast } from './Toast';
 import type { FeedItem } from './PostCard';
@@ -32,7 +33,12 @@ export function PostMenu({ post, mine, onClose }: { post: FeedItem; mine: boolea
     <Sheet title="Excluir este post?" onClose={close}>
       <p className="sub">Ele some do feed e do seu perfil. Não dá para desfazer.</p>
       <div className="opcoes">
-        <button className="btn btn-perigo btn-bloco" onClick={async () => { await supabase.rpc('delete_post', { p_id: post.id }); qc.invalidateQueries({ queryKey: ['feed'] }); toast('Post excluído.'); onClose(); }}>Excluir</button>
+        <button className="btn btn-perigo btn-bloco" onClick={async () => {
+          const { data, error } = await supabase.rpc('delete_post', { p_id: post.id });
+          if (error) { toast('Não foi possível excluir. Tente de novo.'); return; }
+          await removeMedia([data as string | null]);
+          qc.invalidateQueries({ queryKey: ['feed'] }); toast('Post excluído.'); onClose();
+        }}>Excluir</button>
         <button className="btn btn-linha btn-bloco" onClick={close}>Manter</button>
       </div>
     </Sheet>
