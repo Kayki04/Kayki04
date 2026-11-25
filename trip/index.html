@@ -222,57 +222,79 @@ $('#view').addEventListener('click', e => { const a = e.target.closest('[data-op
 
 <!-- ================= Feed e stories ================= -->
 <style>
-.stories{display:flex;gap:14px;padding:12px 16px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--linha)}
+#view[data-view="home"]{background:var(--nevoa)}
+.filtros{display:flex;gap:8px;padding:12px 16px 4px;overflow-x:auto;scrollbar-width:none}
+.filtros::-webkit-scrollbar{display:none}
+.filtros button{flex:none;padding:8px 14px;border-radius:99px;background:var(--branco);border:1.5px solid var(--linha);font-weight:700;font-size:13px;color:var(--cinza)}
+.filtros button[aria-pressed="true"]{background:var(--tinta);border-color:var(--tinta);color:#fff}
+.agora{display:flex;align-items:baseline;justify-content:space-between;padding:12px 16px 0}
+.agora b{font-family:var(--f-logo);font-size:15px;letter-spacing:-.02em}
+.agora small{color:var(--cinza);font-size:12px}
+.stories{display:flex;gap:10px;padding:10px 16px 14px;overflow-x:auto;scrollbar-width:none}
 .stories::-webkit-scrollbar{display:none}
-.story{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11px;color:var(--cinza);flex:none;width:66px}
-.story span{max-width:66px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.anel{width:64px;height:64px;border-radius:50%;padding:3px;background:var(--marca)}
-.anel.visto{background:var(--linha)}
-.anel i{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;border:3px solid var(--branco);font-style:normal;color:#fff;font-weight:800;font-size:20px}
-.anel.meu{background:var(--linha);position:relative}
-.anel.meu::after{content:"+";position:absolute;right:-2px;bottom:-2px;width:22px;height:22px;border-radius:50%;background:var(--marca);color:#fff;font-weight:800;display:grid;place-items:center;border:2px solid var(--branco);font-size:15px;line-height:1}
+.story{position:relative;flex:none;width:86px;height:128px;border-radius:18px;overflow:hidden;color:#fff;text-align:left;display:flex;flex-direction:column;justify-content:flex-end;padding:8px;gap:4px;font-size:11px;font-weight:700}
+.story::after{content:"";position:absolute;inset:40% 0 0 0;background:linear-gradient(0deg,rgba(11,10,16,.7),transparent);pointer-events:none}
+.story > *{position:relative;z-index:1}
+.story .av{width:28px;height:28px;font-size:12px;border:2px solid #fff}
+.story .h{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.story .novo{position:absolute;z-index:2;top:8px;left:8px;background:var(--lima);color:var(--tinta);font-size:9px;font-weight:800;letter-spacing:.06em;padding:2px 6px;border-radius:6px}
+.story.visto{opacity:.55}
+.story.meu{background:var(--branco);border:1.5px dashed var(--roxo);color:var(--roxo);justify-content:center;align-items:center;text-align:center}
+.story.meu::after{display:none}
+.story.meu .mais-s{width:34px;height:34px;border-radius:12px;background:var(--marca);color:#fff;display:grid;place-items:center;font-size:22px;font-weight:800;line-height:1}
 
-.post{border-bottom:1px solid var(--linha);padding-bottom:6px}
-.ph{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px}
+.feed{display:flex;flex-direction:column;gap:14px;padding:4px 12px 20px}
+.post{background:var(--branco);border-radius:22px;overflow:hidden;box-shadow:0 1px 2px rgba(20,18,26,.06),0 6px 20px rgba(20,18,26,.05)}
 .av{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;font-weight:800;font-size:14px}
 .quem{display:flex;flex-direction:column;min-width:0;text-align:left}
 .nome{font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;min-width:0}
 .nome b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .selo{flex:none;background:var(--marca);color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px}
 .quem small{color:var(--cinza);font-size:12px}
-.tag{flex:none;font-size:11px;font-weight:800;color:var(--laranja);border:1.5px solid var(--laranja);border-radius:99px;padding:2px 8px}
-.tag.assin{color:#5a7300;border-color:#9bc400;background:#f6ffd6}
-.ph .dir{margin-left:auto;display:flex;align-items:center;gap:4px}
-.mais-btn{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--cinza)}
+.tag{flex:none;font-size:11px;font-weight:800;color:var(--noite);background:var(--laranja);border-radius:8px;padding:3px 8px}
+.tag.assin{color:var(--tinta);background:var(--lima)}
+.autor{position:absolute;z-index:3;left:12px;right:56px;bottom:12px;display:flex;align-items:center;gap:8px;color:#fff;min-width:0}
+.autor .av{width:34px;height:34px;border:2px solid rgba(255,255,255,.9)}
+.autor .quem small{color:rgba(255,255,255,.8)}
+.autor .nome b{text-shadow:0 1px 8px rgba(0,0,0,.3)}
+.tags{position:absolute;z-index:3;left:12px;top:12px;display:flex;gap:6px;flex-wrap:wrap}
+.mais-btn{position:absolute;z-index:3;right:10px;top:10px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;background:rgba(11,10,16,.35);backdrop-filter:blur(6px)}
 
 .midia{position:relative;aspect-ratio:4/5;width:100%;overflow:hidden}
 .midia .arte{position:absolute;inset:0}
 .midia .arte::before{content:"";position:absolute;width:55%;aspect-ratio:1;left:22%;top:18%;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.55),rgba(255,255,255,0) 65%)}
-.midia .arte::after{content:"";position:absolute;inset:auto 0 0 0;height:38%;background:linear-gradient(0deg,rgba(0,0,0,.28),transparent)}
+.midia .arte::after{content:"";position:absolute;inset:auto 0 0 0;height:40%;background:linear-gradient(0deg,rgba(0,0,0,.45),transparent)}
 .midia .play{position:absolute;left:50%;top:50%;translate:-50% -50%;width:64px;height:64px;border-radius:50%;background:rgba(11,10,16,.45);display:grid;place-items:center;backdrop-filter:blur(4px)}
 .midia .play svg{width:28px;height:28px;margin-left:4px}
-.midia .dur{position:absolute;right:10px;bottom:10px;background:rgba(11,10,16,.65);color:#fff;font-size:12px;font-weight:700;padding:3px 8px;border-radius:8px}
-.texto-post{margin:0 16px;border-radius:18px;padding:30px 22px;color:#fff;font-weight:800;font-size:22px;line-height:1.25;overflow-wrap:anywhere;position:relative;overflow:hidden;min-height:150px;display:flex;align-items:center}
+.midia .dur{position:absolute;z-index:3;right:12px;bottom:18px;background:rgba(11,10,16,.65);color:#fff;font-size:12px;font-weight:700;padding:3px 8px;border-radius:8px}
+.texto-post{border-radius:0;padding:64px 22px 52px;color:#fff;font-weight:800;font-size:22px;line-height:1.25;overflow-wrap:anywhere;position:relative;overflow:hidden;min-height:200px;display:flex;align-items:center}
+.texto-post .autor{top:12px;bottom:auto}
+.texto-post .tags{top:auto;bottom:12px}
 .texto-post.claro{background:var(--nevoa)!important;color:var(--tinta);font-weight:700}
-.texto-post .blur, .texto-post .locked{border-radius:18px}
+.texto-post.claro .autor{color:var(--tinta)}
+.texto-post.claro .autor .quem small{color:var(--cinza)}
+.texto-post.claro .mais-btn{color:var(--tinta);background:rgba(20,18,26,.08)}
+#post-preview{padding:30px 22px;min-height:140px;border-radius:18px}
 
 .blur{position:absolute;inset:0;z-index:2;backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);background:rgba(20,18,26,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#fff;text-align:center;padding:20px;font-size:13px;font-weight:500}
 .blur b{font-size:16px}
 .blur .reveal{margin-top:4px;border:1.5px solid rgba(255,255,255,.7);color:#fff;border-radius:99px;padding:8px 16px;font-weight:700;font-size:13px}
-.locked{position:absolute;inset:0;z-index:2;backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);background:rgba(20,18,26,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;text-align:center;padding:20px}
+.locked{position:absolute;inset:0;z-index:2;backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);background:rgba(20,18,26,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;text-align:center;padding:20px 20px 60px}
 .locked b{font-size:17px}
 .cadeado{width:34px;height:28px;border:3px solid #fff;border-radius:7px;position:relative;margin-top:14px}
 .cadeado::before{content:"";position:absolute;width:18px;height:16px;border:3px solid #fff;border-bottom:0;border-radius:10px 10px 0 0;left:5px;top:-17px}
 
-.acoes{display:flex;align-items:center;gap:4px;padding:6px 10px 0}
-.acao{display:flex;align-items:center;gap:6px;padding:6px;font-size:13px;font-weight:700;border-radius:10px}
-.acao svg{width:24px;height:24px}
-.like-btn[aria-pressed="true"]{color:var(--magenta)}
-.like-btn[aria-pressed="true"] svg{fill:var(--magenta);animation:pulo .3s}
+.legenda{padding:12px 16px 0;font-size:15px;margin:0;overflow-wrap:anywhere}
+.acoes{display:flex;align-items:center;gap:5px;padding:12px 10px 14px;flex-wrap:wrap}
+.acao{display:flex;align-items:center;gap:5px;padding:7px 10px;font-size:13px;font-weight:700;border-radius:99px;background:var(--nevoa)}
+.acao svg{width:20px;height:20px}
+.like-btn[aria-pressed="true"]{color:#fff;background:var(--magenta)}
+.like-btn[aria-pressed="true"] svg{fill:#fff;animation:pulo .3s}
 @keyframes pulo{50%{transform:scale(1.3)}}
-.acoes .boost-btn{margin-left:auto}
-.legenda{padding:2px 16px 8px;font-size:14px;margin:0;overflow-wrap:anywhere}
-.legenda b{margin-right:4px}
+.acoes .boost-btn,.acoes .sub-chip{margin-left:auto;border-radius:99px;padding:8px 12px}
+.reel .acao{background:none}
+.reel .lado .like-btn[aria-pressed="true"]{background:none}
+.feed-vazio{background:var(--branco);border-radius:22px}
 
 #story-viewer{position:absolute;inset:0;z-index:45;background:var(--noite);color:#fff;display:flex;flex-direction:column}
 #story-viewer .fundo{position:absolute;inset:0}
@@ -323,27 +345,27 @@ T.renderPost = p => {
   const blur = p.sensitive && !T.revealed.has(p.id) && !locked;
   const lockHtml = locked ? `<div class="locked"><span class="cadeado" aria-hidden="true"></span><b>Só para assinantes</b><span>Assine ${esc(c.name)} para ver este ${p.type === 'video' ? 'vídeo' : p.type === 'text' ? 'texto' : 'post'}.</span><button class="btn btn-lima sub-btn" data-creator="${esc(c.id)}">Assinar a partir de ${brl(T.minPrice(c))}/mês</button></div>` : '';
   const blurHtml = blur ? `<div class="blur"><b>Conteúdo sensível</b><span>Pode conter cenas fortes, como violência ou sangue.</span><button class="reveal" data-id="${esc(p.id)}">Toque para ver</button></div>` : '';
+  const tags = [T.isBoosted(p) ? '<span class="tag">Impulsionado</span>' : '', p.exclusive ? '<span class="tag assin">Assinantes</span>' : ''].join('');
+  const autor = `<button class="autor" data-open-creator="${esc(c.id)}">${T.avatar(c)}<span class="quem"><span class="nome"><b>${esc(c.handle)}</b>${mine ? '' : '<span class="selo">criador</span>'}</span><small>${esc(c.name)}</small></span></button>`;
+  const extras = `${autor}${tags ? `<div class="tags">${tags}</div>` : ''}<button class="mais-btn report-btn" data-id="${esc(p.id)}" aria-label="Mais opções">${ICON.dots}</button>`;
   let media;
   if (p.type === 'text') {
     const claro = !p.bg || p.bg === 'none';
-    media = `<div class="texto-post${claro ? ' claro' : ''}" style="background:${claro ? 'var(--nevoa)' : esc(p.bg)}"><span>${esc(p.text)}</span>${lockHtml}${blurHtml}</div>`;
+    media = `<div class="texto-post${claro ? ' claro' : ''}" style="background:${claro ? 'var(--nevoa)' : esc(p.bg)}"><span>${esc(p.text)}</span>${lockHtml}${blurHtml}${extras}</div>`;
   } else {
-    media = `<div class="midia"><div class="arte" style="background:${esc(p.bg)}"></div>${p.type === 'video' ? `<span class="play" aria-hidden="true">${ICON.play}</span><span class="dur">${esc(p.duration || '0:30')}</span>` : ''}${lockHtml}${blurHtml}</div>`;
+    media = `<div class="midia"><div class="arte" style="background:${esc(p.bg)}"></div>${p.type === 'video' ? `<span class="play" aria-hidden="true">${ICON.play}</span><span class="dur">${esc(p.duration || '0:30')}</span>` : ''}${lockHtml}${blurHtml}${extras}</div>`;
   }
-  const tags = [T.isBoosted(p) ? '<span class="tag">Impulsionado</span>' : '', p.exclusive ? '<span class="tag assin">Assinantes</span>' : ''].join('');
+  const canSub = !mine && c.plans && c.plans.length && !T.isSubscribed(c.id);
   return `<article class="post" data-id="${esc(p.id)}" data-type="${esc(p.type)}">
-    <div class="ph">
-      <button class="quem-btn" data-open-creator="${esc(c.id)}" style="display:flex;align-items:center;gap:10px;min-width:0">${T.avatar(c)}<span class="quem"><span class="nome"><b>${esc(c.handle)}</b>${mine ? '' : '<span class="selo">criador</span>'}</span><small>${esc(c.name)}</small></span></button>
-      <div class="dir">${tags}<button class="mais-btn report-btn" data-id="${esc(p.id)}" aria-label="Mais opções">${ICON.dots}</button></div>
-    </div>
     ${media}
+    ${p.type !== 'text' && p.text ? `<p class="legenda">${esc(p.text)}</p>` : ''}
     <div class="acoes">
       <button class="acao like-btn" data-id="${esc(p.id)}" data-count="${count}" aria-pressed="${liked}" aria-label="Curtir">${ICON.heart}<span>${num(count)}</span></button>
       <button class="acao" aria-label="Comentários">${ICON.chat}<span>${num(p.comments || 0)}</span></button>
       <button class="acao" aria-label="Enviar">${ICON.send}</button>
-      ${mine ? `<button class="btn btn-marca btn-p boost-btn" data-id="${esc(p.id)}">${ICON.rocket.replace('<svg', '<svg width="16" height="16"')}Impulsionar</button>` : ''}
+      ${mine ? `<button class="btn btn-marca btn-p boost-btn" data-id="${esc(p.id)}">${ICON.rocket.replace('<svg', '<svg width="16" height="16"')}Impulsionar</button>`
+        : canSub ? `<button class="btn btn-lima btn-p sub-chip sub-btn" data-creator="${esc(c.id)}">Assinar ${brl(T.minPrice(c))}</button>` : ''}
     </div>
-    ${p.type !== 'text' && p.text ? `<p class="legenda"><b>${esc(c.handle)}</b>${esc(p.text)}</p>` : ''}
   </article>`;
 };
 
@@ -351,17 +373,30 @@ const storiesBar = () => {
   const items = T.data.stories.map(s => {
     const c = T.creator(s.creatorId);
     const seen = T.state.seenStories[s.creatorId];
-    return `<button class="story" data-id="${esc(c.id)}" aria-label="Story de ${esc(c.handle)}"><span class="anel${seen ? ' visto' : ''}"><i style="background:${esc(c.color)}">${esc(T.initial(c))}</i></span><span>${esc(c.handle)}</span></button>`;
+    return `<button class="story${seen ? ' visto' : ''}" data-id="${esc(c.id)}" aria-label="Story de ${esc(c.handle)}" style="background:${esc(s.frames[0].bg)}">${seen ? '' : '<span class="novo">NOVO</span>'}${T.avatar(c)}<span class="h">${esc(c.handle)}</span></button>`;
   });
-  // não vistos primeiro
   const order = T.data.stories.map((s, i) => [T.state.seenStories[s.creatorId] ? 1 : 0, i]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => items[x[1]]);
-  return `<div class="stories"><button class="story" data-view-go="post" aria-label="Criar story"><span class="anel meu"><i style="background:var(--tinta)">V</i></span><span>Seu story</span></button>${order.join('')}</div>`;
+  return `<div class="agora"><b>Agora</b><small>Some em 24h</small></div>
+    <div class="stories"><button class="story meu" data-view-go="post" aria-label="Criar story"><span class="mais-s">+</span><span>Seu story</span></button>${order.join('')}</div>`;
 };
 
-T.views.home = () => `
+T.feedFilter = 'para-voce';
+const FILTROS = [['para-voce', 'Para você'], ['em-alta', 'Em alta 🔥'], ['assinando', 'Quem eu assino']];
+const feedPosts = () => {
+  const all = T.allPosts();
+  if (T.feedFilter === 'em-alta') return all.filter(p => p.creatorId !== 'me').sort((a, b) => b.likes - a.likes);
+  if (T.feedFilter === 'assinando') return all.filter(p => T.isSubscribed(p.creatorId));
+  return all;
+};
+
+T.views.home = () => {
+  const posts = feedPosts();
+  return `
   <header class="cab"><p class="logo">trip</p><div class="dir"><button class="icone" aria-label="Notificações: 3 novas">${ICON.bell}<span class="badge">3</span></button>${T.inboxButton ? T.inboxButton() : ''}</div></header>
-  ${storiesBar()}
-  <div class="feed">${T.allPosts().map(T.renderPost).join('')}</div>`;
+  <div class="filtros" role="group" aria-label="Filtrar feed">${FILTROS.map(([k, l]) => `<button data-filter="${k}" aria-pressed="${T.feedFilter === k}">${l}</button>`).join('')}</div>
+  ${T.feedFilter === 'para-voce' ? storiesBar() : ''}
+  <div class="feed">${posts.length ? posts.map(T.renderPost).join('') : `<div class="vazio feed-vazio"><b style="color:var(--tinta)">Nada por aqui ainda</b><span>Quando você assinar criadores, os posts deles aparecem neste filtro.</span></div>`}</div>`;
+};
 
 /* Interações do feed (delegação em #view) */
 $('#view').addEventListener('click', e => {
@@ -379,6 +414,8 @@ $('#view').addEventListener('click', e => {
   if (rev) { T.revealed.add(rev.dataset.id); rev.closest('.blur').remove(); return; }
   const st = e.target.closest('.story[data-id]');
   if (st) { T.openStory(st.dataset.id); return; }
+  const fl = e.target.closest('.filtros [data-filter]');
+  if (fl) { T.feedFilter = fl.dataset.filter; T.refresh(); return; }
   const go = e.target.closest('[data-view-go]');
   if (go) { T.go(go.dataset.viewGo); return; }
   const sub = e.target.closest('.sub-btn');
@@ -501,8 +538,8 @@ T.views.videos = () => T.data.reels.map(reel).join('');
 .plan .preco{font-weight:800;font-size:16px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .plan .preco small{font-weight:600;color:var(--cinza);font-size:12px}
 .plan.atual{border-color:#9bc400;background:#f6ffd6}
-.grade{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
-.grade .thumb{position:relative;aspect-ratio:1;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:8px;color:#fff;font-size:11px;font-weight:700;text-align:center;overflow-wrap:anywhere}
+.grade{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:0 12px 20px}
+.grade .thumb{position:relative;aspect-ratio:4/5;border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:8px;color:#fff;font-size:11px;font-weight:700;text-align:center;overflow-wrap:anywhere}
 .grade .thumb .tt{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 .grade .locked-thumb::after{content:"";position:absolute;inset:0;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);background:rgba(20,18,26,.3)}
 .grade .locked-thumb .cad{position:absolute;z-index:1;width:22px;height:18px;border:2.5px solid #fff;border-radius:5px;top:50%;left:50%;translate:-50% -30%}

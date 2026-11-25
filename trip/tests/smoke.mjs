@@ -370,6 +370,23 @@ test('perfilMensagem', async b => {
   assert((await view(p)) === 'chat', 'não abriu conversa');
 });
 
+
+// ---------- Visual novo: filtros do feed ----------
+test('filtroQuemEuAssino', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('.filtros [data-filter="assinando"]');
+  assert(await p.locator('.feed .post').count() === 0, 'deveria estar vazio sem assinaturas');
+  await p.evaluate(() => { T.subscribe('bia', 'bia-noite'); T.refresh(); });
+  const ids = await p.$$eval('.feed .post', ps => ps.map(x => x.dataset.id));
+  assert(ids.length === 3 && ids.every(i => ['p3', 'p8', 'p10'].includes(i)), 'filtro errado: ' + ids);
+});
+test('filtroEmAlta', async b => {
+  const p = await open(b); await enter(p);
+  await p.click('.filtros [data-filter="em-alta"]');
+  const first = await p.locator('.feed .post').first().getAttribute('data-id');
+  assert(first === 'p10', 'mais curtido deveria vir primeiro: ' + first);
+});
+
 // ---------- runner ----------
 const filter = process.argv[2];
 const browser = await chromium.launch();
