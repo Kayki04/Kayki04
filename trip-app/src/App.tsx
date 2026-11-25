@@ -6,6 +6,8 @@ import Login from './pages/Login';
 import Invite from './pages/Invite';
 import Feed from './pages/Feed';
 import NewPost from './pages/NewPost';
+import Profile from './pages/Profile';
+import Me from './pages/Me';
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -34,7 +36,8 @@ export default function App() {
           <Route path="/videos" element={p(<Placeholder title="Vídeos" />)} />
           <Route path="/novo" element={p(<NewPost />)} />
           <Route path="/assinaturas" element={p(<Placeholder title="Minhas assinaturas" />)} />
-          <Route path="/perfil" element={p(<Placeholder title="Meu perfil" />)} />
+          <Route path="/perfil" element={p(<Me />)} />
+          <Route path="/u/:handle" element={p(<Profile />)} />
         </Routes>
       </main>
       {!bare && <BottomNav />}

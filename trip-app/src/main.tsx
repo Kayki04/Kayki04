@@ -6,6 +6,7 @@ import App from './App';
 import { AuthProvider } from './lib/auth';
 import { ToastProvider } from './components/Toast';
 import './styles/feed.css';
+import './styles/social.css';
 import './styles/tokens.css';
 import './styles/app.css';
 
