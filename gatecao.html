@@ -3187,7 +3187,9 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     prog.forEach(function(x){if(x.falta>0)h+='<div class="combobar">🎉 <span>Faltam <b>'+x.falta+'</b> para fechar o combo <b>'+esc(x.label)+'</b>.</span></div>'});
     cmb.combos.forEach(function(c){h+='<div class="combobar ok">✅ <span>Combo <b>'+esc(c.label)+'</b>'+(c.packs>1?' ('+c.packs+'x)':'')+' aplicado · você economiza <b>'+brl(c.saved)+'</b></span></div>'});
     if(state.rx)h+='<div class="combobar ok">🩺 <span>Receita <b>'+esc(state.rx.code)+'</b>'+(state.rx.vetName?' · Dr(a). '+esc(state.rx.vetName):'')+' · '+num(state.rx.discPct)+'% off'+(rxv.saved>0?' (-'+brl(rxv.saved)+')':'')+'</span><button class="mini danger" id="rxrem">Remover</button></div>';
-    else h+='<button class="btn line" id="rxHave" style="margin-top:10px">🩺 Tenho uma receita do veterinário</button>';
+    var cpc0=state.co.coupon?cpFind(state.co.coupon):null;
+    if(cpc0)h+='<div class="combobar ok"><span>Cupom <b>'+esc(cpc0.code)+'</b> guardado · entra no total ao finalizar</span><button class="mini danger" id="cpRem">Remover</button></div>';
+    h+='<div class="cprow" style="margin-top:12px"><input class="in" id="codeIn" placeholder="Cole um cupom ou código de receita" autocapitalize="characters" autocomplete="off" maxlength="24"><button class="btn alt" id="codeGo">Aplicar</button></div><p class="hint" style="margin:4px 0 0">Recebeu um <b>cupom</b> ou o <b>código da receita</b> do veterinário? Cole aqui que o app reconhece sozinho.</p>';
     var freeMin=num(S('freeMin',99));
     if(freeMin>0){var falta=r2(freeMin-sub),pc=Math.min(100,Math.round(sub/freeMin*100));
       h+='<div class="shipbar'+(falta<=0?' ok':'')+'">'+(falta<=0?'Você ganhou entrega grátis!':'Falta '+brl(falta)+' para entrega grátis')+'<div class="fprog"><i style="width:'+pc+'%"></i></div></div>'}
@@ -3202,8 +3204,23 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     $$('[data-dec]',s).forEach(function(b){b.onclick=function(){var k=b.getAttribute('data-dec');state.cart[k]=(state.cart[k]||1)-1;if(state.cart[k]<=0)delete state.cart[k];persist();openCart()}});
     $$('[data-recsel]',s).forEach(function(sel){sel.onchange=function(){var id=sel.getAttribute('data-recsel'),v=+sel.value;if(v)state.cartRec[id]=v;else delete state.cartRec[id];persist();openCart()}});
     var gp=$('#goPay');if(gp)gp.onclick=function(){openCheckout()};
-    var rh=$('#rxHave');if(rh)rh.onclick=function(){openRxRedeem('')};
+    var cg=$('#codeGo');if(cg)cg.onclick=function(){applyCartCode(($('#codeIn')||{}).value)};
+    var ci=$('#codeIn');if(ci)ci.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();applyCartCode(ci.value)}};
+    var cpr=$('#cpRem');if(cpr)cpr.onclick=function(){state.co.coupon='';persist();toast('Cupom removido');openCart()};
     var rr=$('#rxrem');if(rr)rr.onclick=function(){rxClear();openCart()};
+  }
+  function applyCartCode(raw){
+    var code=String(raw||'').trim().toUpperCase();
+    if(!code){toast('Cole o código do cupom ou da receita');return}
+    var c=cpFind(code);
+    if(c){
+      var lines=cartLines(),sub=r2(lines.reduce(function(a,l){return a+l.price*l.q},0));
+      var r=cpCheck(c,sub,state.co.mode);
+      if(!r.ok&&!r.need){toast(r.msg);return}
+      state.co.coupon=code;persist();toast(r.ok?'Cupom '+code+' aplicado':('Cupom guardado: '+r.msg));openCart();
+      return;
+    }
+    openRxRedeem(code);
   }
 
   function openCheckout(){
