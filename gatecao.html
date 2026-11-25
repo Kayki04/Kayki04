@@ -2371,7 +2371,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   var APPT_ST=['Agendado','Aguardando','Em atendimento','Pronto para buscar','A caminho de casa','Concluído','Cancelado','Faltou'];
 
   /* ---------- estado ---------- */
-  var D={reviews:[],coupons:[],myOrd:[],myRec:[],banners:[],products:[],promos:[],tables:[],services:[],settings:{},slots:{},status:{},orders:[],appts:[],ready:{},nodb:false,slow:false,customers:[],wallets:{},crm:{},rewards:[],redeems:[],me:null,myRedeems:[],partners:[],rxAll:[],partner:null,myRx:[],rxForMe:[],quotes:[]};
+  var D={reviews:[],coupons:[],myOrd:[],myRec:[],banners:[],products:[],promos:[],tables:[],services:[],settings:{},slots:{},status:{},orders:[],appts:[],ready:{},nodb:false,slow:false,customers:[],wallets:{},crm:{},rewards:[],redeems:[],me:null,myRedeems:[],partners:[],rxAll:[],partner:null,myRx:[],rxForMe:[],quotes:[],vets:[]};
   var X={db:null,user:null,assets:null,uid:null,isAdmin:false,checked:false};
   var state={tab:'loja',cat:'Todos',q:'',cart:load('gc_cart',{}),cartRec:load('gc_cartrec',{}),myOrders:load('gc_orders',[]),myAppts:load('gc_appts',[]),
     ag:Object.assign({svc:'',extras:[],lt:'loja',ltAddr:'',ltBairro:'',ltComp:'',ltPhone:'',day:'',slot:'',pet:'',kind:'Cachorro',size:'',weight:'',coat:'',breed:'',tutor:'',obs:''},load('gc_ag',{})),co:{mode:'Retirada na loja',pay:'Pix',name:''},
@@ -3464,6 +3464,34 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     h+='</div></div></div>';
     mpBox(h);bindBox();
   }
+  var VETQ={q:''};
+  // Diretório público de veterinários (só dados públicos — nome, clínica, especialidade, logo; nunca saldo/comissão).
+  function vetPublicData(pd){pd=pd||{};return {name:String(pd.name||'').slice(0,80),clinica:String(pd.clinica||'').slice(0,80),especialidade:String(pd.especialidade||'').slice(0,60),crmv:String(pd.crmv||'').slice(0,40),logo:pd.logo||'',active:!!(pd.active!==false&&pd.approved!==false),ts:Date.now()}}
+  function syncVetPublic(uid,pd){if(!uid)return Promise.resolve();try{return X.db.doc('vets/'+uid).set(vetPublicData(pd)).catch(function(){})}catch(e){return Promise.resolve()}}
+  function approvedVets(){return (D.vets||[]).filter(function(p){return p&&p.active!==false&&(p.name||p.clinica)})}
+  function openVets(){VETQ.q='';renderVets()}
+  function renderVets(){
+    var q=normTxt(VETQ.q||'');
+    var list=approvedVets().filter(function(p){if(!q)return true;return normTxt((p.name||'')+' '+(p.clinica||'')+' '+(p.especialidade||'')+' '+(p.crmv||'')).indexOf(q)>-1})
+      .sort(function(a,b){return String(a.name||a.clinica||'').localeCompare(String(b.name||b.clinica||''),'pt-BR')});
+    var h='<div class="mpcard lgcard" style="max-width:520px;text-align:left"><div class="mphd"><b>Veterinários parceiros</b><button class="ghost" id="mpX">Fechar</button></div>';
+    h+='<p class="hint" style="margin:0">Profissionais parceiros da Gatecão. A receita deles sai com desconto pra você comprar aqui no app.</p>';
+    h+='<label class="fld" style="margin:0"><input class="in" id="vetQ" value="'+esc(VETQ.q||'')+'" placeholder="Buscar por nome, clínica ou especialidade" autocomplete="off"></label>';
+    if(!list.length){h+='<div class="hint" style="padding:12px 2px">'+(q?'Nenhum parceiro encontrado para "'+esc(VETQ.q)+'".':'Em breve nossos veterinários parceiros aparecem aqui.')+'</div>';}
+    list.forEach(function(p){
+      h+='<div class="acard" style="margin:0"><div style="display:flex;gap:12px;align-items:center">'+
+        (p.logo?'<img src="/_blob/'+esc(p.logo)+'" alt="" loading="lazy" style="width:54px;height:54px;border-radius:12px;object-fit:cover;flex:none;background:#fff">':'<span style="width:54px;height:54px;border-radius:12px;background:var(--sky);color:var(--brand);display:grid;place-items:center;flex:none">'+svg('shield')+'</span>')+
+        '<div style="min-width:0"><b>'+esc(p.name?('Dr(a). '+p.name):(p.clinica||'Veterinário parceiro'))+'</b>'+
+        (p.especialidade?'<br><span style="font-size:13.5px;color:var(--accent-d);font-weight:700">'+esc(p.especialidade)+'</span>':'')+
+        (p.clinica&&p.name?'<br><span class="muted" style="font-size:12.5px">'+esc(p.clinica)+'</span>':'')+
+        (p.crmv?'<br><span class="muted" style="font-size:12px">CRMV '+esc(p.crmv)+'</span>':'')+
+        '</div></div></div>';
+    });
+    h+='</div>';
+    mpBox(h);
+    var x=$('#mpX');if(x)x.onclick=mpClose;
+    var qi=$('#vetQ');if(qi){qi.oninput=function(){VETQ.q=this.value;renderVets()};qi.focus();try{qi.setSelectionRange(qi.value.length,qi.value.length)}catch(e){}}
+  }
   function legalFooterHtml(){
     return '<footer class="lgfoot">'+(hasLojaInfo()?'<button class="lglink" data-act="lojaInfo">A loja</button><span>·</span>':'')+'<button class="lglink" data-act="legalPriv">Privacidade</button><span>·</span><button class="lglink" data-act="legalTermos">Termos de uso</button><span>·</span><span class="lgfv">Gatecão Pet Shop</span></footer>';
   }
@@ -4203,6 +4231,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       isVet()?{icon:svg('pill'),label:'Área do parceiro (veterinário)',attr:act('rxOpen')}:null
     ]);
     h+=grp('Loja e ajuda',[
+      {icon:svg('shield'),label:'Veterinários parceiros',attr:act('mais_vets')},
       hasLojaInfo()?{icon:IC_M_STORE,label:'A loja (endereço e horário)',attr:act('lojaInfo')}:null,
       X.uid?{icon:BELL_SVG,label:'Avisos',attr:act('mais_inbox')}:null,
       waNum()?{icon:IC_WA,label:'Falar no WhatsApp',attr:act('mais_wa')}:null
@@ -5098,12 +5127,29 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     if((v=g('rxpet'))!==undefined)RXD.petName=v;if((v=g('rxpk'))!==undefined)RXD.petKind=v;if((v=g('rxobs'))!==undefined)RXD.obs=v;
     if((v=g('rxbreed'))!==undefined)RXD.petBreed=v;if((v=g('rxweight'))!==undefined)RXD.petWeight=v;
     if((v=g('rxcn'))!==undefined)RXD.clientName=v;if((v=g('rxcp'))!==undefined)RXD.clientPhone=v;if((v=g('rxq'))!==undefined)RXD.q=v;}
+  var RX_CATS=['Rações','Petiscos','Antiparasitários','Farmácia','Higiene','Brinquedos','Acessórios'];
+  function vetPartnerCard(){
+    var w=X.uid?wal(X.uid):{points:0,cash:0};
+    var saldo=num(D.partner&&D.partner.saldo),pp=partnerPct(D.partner||{});
+    var h='<div class="acard"><b>Minha parceria</b>';
+    h+='<div class="kpis3" style="margin:6px 0 0"><div><span>Meus pontos</span><b>'+w.points+'</b></div><div><span>Cashback</span><b>'+brl(w.cash)+'</b></div><div><span>A receber</span><b>'+brl(saldo)+'</b></div></div>';
+    h+='<p class="hint" style="margin:6px 0 0">O <b>"a receber"</b> é a sua comissão acumulada — a loja paga e zera esse valor. Você também ganha <b>1 ponto a cada R$ 1</b> que seus clientes pagam usando as suas receitas.</p>';
+    h+='<div class="lbl" style="margin-top:12px">Sua comissão por linha de produto</div>';
+    h+='<div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:6px">';
+    RX_CATS.forEach(function(c,i){var pct=pp!=null?pp:rxCommForCat(c);h+='<div class="rowtight" style="padding:9px 12px'+(i<RX_CATS.length-1?';border-bottom:1px solid var(--line)':'')+'"><span>'+esc(c)+'</span><b style="color:var(--brand)">'+String(pct).replace('.',',')+'%</b></div>'});
+    h+='</div>';
+    h+='<p class="hint" style="margin:6px 0 0">'+(pp!=null?'Você tem uma comissão combinada de <b>'+String(pp).replace('.',',')+'%</b> para todas as linhas.':'A comissão vale sobre o valor dos produtos da receita que o cliente comprar.')+(vetApproved()?'':' Começa a valer quando a loja aprovar seu cadastro.')+'</p>';
+    var mov=(D.partner&&D.partner.mov)||[];
+    if(mov.length){h+='<div class="lbl" style="margin-top:12px">Últimos lançamentos</div>';mov.slice(0,6).forEach(function(m){h+='<div class="rowtight" style="font-size:12.5px;padding:7px 2px;border-bottom:1px solid var(--line)"><span class="muted">'+esc(m.desc||(m.client?('Receita · '+m.client):'Comissão'))+'<br>'+fmtTs(m.ts)+'</span><b style="color:'+(num(m.amount)>=0?'var(--brand)':'var(--danger)')+'">'+(num(m.amount)>=0?'+':'')+brl(num(m.amount))+'</b></div>'});}
+    var pays=(D.partner&&D.partner.pays)||[];
+    if(pays.length)h+='<p class="hint" style="margin:6px 0 0">Último pagamento recebido: <b>'+brl(num(pays[0].amount))+'</b> em '+fmtTs(pays[0].ts)+'.</p>';
+    return h+'</div>';
+  }
   function renderRxBuilder(){
     var h='<div class="row"><h2>Atendimento · receita</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
     h+='<p class="hint" style="margin-top:0">Monte a receita do paciente: adicione os medicamentos, a orientação de cada um e uma observação geral se precisar.</p>';
     if(!vetApproved())h+='<div class="combobar">⏳ <span>Seu cadastro de veterinário está <b>em análise</b>. Você já pode montar receitas; o <b>desconto do cliente e a sua comissão</b> começam quando a loja aprovar seu cadastro.</span></div>';
-    var vw=X.uid?wal(X.uid):null;
-    if(vw&&vetApproved())h+='<div class="combobar ok">⭐ <span>Seu clube de parceiro: <b>'+vw.points+' pontos</b> · '+brl(vw.cash)+' de cashback. Você ganha <b>1 ponto por R$1</b> que seus clientes pagarem com suas receitas.</span></div>';
+    h+=vetPartnerCard();
     h+='<div class="acard"><div class="rowtight"><b>Paciente</b><button class="mini alt" id="rxclinic">Dados da clínica</button></div><div class="two"><label class="fld">Nome do pet<input class="in" id="rxpet" value="'+esc(RXD.petName||'')+'" placeholder="Ex.: Rex"></label><label class="fld">Espécie<select class="in" id="rxpk">'+['Cão','Gato','Outro'].map(function(k){return '<option'+(RXD.petKind===k?' selected':'')+'>'+k+'</option>'}).join('')+'</select></label></div><div class="two"><label class="fld">Raça<input class="in" id="rxbreed" value="'+esc(RXD.petBreed||'')+'" placeholder="Ex.: SRD"></label><label class="fld">Peso<input class="in" id="rxweight" value="'+esc(RXD.petWeight||'')+'" placeholder="Ex.: 8,5 kg"></label></div></div>';
     h+='<div class="acard"><div class="rowtight"><b>Para um cliente específico</b><button class="sw" id="rxfc" role="switch" aria-checked="'+(RXD.forClient?'true':'false')+'"></button></div>'+
       (RXD.forClient?'<label class="fld">Nome do cliente<input class="in" id="rxcn" value="'+esc(RXD.clientName)+'" placeholder="Nome do tutor"></label><label class="fld">WhatsApp do cliente<input class="in" id="rxcp" inputmode="tel" value="'+esc(RXD.clientPhone)+'" placeholder="(21) 90000-0000"></label><p class="hint">A receita aparece no app dele (quando ele usa o mesmo telefone) e você também recebe o código.</p>':'<p class="hint">Sem cliente: gera um código que você passa pra qualquer pessoa usar no app.</p>')+'</div>';
@@ -5413,7 +5459,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       var isOn=$('#ppa').getAttribute('aria-checked')==='true';
       var data={name:nm,crmv:$('#ppc').value.trim().slice(0,40),especialidade:$('#ppe').value.trim().slice(0,60),clinica:$('#ppcl').value.trim().slice(0,80),email:$('#ppem').value.trim().slice(0,120),phone:cust.phone||p.phone||'',pct:pct===''?'':Math.max(0,Math.min(90,num(pct))),active:isOn,approved:isOn?true:(p.approved!==false),selfReg:!!p.selfReg,saldo:num(p.saldo),mov:p.mov||[],pays:p.pays||[],ts:p.ts||Date.now()};
       this.disabled=true;
-      try{await X.db.doc('partners/'+uid).set(data);closeSheet();toast(cur?'Parceiro salvo':'Parceiro cadastrado')}catch(e){this.disabled=false;wfail(e)}
+      try{await X.db.doc('partners/'+uid).set(data);syncVetPublic(uid,data);closeSheet();toast(cur?'Parceiro salvo':'Parceiro cadastrado')}catch(e){this.disabled=false;wfail(e)}
     };
     var del=$('#ppdel');
     if(del)del.onclick=async function(){if(del.getAttribute('data-sure')!=='1'){del.setAttribute('data-sure','1');del.textContent='Toque de novo para remover';return}try{await X.db.doc('partners/'+uid).delete();closeSheet();toast('Parceiro removido')}catch(e){wfail(e)}};
@@ -6045,7 +6091,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
       try{await X.db.doc('settings/store').set(Object.assign({},D.settings,data));toast('Regras da parceria salvas')}catch(e){wfail(e)}
     },
     partnerOpen:function(id){openPartner(id)},
-    partnerApprove:async function(id){var p=partnerOf(id);if(!p)return;try{await X.db.doc('partners/'+id).set(Object.assign({},p,{active:true,approved:true}));toast('Parceiro aprovado! Já pode dar desconto e ganhar comissão.');try{notifyUser(id,'Cadastro aprovado! 🎉','Seu cadastro de veterinário na Gatecão foi aprovado. Agora suas receitas saem com desconto pro cliente e você ganha comissão e pontos.','parceiro').catch(function(){})}catch(e){}}catch(e){wfail(e)}},
+    partnerApprove:async function(id){var p=partnerOf(id);if(!p)return;try{var np=Object.assign({},p,{active:true,approved:true});await X.db.doc('partners/'+id).set(np);syncVetPublic(id,np);toast('Parceiro aprovado! Já pode dar desconto e ganhar comissão.');try{notifyUser(id,'Cadastro aprovado! 🎉','Seu cadastro de veterinário na Gatecão foi aprovado. Agora suas receitas saem com desconto pro cliente e você ganha comissão e pontos.','parceiro').catch(function(){})}catch(e){}}catch(e){wfail(e)}},
     partnerPay:async function(id,b){var p=partnerOf(id);if(!p)return;var v=num(p.saldo);if(!(v>0))return;
       if(b&&b.getAttribute&&b.getAttribute('data-sure')!=='1'){b.setAttribute('data-sure','1');b.textContent='Confirmar pagamento de '+brl(v);return}
       try{var pays=(p.pays||[]).slice();pays.unshift({amount:r2(v),ts:Date.now()});await X.db.doc('partners/'+id).set(Object.assign({},p,{saldo:0,pays:pays.slice(0,100),lastPay:Date.now()}));toast('Pagamento de '+brl(v)+' registrado')}catch(e){wfail(e)}
@@ -7803,6 +7849,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     col('banners','banners',plain('banners'));
     col('coupons','coupons',plain('coupons'));
     col('reviews','reviews',plain('reviews'));
+    col('vets','vets',plain('vets'));
     if(X.uid){
       X.db.doc('inbox/'+X.uid).onSnapshot(function(s){
         var m=s.exists&&s.data().m?s.data().m:{},arr=Object.keys(m).map(function(k){return m[k]}),prevMax=D.inbox.reduce(function(a,n){return Math.max(a,n.ts)},0);
@@ -7880,6 +7927,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     mais_fav:function(){state.cat='Todos';state.fCat='Todos';state.showAll=true;state.f={fav:true};renderCats();go('loja')},
     mais_ref:function(){go('vantagens')},
     mais_wa:function(){var u=waUrl('Olá, Gatecão! Vim pelo app.');if(u)window.open(u,'_blank')},
+    mais_vets:function(){openVets()},
     mais_logout:function(){if(window.GCFB&&GCFB.logout)GCFB.logout()}};
   view.addEventListener('click',function(e){
     var ca=e.target.closest('[data-act]');if(ca&&CACT[ca.getAttribute('data-act')]){e.preventDefault();CACT[ca.getAttribute('data-act')]();return}

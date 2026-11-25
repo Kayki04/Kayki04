@@ -41,6 +41,9 @@ service cloud.firestore {
     // Avaliações: todos leem, cada cliente escreve a sua.
     match /reviews/{uid} { allow read: if true; allow write: if own(uid); }
 
+    // Diretório público de veterinários parceiros (só dados públicos). Todos leem; só a loja publica.
+    match /vets/{id} { allow read: if true; allow write: if isAdmin(); }
+
     // Dados de cada cliente (o cliente vê o que é dele; a loja vê tudo).
     match /orders/{uid}    { allow read, write: if own(uid) || isAdmin(); }
     match /appts/{uid}     { allow read, write: if own(uid) || isAdmin(); }
