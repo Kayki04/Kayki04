@@ -78,6 +78,9 @@ export default function Me() {
       <ProfileHeader handle={profile.handle} back={false} />
       <div className="secao">
         <button className="btn btn-linha btn-bloco" onClick={() => setSheet('edit')}>Editar perfil</button>
+        <p className="rotulo">Configurações</p>
+        <label className="chave" htmlFor="toggle-adult"><span><b>Mostrar conteúdo adulto (+18)</b><small>Disponível na próxima etapa da Trip.</small></span>
+          <input type="checkbox" id="toggle-adult" checked={profile.show_adult} disabled readOnly /></label>
         <p className="rotulo">Conta</p>
         <button className="btn btn-linha btn-bloco" onClick={() => supabase.auth.signOut()}>Sair</button>
         <button className="btn btn-linha btn-bloco" style={{ color: 'var(--perigo)' }} onClick={() => setSheet('delete')}>Excluir conta</button>

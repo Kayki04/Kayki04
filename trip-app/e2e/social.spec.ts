@@ -84,3 +84,12 @@ test('excluirConta', async ({ page }) => {
   await confirm.click();
   await expect(page).toHaveURL(/\/entrar/);
 });
+
+test('adultoDesabilitado', async ({ page }) => {
+  const u = await makeUser(); await loginAs(page, u);
+  await page.goto('/perfil');
+  const chave = page.getByLabel('Mostrar conteúdo adulto (+18)');
+  await expect(chave).toBeVisible();
+  await expect(chave).toBeDisabled();
+  await expect(page.getByText('Disponível na próxima etapa da Trip.')).toBeVisible();
+});
