@@ -4326,6 +4326,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
   function go(tab){
     if(PV.id)hidePview();
+    if(tab==='pet')state.petSub='';
     state.tab=tab;
     if(location.hash!=='#'+tab)history.replaceState(null,'','#'+tab);
     window.scrollTo(0,0);
@@ -6889,28 +6890,41 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     });
     return h+'</div><p class="hint">Em todos os níveis: '+L.pts+' ponto'+(L.pts===1?'':'s')+' a cada R$ 1 gasto, para trocar pelos prêmios abaixo.</p>';
   }
+  var IC_M_CYCLE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11a8 8 0 0114-5l3 2M21 13a8 8 0 01-14 5l-3-2"/><path d="M18 3v5h-5M6 21v-5h5"/></svg>';
+  function bindPetSub(){$$('[data-petsub]',view).forEach(function(b){b.onclick=function(){state.petSub=b.getAttribute('data-petsub');window.scrollTo(0,0);renderPet()}});}
+  function petSubPage(title,inner){
+    var h='<div class="row"><button class="ghost" data-petsub="">‹ Meu Pet</button></div><h2 style="margin:0 0 10px">'+esc(title)+'</h2>'+(inner||'');
+    view.innerHTML=h;recBind();profBind();
+    var go0=$('#gcOut');if(go0)go0.onclick=function(){window.GCFB.logout()};
+    bindPetSub();
+  }
   function renderPet(){
     if(D.nodb){view.innerHTML=noDbBox();return}
     if(!X.checked||(X.uid&&!D.ready.me&&!D.slow)){view.innerHTML=loadingBox();return}
-    var h='<section class="phero"><h2>Cantinho do Pet</h2><p>'+(D.me&&(D.me.pets||[]).length?'Tudo de '+esc((D.me.pets||[]).map(function(x){return x.n}).slice(0,3).join(', ').replace(/, ([^,]*)$/,' e $1'))+' em um só lugar.':'Lembretes de banho, ração, vacinas e recompras em um só lugar.')+'</p>'+svg('paw','art')+'</section>';
-    if(!X.uid){view.innerHTML=h+'<div class="empty-card"><h2>Entre na sua conta</h2><p class="muted">'+(window.GCFB?'Crie sua conta grátis para cadastrar seus pets, receber lembretes de ração, banho e vacina e acompanhar suas recompras.':'Abra o app na sua conta para cadastrar seus pets e receber lembretes.')+'</p>'+(window.GCFB?'<button class="primary" data-login="1">Entrar ou cadastrar</button>':'')+'</div>';return}
+    if(!X.uid){view.innerHTML='<section class="phero"><h2>Meu Pet</h2><p>Lembretes de banho, ração, vacinas e recompras em um só lugar.</p>'+svg('paw','art')+'</section><div class="empty-card"><h2>Entre na sua conta</h2><p class="muted">'+(window.GCFB?'Crie sua conta grátis para cadastrar seus pets, receber lembretes de ração, banho e vacina e acompanhar suas recompras.':'Abra o app na sua conta para cadastrar seus pets e receber lembretes.')+'</p>'+(window.GCFB?'<button class="primary" data-login="1">Entrar ou cadastrar</button>':'')+'</div>';return}
+    var sub=state.petSub||'';
+    if(sub==='dados')return petSubPage('Meus pets e dados',petsHtml()+'<div class="sec"><h2>Meus dados</h2></div>'+profileHtml());
+    if(sub==='receitas'){var r=rxMeusHtml();if(!r)r='<div class="empty-card"><h2>Nenhuma receita ainda</h2><p class="muted">Quando um veterinário parceiro enviar uma receita pra você (ou você colar um código), ela aparece aqui.</p></div>';return petSubPage('Receitas do meu pet',r+'<button class="btn line" data-act="rxRedeem" style="margin-top:10px">Tenho um código de receita</button>');}
+    if(sub==='produtos'){var pp=medsHtml()+careAgendaHtml()+feedHtml();if(!pp.trim())pp='<div class="empty-card"><h2>Nada em uso ainda</h2><p class="muted">Os produtos que seu pet usa (ração, vermífugo, remédios) e os lembretes aparecem aqui. Crie um cronograma a partir de uma receita ou marque um produto como recompra.</p></div>';return petSubPage('Produtos em uso',pp);}
+    if(sub==='recompras'){var rc=recHtml();if(!D.myRec.length)rc+='<div class="empty-card"><h2>Nenhuma recompra</h2><p class="muted">Escolha "Recompra" no produto para receber de novo automaticamente, com desconto. Você pausa ou cancela quando quiser.</p></div>';return petSubPage('Minhas recompras',rc);}
+    var nm=D.me&&(D.me.pets||[]).length?'Tudo de '+esc((D.me.pets||[]).map(function(x){return x.n}).slice(0,3).join(', ').replace(/, ([^,]*)$/,' e $1'))+' em um só lugar.':'Seus pets, receitas, produtos em uso e recompras em um só lugar.';
+    var h='<section class="phero"><h2>Meu Pet</h2><p>'+nm+'</p>'+svg('paw','art')+'</section>';
     if(isVet())h+='<button class="rxentry" data-act="rxOpen">'+IC_RX+'<span><b>Área do parceiro</b>Monte uma receita e acompanhe as suas</span><i>Abrir ›</i></button>';
     if(!D.me)h+=profileHtml();
-    h+=medsHtml();
-    h+=careAgendaHtml();
-    h+=rxMeusHtml();
-    h+=petsHtml();
-    h+=feedHtml();
-    h+=recHtml();
-    if(!D.myRec.length)h+='<div class="sec"><h2>Recompras</h2></div><p class="muted" style="margin-top:0">Escolha "Recompra" no produto para receber de novo automaticamente, com desconto. Você pausa ou cancela quando quiser.</p>';
-    if(D.me)h+='<div class="sec"><h2>Meus dados</h2></div>'+profileHtml();
+    function prow(k,icon,label){return '<button class="acctrow" data-petsub="'+k+'"><span class="ai">'+icon+'</span><span class="al">'+label+'</span><span class="ac">›</span></button>'}
+    h+='<div class="acctrows" style="margin-top:4px">'+
+      prow('dados',IC_M_USER,'Meus pets e dados')+
+      prow('receitas',IC_M_DOC,'Receitas do meu pet')+
+      prow('produtos',svg('pill'),'Produtos em uso (ração, vermífugo, remédios)')+
+      prow('recompras',IC_M_CYCLE,'Minhas recompras')+
+    '</div>';
     h+=installFooterHtml();
     if(window.GCFB)h+='<button class="ghost" id="gcOut" style="margin-top:14px;width:100%">Sair da conta</button>';
     h+=legalFooterHtml();
     view.innerHTML=h;
-    recBind();
-    profBind();
+    if(!D.me)profBind();
     var go0=$('#gcOut');if(go0)go0.onclick=function(){window.GCFB.logout()};
+    bindPetSub();
   }
   function renderVantagens(){
     if(D.nodb){view.innerHTML=noDbBox();return}
