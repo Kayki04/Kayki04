@@ -174,6 +174,73 @@ test('minhasAssinaturas', async b => {
   assert(txt.includes(esperado), `sem renovação ${esperado}: ` + txt);
 });
 
+
+// ---------- Task 5 ----------
+async function postar(p, texto, { exclusive = false } = {}) {
+  await p.click('nav#tabs button[data-view="post"]');
+  await p.click('#post-type button[data-type="text"]');
+  await p.fill('#post-text', texto);
+  if (exclusive) await p.check('#post-exclusive');
+  await p.click('#post-publish');
+}
+test('publicaTexto', async b => {
+  const p = await open(b); await enter(p);
+  await postar(p, 'Meu primeiro post na Trip');
+  assert((await view(p)) === 'home', 'não voltou ao feed');
+  const first = p.locator('.feed .post').first();
+  assert((await first.innerText()).includes('Meu primeiro post na Trip'), 'post não está no topo');
+});
+test('publicaExclusivo', async b => {
+  const p = await open(b); await enter(p);
+  await postar(p, 'Só pra quem assina', { exclusive: true });
+  const first = p.locator('.feed .post').first();
+  assert(await first.locator('.tag.assin').count() === 1, 'sem selo Assinantes');
+});
+for (const proibido of ['CRIANÇA', 'menor de idade', 'Menor De Idade', 'tenho 15 anos', 'novinha']) {
+  test('bloqueiaProibido: ' + proibido, async b => {
+    const p = await open(b); await enter(p);
+    const n0 = await p.evaluate(() => T.state.myPosts.length);
+    await postar(p, 'olha isso ' + proibido + ' hoje');
+    assert(await p.isVisible('#post-blocked'), 'sem aviso de bloqueio');
+    assert((await p.innerText('#post-blocked')).toLowerCase().includes('perfil em revisão'), 'aviso sem "perfil em revisão"');
+    assert((await p.evaluate(() => T.state.myPosts.length)) === n0, 'publicou mesmo assim');
+  });
+}
+test('naoBloqueiaNormal', async b => {
+  const p = await open(b); await enter(p);
+  for (const ok of ['18 anos de carreira', 'comemorando 25 anos']) {
+    const r = await p.evaluate(t => T.isBlocked(t), ok);
+    assert(!r.blocked, 'bloqueou indevidamente: ' + ok);
+  }
+});
+test('estimativa', async b => {
+  const p = await open(b);
+  const r = await p.evaluate(() => T.boostEstimate(10, 3));
+  assert(r.total === 30 && r.min === 1800 && r.max === 4200, 'estimativa errada: ' + JSON.stringify(r));
+});
+test('impulsionarInvalido', async b => {
+  const p = await open(b); await enter(p);
+  await postar(p, 'Post para impulsionar');
+  await p.locator('.feed .post').first().locator('.boost-btn').click();
+  for (const v of ['', '0', '-5', '4']) {
+    await p.fill('#boost-day', v); await p.fill('#boost-days', '3');
+    assert(await p.isDisabled('#boost-pay'), 'pagar habilitado com valor ' + JSON.stringify(v));
+  }
+  await p.fill('#boost-day', '10'); await p.fill('#boost-days', '0');
+  assert(await p.isDisabled('#boost-pay'), 'pagar habilitado com 0 dias');
+});
+test('impulsionarOk', async b => {
+  const p = await open(b); await enter(p);
+  await postar(p, 'Post para impulsionar');
+  await p.locator('.feed .post').first().locator('.boost-btn').click();
+  await p.fill('#boost-day', '10'); await p.fill('#boost-days', '3');
+  assert((await p.innerText('#boost-est')).replace(/ /g, ' ').includes('1.800'), 'estimativa não aparece');
+  await p.click('#boost-pay');
+  await p.click('#pix-done');
+  const first = p.locator('.feed .post').first();
+  assert((await first.locator('.tag').allInnerTexts()).includes('Impulsionado'), 'sem selo Impulsionado');
+});
+
 // ---------- runner ----------
 const filter = process.argv[2];
 const browser = await chromium.launch();

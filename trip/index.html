@@ -664,3 +664,167 @@ const go = T.go;
 T.go = (view, arg) => { if (T.current.view !== view) T.prev = { ...T.current }; go(view, arg); };
 })();
 </script>
+
+<!-- ================= Postar (com moderação) e Impulsionar ================= -->
+<style>
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--nevoa);border-radius:14px;padding:4px;gap:4px}
+.seg button{padding:10px;border-radius:10px;font-weight:700;font-size:14px;color:var(--cinza)}
+.seg button[aria-pressed="true"]{background:var(--branco);color:var(--tinta);box-shadow:0 1px 6px rgba(20,18,26,.12)}
+.artes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.art-opt{aspect-ratio:4/5;border-radius:12px;position:relative;outline-offset:2px}
+.art-opt[aria-pressed="true"]{outline:3px solid var(--magenta)}
+.art-opt.video::after{content:"";position:absolute;left:50%;top:50%;translate:-40% -50%;border-left:16px solid #fff;border-top:10px solid transparent;border-bottom:10px solid transparent}
+.dica{font-size:12px;color:var(--cinza);margin:0}
+.cores{display:flex;gap:10px;flex-wrap:wrap}
+.cor{width:36px;height:36px;border-radius:50%;border:2px solid var(--linha)}
+.cor[aria-pressed="true"]{outline:3px solid var(--tinta);outline-offset:2px}
+.preview-texto{min-height:140px}
+.campo{display:flex;flex-direction:column;gap:6px}
+.campo label{font-weight:700;font-size:14px}
+textarea,input[type="number"],input[type="text"]{font:inherit;font-size:16px;color:var(--tinta);background:var(--branco);border:1.5px solid var(--linha);border-radius:12px;padding:12px;width:100%}
+textarea{min-height:110px;resize:vertical}
+.contador{font-size:12px;color:var(--cinza);align-self:flex-end}
+.chave{display:flex;align-items:center;gap:12px;padding:12px;border:1.5px solid var(--linha);border-radius:14px;cursor:pointer}
+.chave span{flex:1;display:flex;flex-direction:column}
+.chave small{color:var(--cinza);font-size:12px}
+.chave input{appearance:none;-webkit-appearance:none;flex:none;width:46px;height:28px;border-radius:99px;background:var(--linha);position:relative;cursor:pointer;transition:background .15s;margin:0}
+.chave input::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
+.chave input:checked{background:var(--roxo)}
+.chave input:checked::after{transform:translateX(18px)}
+.chave input:focus-visible{outline:3px solid var(--roxo);outline-offset:2px}
+#post-blocked{border-radius:14px;background:#fdebee;color:#8a1022;padding:14px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+#post-blocked b{font-size:15px}
+.regras-mod{font-size:12px;color:var(--cinza);background:var(--nevoa);border-radius:12px;padding:10px 12px;margin:0}
+
+.boost-campos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.boost-campos .campo{min-width:0}
+.est{background:var(--tinta);color:#fff;border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:4px}
+.est b{font-size:20px;font-variant-numeric:tabular-nums}
+.est small{color:#b9b4c4}
+.boost-erro{color:var(--perigo);font-size:13px;margin:0;min-height:1.2em}
+</style>
+<script>
+(function(){
+const { $, $$, esc, brl } = T.util;
+
+/* ---------- Moderação (demonstração) ---------- */
+const TERMOS = ['crianca', 'infantil', 'menor de idade', 'novinha', 'pedo', 'colegial', 'lolita'];
+const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+T.isBlocked = text => {
+  const t = norm(text);
+  const term = TERMOS.find(x => t.includes(x));
+  if (term) return { blocked: true, term };
+  const m = t.match(/\b([1-9]|1[0-7])\s*anos\b/);
+  if (m) return { blocked: true, term: m[0] };
+  return { blocked: false };
+};
+
+/* ---------- Impulsionar ---------- */
+T.boostEstimate = (porDia, dias) => { const total = porDia * dias; return { total, min: total * 60, max: total * 140 }; };
+const boostValid = (d, n) => Number.isFinite(d) && d >= 5 && Number.isInteger(n) && n >= 1 && n <= 30;
+
+T.openBoost = postId => {
+  T.sheet(`<h2>Impulsionar post</h2><p class="sub">Seu post aparece para mais gente no feed e nos vídeos, com o selo Impulsionado.</p>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="boost-campos">
+        <div class="campo"><label for="boost-day">R$ por dia</label><input type="number" id="boost-day" inputmode="decimal" min="5" step="1" value="10"></div>
+        <div class="campo"><label for="boost-days">Dias</label><input type="number" id="boost-days" inputmode="numeric" min="1" max="30" step="1" value="3"></div>
+      </div>
+      <p class="boost-erro" id="boost-erro"></p>
+      <div class="est" id="boost-est"></div>
+      <button class="btn btn-marca btn-bloco" id="boost-pay">Pagar e impulsionar</button>
+    </div>`);
+  const upd = () => {
+    const rawD = $('#boost-day').value.trim(), rawN = $('#boost-days').value.trim();
+    const d = rawD === '' ? NaN : Number(rawD.replace(',', '.')), n = rawN === '' ? NaN : Number(rawN);
+    const ok = boostValid(d, n);
+    $('#boost-pay').disabled = !ok;
+    $('#boost-erro').textContent = ok ? '' : !(d >= 5) ? 'O mínimo é R$ 5,00 por dia.' : 'Escolha de 1 a 30 dias.';
+    if (ok) {
+      const e = T.boostEstimate(d, n);
+      $('#boost-est').innerHTML = `<small>Alcance estimado</small><b>${e.min.toLocaleString('pt-BR')} a ${e.max.toLocaleString('pt-BR')} pessoas</b><small>Total: ${brl(e.total)} por ${n} ${n > 1 ? 'dias' : 'dia'}</small>`;
+    } else $('#boost-est').innerHTML = '<small>Alcance estimado</small><b>—</b>';
+    return ok ? { d, n } : null;
+  };
+  $('#boost-day').addEventListener('input', upd); $('#boost-days').addEventListener('input', upd); upd();
+  $('#boost-pay').onclick = () => {
+    const v = upd(); if (!v) return;
+    const e = T.boostEstimate(v.d, v.n);
+    T.payPix({ title: 'Impulsionar post', sub: `${brl(v.d)} por dia durante ${v.n} ${v.n > 1 ? 'dias' : 'dia'}.`, amount: e.total,
+      code: `00020126trip.pix/boost/${postId}/${e.total.toFixed(2)}5303986BR`,
+      onDone: () => { T.state.boosts.push({ postId, perDay: v.d, days: v.n, at: new Date().toISOString() }); T.save(); T.toast('Post impulsionado! Ele já aparece para mais gente.'); T.refresh(); } });
+  };
+};
+
+/* ---------- Postar ---------- */
+const ARTES = ['linear-gradient(160deg,#f3c9a8,#d9876b 45%,#6e3b4f)', 'linear-gradient(160deg,#c3b1e1,#8a6fb3 50%,#2c1f45)', 'linear-gradient(140deg,#06d6a0,#118ab2 50%,#073b4c)',
+  'linear-gradient(170deg,#f6d6a8,#c97b3d 55%,#5b3218)', 'linear-gradient(135deg,#ffd166,#ef476f 50%,#118ab2)', 'linear-gradient(160deg,#9fb3c8,#56708f 55%,#1f2d3d)'];
+const CORES = ['none', '#FF0A78', '#8A2BE2', '#14121A', '#FF8A00', '#0a7fa3'];
+T.draft = { type: 'photo', art: 0, bg: '#FF0A78', text: '', exclusive: false, sensitive: false };
+const D = () => T.draft;
+
+T.views.post = () => {
+  const d = D();
+  const midia = d.type === 'text'
+    ? `<div class="campo"><span style="font-weight:700;font-size:14px">Cor de fundo</span><div class="cores">${CORES.map(c => `<button class="cor" data-cor="${c}" aria-pressed="${d.bg === c}" aria-label="${c === 'none' ? 'Sem cor' : 'Cor ' + c}" style="background:${c === 'none' ? 'var(--nevoa)' : c}"></button>`).join('')}</div></div>
+       <div class="texto-post preview-texto${d.bg === 'none' ? ' claro' : ''}" id="post-preview" style="margin:0;background:${d.bg === 'none' ? 'var(--nevoa)' : d.bg}"><span>${esc(d.text) || 'Seu texto aparece assim no feed'}</span></div>`
+    : `<div class="artes">${ARTES.map((a, i) => `<button class="art-opt${d.type === 'video' ? ' video' : ''}" data-art="${i}" aria-pressed="${d.art === i}" aria-label="Ilustração ${i + 1}" style="background:${a}"></button>`).join('')}</div>
+       <p class="dica">No protótipo você escolhe uma ilustração. No app de verdade, aqui abre a galeria ou a câmera.</p>`;
+  return `<header class="cab"><h1>Nova postagem</h1></header>
+  <div class="secao">
+    <div class="seg" id="post-type" role="group" aria-label="Tipo de postagem">
+      ${[['photo', 'Foto'], ['video', 'Vídeo'], ['text', 'Texto']].map(([t, l]) => `<button data-type="${t}" aria-pressed="${d.type === t}">${l}</button>`).join('')}
+    </div>
+    ${midia}
+    <div class="campo"><label for="post-text">${d.type === 'text' ? 'Texto' : 'Legenda'}</label>
+      <textarea id="post-text" maxlength="2200" placeholder="${d.type === 'text' ? 'Escreva o que quiser…' : 'Conte algo sobre a postagem…'}">${esc(d.text)}</textarea>
+      <span class="contador" id="post-count">${d.text.length}/2200</span></div>
+    <label class="chave" for="post-exclusive"><span><b>Só para assinantes</b><small>Quem não assina vê borrado, com o botão Assinar.</small></span><input type="checkbox" id="post-exclusive" ${d.exclusive ? 'checked' : ''}></label>
+    <label class="chave" for="post-sensitive"><span><b>Conteúdo sensível</b><small>Violência, sangue ou cenas fortes ficam borrados até a pessoa tocar.</small></span><input type="checkbox" id="post-sensitive" ${d.sensitive ? 'checked' : ''}></label>
+    <div id="post-blocked" role="alert" hidden></div>
+    <button class="btn btn-marca btn-bloco" id="post-publish">Publicar</button>
+    <p class="regras-mod">Conteúdo adulto é liberado. Conteúdo com menores de idade, sem consentimento ou com mutilação e morte é removido. Termos ligados a menores bloqueiam a postagem na hora e colocam o perfil em revisão.</p>
+  </div>`;
+};
+
+T.after.post = v => {
+  const ta = $('#post-text', v);
+  ta.addEventListener('input', () => {
+    D().text = ta.value; $('#post-count').textContent = ta.value.length + '/2200';
+    const pv = $('#post-preview span'); if (pv) pv.textContent = ta.value || 'Seu texto aparece assim no feed';
+  });
+  $('#post-exclusive', v).addEventListener('change', e => D().exclusive = e.target.checked);
+  $('#post-sensitive', v).addEventListener('change', e => D().sensitive = e.target.checked);
+};
+
+$('#view').addEventListener('click', e => {
+  if (T.current.view === 'post') {
+    const t = e.target.closest('#post-type button'); if (t) { D().type = t.dataset.type; T.refresh(); return; }
+    const a = e.target.closest('.art-opt'); if (a) { D().art = Number(a.dataset.art); $$('.art-opt').forEach(x => x.setAttribute('aria-pressed', x === a)); return; }
+    const c = e.target.closest('.cor'); if (c) { D().bg = c.dataset.cor; T.refresh(); return; }
+    if (e.target.closest('#post-publish')) { publish(); return; }
+  }
+  const b = e.target.closest('.boost-btn'); if (b) { T.openBoost(b.dataset.id); return; }
+});
+
+function publish() {
+  const d = D(), text = $('#post-text').value.trim();
+  const box = $('#post-blocked');
+  if (d.type === 'text' && !text) { box.hidden = false; box.innerHTML = '<b>Escreva alguma coisa</b>Post de texto precisa de texto.'; return; }
+  const mod = T.isBlocked(text);
+  if (mod.blocked) {
+    T.state.underReview = true; T.save();
+    box.hidden = false;
+    box.innerHTML = `<b>Postagem bloqueada</b><span>Encontramos um termo proibido (“${esc(mod.term)}”). Conteúdo que remete a menores de idade é proibido na Trip e não foi publicado.</span><span><b>Perfil em revisão:</b> nossa equipe vai analisar suas outras postagens.</span>`;
+    return;
+  }
+  if (d.exclusive && !T.state.isCreator) { T.state.isCreator = true; }
+  if (d.exclusive && !T.state.myPlans.length) T.state.myPlans.push({ id: 'me-1', name: 'Assinantes', price: 9.9 });
+  T.state.myPosts.push({ id: 'm' + Date.now(), creatorId: 'me', type: d.type, bg: d.type === 'text' ? d.bg : ARTES[d.art], text, likes: 0, comments: 0, exclusive: d.exclusive, sensitive: d.sensitive, duration: d.type === 'video' ? '0:15' : undefined });
+  T.save();
+  T.draft = { type: 'photo', art: 0, bg: '#FF0A78', text: '', exclusive: false, sensitive: false };
+  T.go('home');
+  T.toast(d.exclusive ? 'Publicado só para assinantes.' : 'Publicado!');
+}
+})();
+</script>
