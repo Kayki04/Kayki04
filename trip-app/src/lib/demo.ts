@@ -11,7 +11,8 @@ const ME = { id: 'demo-me', handle: 'voce', name: 'Você', bio: 'Testando a Trip
 let S: { posts: Row[]; profiles: Record<string, Row>; comments: Record<string, Row[]>; stories: Row[]; media: Record<string, string> };
 const likes = new Set<string>(); const follows = new Set<string>(); const reported = new Set<string>(); const seen = new Set<string>();
 const uploads: Record<string, string> = {};
-const ready = fetch('snapshot.json').then(r => r.json()).then(j => { S = j; });
+const embedded = (globalThis as { __TRIP_SNAPSHOT__?: typeof S }).__TRIP_SNAPSHOT__;
+const ready = (embedded ? Promise.resolve(embedded) : fetch('snapshot.json').then(r => r.json())).then(j => { S = j; });
 
 const ok = (data: unknown) => ({ data, error: null });
 const fail = (message: string) => ({ data: null, error: { message } });
@@ -94,7 +95,7 @@ export function createDemoClient(): SupabaseClient {
     storage: {
       from: () => ({
         upload: async (path: string, file: Blob) => { uploads[path] = URL.createObjectURL(file); return ok({ path }); },
-        createSignedUrls: async (paths: string[]) => { await ready; return ok(paths.map(p => ({ path: p, signedUrl: resolveUrl(p) ? new globalThis.URL(resolveUrl(p)!, location.href).href : null, error: null }))); },
+        createSignedUrls: async (paths: string[]) => { await ready; return ok(paths.map(p => ({ path: p, signedUrl: resolveUrl(p) ?? null, error: null }))); },
         list: async () => ok([]),
         remove: async () => ok([]),
       }),
