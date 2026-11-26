@@ -274,13 +274,14 @@ body.adm::before{background:#F1F5FB}
 .welf b{font-size:14.5px;display:block}
 .welf>div span{font-size:12.5px;color:var(--muted);line-height:1.35;display:block;margin-top:1px}
 .welcard .primary{margin:2px 0 0}
-.instbox{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#FFF3E6,#FFE2C2);border:1px solid #FFD2A1;border-radius:var(--r);padding:14px;margin-top:16px}
+.instbox{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;background:linear-gradient(135deg,#FFF3E6,#FFE2C2);border:1px solid #FFD2A1;border-radius:var(--r);padding:14px;margin-top:16px}
 .instbox .instic{flex:none;width:44px;height:44px;border-radius:12px;background:var(--accent);color:#fff;display:grid;place-items:center}
 .instbox .instic svg{width:26px;height:26px}
-.instbox .insttx{flex:1;min-width:0;display:grid;gap:2px}
+.instbox .insttx{flex:1 1 150px;min-width:0;display:grid;gap:2px}
 .instbox .insttx b{font-size:15px}
 .instbox .insttx span{font-size:12.5px;color:var(--muted);line-height:1.3}
-.instbox .primary{flex:none;padding:10px 14px;margin:0}
+.instbox .primary{flex:0 0 auto;width:auto;padding:10px 16px;margin:0;white-space:nowrap}
+@media(max-width:400px){.instbox .insttx{flex-basis:100%}.instbox .primary{flex:1 1 100%}}
 .lgfoot{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin:22px 0 6px;color:var(--muted);font-size:13px}
 .lgfoot span{opacity:.5}
 .lglink{background:none;border:none;color:var(--muted);font:inherit;font-weight:700;cursor:pointer;padding:2px 2px;text-decoration:underline;text-underline-offset:2px}
