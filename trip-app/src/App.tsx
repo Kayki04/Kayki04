@@ -2,6 +2,7 @@ import { Route, Routes, useLocation } from 'react-router-dom';
 import { AgeGate } from './components/AgeGate';
 import { BottomNav } from './components/BottomNav';
 import { RequireProfile } from './lib/auth';
+import { DEMO } from './lib/supabase';
 import Login from './pages/Login';
 import Invite from './pages/Invite';
 import Feed from './pages/Feed';
@@ -29,6 +30,7 @@ export default function App() {
   return (
     <div className={'app' + (dark ? ' escuro' : '')}>
       <AgeGate />
+      {DEMO && <div className="demo-faixa">Demonstração · nada do que você fizer aqui é salvo</div>}
       <main className={'view' + (dark ? ' escura' : gray ? ' cinza' : '')}>
         <Routes>
           <Route path="/entrar" element={<Login />} />

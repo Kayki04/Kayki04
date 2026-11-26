@@ -12,7 +12,8 @@
     "e2e": "playwright test",
     "db:start": "supabase start -x studio,imgproxy,vector,logflare,supavisor,postgres-meta,edge-runtime,realtime",
     "db:reset": "supabase db reset",
-    "db:test": "bash scripts/db-test.sh"
+    "db:test": "bash scripts/db-test.sh",
+    "demo:build": "node scripts/export-demo.mjs && VITE_DEMO=1 vite build --base ./ --outDir dist-demo && cp demo/snapshot.json dist-demo/ && cp -r demo/media dist-demo/"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.2",
