@@ -245,7 +245,11 @@
   var BUCKET = CFG.storageBucket;
   var assets = {
     upload: function(blob, opts){
-      var name = Date.now().toString(36) + Math.random().toString(36).slice(2, 8) + (/png/.test((opts && opts.type) || blob.type) ? '.png' : '.jpg');
+      var ct = (opts && opts.type) || blob.type || 'image/jpeg';
+      var ext = /png/.test(ct) ? '.png' : /webp/.test(ct) ? '.webp'
+        : /mp4/.test(ct) ? '.mp4' : /quicktime|\bmov\b/.test(ct) ? '.mov' : /webm/.test(ct) ? '.webm'
+        : /image\//.test(ct) ? '.jpg' : /video\//.test(ct) ? '.mp4' : '.jpg';
+      var name = Date.now().toString(36) + Math.random().toString(36).slice(2, 8) + ext;
       var ref = firebase.storage().ref('assets/' + name);
       return ref.put(blob, { contentType: (opts && opts.type) || blob.type || 'image/jpeg', cacheControl: 'public,max-age=31536000' })
         .then(function(){ var id = name + '?alt=media'; return { id: id, url: 'https://firebasestorage.googleapis.com/v0/b/' + BUCKET + '/o/assets%2F' + id, sizeBytes: blob.size, contentType: blob.type }; })

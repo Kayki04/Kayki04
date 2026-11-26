@@ -47,6 +47,24 @@ service cloud.firestore {
     // Códigos de convite das clínicas (código -> uid da clínica). Público para o vet validar; só a loja escreve.
     match /clinics/{code} { allow read: if true; allow write: if isAdmin(); }
 
+    // Feed dos parceiros (rede social das clínicas). Todos leem; o parceiro dono publica/edita/apaga o seu post;
+    // qualquer cliente logado pode curtir e comentar (só mexe em likedBy/comments, sem tocar no conteúdo).
+    match /vetposts/{id} {
+      allow read: if true;
+      allow create: if signed() && request.resource.data.vetUid == request.auth.uid;
+      allow update: if isAdmin()
+        || (signed() && resource.data.vetUid == request.auth.uid)
+        || (signed()
+            && request.resource.data.vetUid == resource.data.vetUid
+            && request.resource.data.text == resource.data.text
+            && request.resource.data.img == resource.data.img
+            && request.resource.data.imgs == resource.data.imgs
+            && request.resource.data.video == resource.data.video
+            && request.resource.data.ts == resource.data.ts
+            && request.resource.data.hidden == resource.data.hidden);
+      allow delete: if isAdmin() || (signed() && resource.data.vetUid == request.auth.uid);
+    }
+
     // Extrato de comissão por veterinário de clínica (cada vet vê o seu; a loja escreve).
     match /vetledger/{uid} { allow read: if own(uid) || isAdmin(); allow write: if isAdmin(); }
 

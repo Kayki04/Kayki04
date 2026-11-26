@@ -5,18 +5,14 @@ service firebase.storage {
   match /b/{bucket}/o {
     match /assets/{file} {
       allow read: if true;
+      // Qualquer usuário logado envia foto (até 10MB) ou vídeo (até 60MB) — fotos de produto (loja),
+      // foto do pet e mídia do feed dos parceiros. Nomes aleatórios; conteúdo validado por tipo/tamanho.
       allow write: if request.auth != null
-        && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*')
         && (
-          request.auth.token.phone_number in ['+5521959240452']
-          || request.auth.uid in firestore.get(/databases/(default)/documents/admins/list).data.uids
+          (request.resource.contentType.matches('image/.*') && request.resource.size < 10 * 1024 * 1024)
+          || (request.resource.contentType.matches('video/.*') && request.resource.size < 60 * 1024 * 1024)
         );
-      allow delete: if request.auth != null
-        && (
-          request.auth.token.phone_number in ['+5521959240452']
-          || request.auth.uid in firestore.get(/databases/(default)/documents/admins/list).data.uids
-        );
+      allow delete: if request.auth != null;
     }
   }
 }

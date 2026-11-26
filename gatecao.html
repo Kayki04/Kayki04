@@ -348,6 +348,61 @@ body.adm::before{background:#F1F5FB}
 .vetinfo b{font-size:16px;line-height:1.15}
 .vetesp{color:var(--accent-d);font-weight:800;font-size:13.5px}
 .vetinfo .muted{font-size:12.5px}
+/* ---- rede social dos parceiros ---- */
+.vetav{width:48px;height:48px;border-radius:50%;object-fit:cover;flex:none;background:#fff;border:1px solid var(--line)}
+.vetav.ph{display:grid;place-items:center;background:var(--sky);color:var(--brand)}
+.vetav.ph svg{width:24px;height:24px}
+.vetav.sm{width:42px;height:42px}
+.vetav.lg{width:76px;height:76px;border-width:3px;border-color:#fff;box-shadow:0 2px 10px rgba(11,42,91,.15)}
+.vdstories{display:flex;gap:12px;overflow-x:auto;padding:10px 2px 6px;margin:6px -2px 0;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.vdstories::-webkit-scrollbar{display:none}
+.vdstory{flex:none;width:66px;background:none;border:0;padding:0;display:grid;justify-items:center;gap:4px;cursor:pointer;color:inherit}
+.vdstory .vetav{width:58px;height:58px;border:2px solid var(--accent)}
+.vdstory span{font-size:11px;font-weight:700;color:var(--muted);max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vdfeed{display:grid;gap:14px;margin-top:8px}
+.vdpost{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;box-shadow:0 4px 14px rgba(11,42,91,.05)}
+.vdhead{display:flex;gap:10px;align-items:center;background:none;border:0;padding:0;width:100%;text-align:left;cursor:pointer;color:inherit}
+.vdhead.plain{cursor:default}
+.vdhn{display:flex;flex-direction:column;min-width:0;line-height:1.2}
+.vdhn b{font-size:15px}
+.vdhn span{font-size:12px;color:var(--muted)}
+.vdtext{margin:10px 0 0;font-size:14.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.vdtext a,.vdsobre a{color:var(--accent-d);font-weight:700}
+.vdmedia{margin-top:10px;border-radius:14px;overflow:hidden}
+.vdmedia img{width:100%;display:block;object-fit:cover;max-height:420px}
+.vdmedia.multi{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.vdmedia.multi img{max-height:200px;height:100%}
+.vdvid{width:100%;display:block;background:#000;max-height:460px;border-radius:14px}
+.vdact{display:flex;gap:6px;align-items:center;margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
+.vdbtn{display:inline-flex;gap:6px;align-items:center;background:none;border:0;color:var(--muted);font-weight:800;font-size:13px;cursor:pointer;padding:6px 8px;border-radius:10px}
+.vdbtn svg{width:19px;height:19px}
+.vdbtn.on{color:#E11D48}
+.vdbtn.on svg{fill:#E11D48;stroke:#E11D48}
+.vdbtn:last-child{margin-left:auto}
+.vdprof{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 4px 14px rgba(11,42,91,.05)}
+.vdcover{height:120px;background-size:cover;background-position:center;background-color:var(--sky)}
+.vdcover.plain{background:linear-gradient(140deg,#FF7A00,#FFA23A)}
+.vdphd{display:flex;gap:12px;align-items:flex-end;padding:0 14px;margin-top:-34px}
+.vdpn{display:flex;flex-direction:column;min-width:0;gap:1px;padding-bottom:4px}
+.vdpn b{font-size:18px;line-height:1.1}
+.vdpn .muted{font-size:12.5px}
+.vdsobre{margin:12px 14px 2px;font-size:14px;line-height:1.45;white-space:pre-wrap}
+.vdinfo{display:flex;gap:8px;align-items:flex-start;margin:6px 14px 0;font-size:13px;color:var(--muted)}
+.vdinfo svg{width:17px;height:17px;flex:none;margin-top:1px;color:var(--accent)}
+.vdcontact{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px 14px}
+.vdcontact .walink{flex:1 1 120px;padding:9px;font-size:13px}
+.vdcoms{display:grid;gap:10px;max-height:46vh;overflow:auto;margin:4px 0 10px}
+.vdcom{background:var(--sky);border-radius:12px;padding:8px 10px}
+.vdcom p{margin:2px 0 0;font-size:13.5px;white-space:pre-wrap;word-break:break-word}
+.vdcom .danger{margin-top:4px}
+.vdcomform{display:grid;gap:8px}
+.vdcomform textarea{resize:vertical}
+.vdedcover{height:96px;border-radius:12px;background:var(--sky);display:grid;place-items:center;overflow:hidden;margin-bottom:6px}
+.vdedcover img{width:100%;height:100%;object-fit:cover}
+.vdpics{display:flex;flex-wrap:wrap;gap:8px}
+.vdpic{position:relative;width:76px;height:76px;border-radius:10px;overflow:hidden;background:#000}
+.vdpic img,.vdpic video{width:100%;height:100%;object-fit:cover}
+.vdpic button{position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:15px;line-height:1;cursor:pointer}
 .sw{width:50px;height:28px;border-radius:999px;border:0;background:var(--line);position:relative;padding:0;flex:none}
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
 .sw[aria-checked="true"]{background:var(--accent)}
@@ -2345,7 +2400,12 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     star:'<path d="M24 7l5 11 12 1.6-8.7 8 2.2 11.9L24 33.6 11.3 39.5l2.2-11.9-8.7-8L17 18z"/>',
     spark:'<path d="M24 8l4 12 12 4-12 4-4 12-4-12-12-4 12-4z"/>',
     pill:'<g transform="rotate(-45 24 24)"><rect x="8" y="16" width="32" height="16" rx="8"/><path d="M24 16v16"/></g>',
-    shield:'<path d="M24 6l15 5v10.5C39 31 32.5 38 24 41 15.5 38 9 31 9 21.5V11z"/><path d="M18 24l4.5 4.5L31 20"/>'
+    shield:'<path d="M24 6l15 5v10.5C39 31 32.5 38 24 41 15.5 38 9 31 9 21.5V11z"/><path d="M18 24l4.5 4.5L31 20"/>',
+    pin:'<path d="M24 42s13-10.5 13-21a13 13 0 00-26 0c0 10.5 13 21 13 21z"/><circle cx="24" cy="21" r="5"/>',
+    clock:'<circle cx="24" cy="24" r="16"/><path d="M24 15v9l6 4"/>',
+    globe:'<circle cx="24" cy="24" r="16"/><path d="M8 24h32M24 8c5.5 5 5.5 27 0 32M24 8c-5.5 5-5.5 27 0 32"/>',
+    edit:'<path d="M33 9l6 6M9 39l2.5-8.5L32.5 9l6 6L17.5 36.5z"/>',
+    dots:'<circle cx="24" cy="11" r="2.4"/><circle cx="24" cy="24" r="2.4"/><circle cx="24" cy="37" r="2.4"/>'
   };
   function svg(name,cls){return '<svg class="'+(cls||'')+'" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+ICONS[name]+'</svg>'}
   var HERO_ART='<svg class="art" viewBox="0 0 160 160" aria-hidden="true"><circle cx="86" cy="92" r="60" fill="#fff" opacity=".28"/><path d="M34 40l26 20a52 52 0 0148 0l26-20v60a50 50 0 01-100 0z" fill="#fff"/><path d="M34 40l14 11v18l-14-4zM134 40l-14 11v18l14-4z" fill="#FFB866"/><circle cx="62" cy="96" r="7" fill="#0B2A5B"/><circle cx="106" cy="96" r="7" fill="#0B2A5B"/><circle cx="64" cy="94" r="2" fill="#fff"/><circle cx="108" cy="94" r="2" fill="#fff"/><path d="M76 112h16l-8 9z" fill="#FF7A00"/><path d="M84 121q-8 9-18 5M84 121q8 9 18 5" stroke="#0B2A5B" stroke-width="3" fill="none" stroke-linecap="round"/></svg>';
@@ -2358,6 +2418,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function pad(n){return String(n).padStart(2,'0')}
   var brl=function(v){return num(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})};
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+  function linkify(s){return esc(s).replace(/\n/g,'<br>').replace(/(https?:\/\/[^\s<]+)/g,function(u){return '<a href="'+u+'" target="_blank" rel="noopener">'+u+'</a>'})}
   function load(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
   function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
   function todayStr(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
@@ -2385,7 +2446,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   var X={db:null,user:null,assets:null,uid:null,isAdmin:false,checked:false};
   var state={tab:'loja',cat:'Todos',q:'',cart:load('gc_cart',{}),cartRec:load('gc_cartrec',{}),myOrders:load('gc_orders',[]),myAppts:load('gc_appts',[]),
     ag:Object.assign({svc:'',extras:[],lt:'loja',ltAddr:'',ltBairro:'',ltComp:'',ltPhone:'',day:'',slot:'',pet:'',kind:'Cachorro',size:'',weight:'',coat:'',breed:'',tutor:'',obs:''},load('gc_ag',{})),co:{mode:'Retirada na loja',pay:'Pix',name:''},
-    adm:{tab:'resumo',q:'',ord:'pedidos',cq:'',cseg:'todos'},prof:null,f:{},fCat:'Todos',sort:'rel',rx:load('gc_rx',null)};
+    adm:{tab:'resumo',q:'',ord:'pedidos',cq:'',cseg:'todos'},prof:null,f:{},fCat:'Todos',sort:'rel',rx:load('gc_rx',null),vet:{view:'feed',uid:'',q:''},petSub:''};
   var view=$('#view'),admEl=$('#admin');
   function S(k,d){var v=D.settings[k];return (v==null||v==='')?d:v}
   function byId(list,id){return list.find(function(x){return x.id===id})||null}
@@ -2529,6 +2590,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   /* ---------- ícones extras ---------- */
   var IC_HEART='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0112 7.6a4.3 4.3 0 017.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg>';
   var IC_FILTER='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>';
+  var IC_CHAT='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 15.5a2 2 0 01-2 2H9l-4 3.5v-3.5H6a2 2 0 01-2-2V6.5a2 2 0 012-2h12a2 2 0 012 2z"/></svg>';
   var IC_WA='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5a9.4 9.4 0 00-8.1 14.2L2.6 21.5l4.9-1.3A9.4 9.4 0 1012 2.5zm0 17.1a7.7 7.7 0 01-3.9-1.1l-.3-.2-2.9.8.8-2.8-.2-.3A7.7 7.7 0 1112 19.6zm4.3-5.8c-.2-.1-1.4-.7-1.6-.8s-.4-.1-.5.1-.6.8-.7.9-.3.2-.5.1a6.3 6.3 0 01-3.1-2.7c-.2-.4.2-.4.7-1.3a.4.4 0 000-.4l-.7-1.7c-.2-.5-.4-.4-.5-.4h-.5a.9.9 0 00-.6.3 2.7 2.7 0 00-.9 2 4.7 4.7 0 001 2.5 10.8 10.8 0 004.1 3.6c1.5.7 2.1.7 2.9.6a2.5 2.5 0 001.6-1.1 2 2 0 00.1-1.1c0-.1-.2-.2-.4-.3z"/></svg>';
 
   var IC_SHARE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-2px"><path d="M12 15V4m0 0l-3.5 3.5M12 4l3.5 3.5"/><path d="M5 11v8a1 1 0 001 1h12a1 1 0 001-1v-8"/></svg>';
@@ -3493,7 +3555,13 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   }
   var VETQ={q:''};
   // Diretório público de veterinários (só dados públicos — nome, clínica, especialidade, logo; nunca saldo/comissão).
-  function vetPublicData(pd){pd=pd||{};return {name:String(pd.name||'').slice(0,80),clinica:String(pd.clinica||'').slice(0,80),especialidade:String(pd.especialidade||'').slice(0,60),crmv:String(pd.crmv||'').slice(0,40),logo:pd.logo||'',active:!!(pd.active!==false&&pd.approved!==false),ts:Date.now()}}
+  function vetPublicData(pd){pd=pd||{};var s=function(v,n){return String(v==null?'':v).slice(0,n)};return {
+    name:s(pd.name,80),clinica:s(pd.clinica,80),especialidade:s(pd.especialidade,60),crmv:s(pd.crmv,40),
+    logo:pd.logo||'',cover:pd.cover||'',ptype:pd.ptype||'vet',
+    phone:s(pd.phone,20),whats:s(pd.whats||pd.phone,20),insta:s(pd.insta,80),site:s(pd.site,120),
+    rua:s(pd.rua,120),bairro:s(pd.bairro,60),cidade:s(pd.cidade,60),uf:s(pd.uf,2),
+    atende:s(pd.atende,200),sobre:s(pd.sobre,600),
+    active:!!(pd.active!==false&&pd.approved!==false),ts:Date.now()}}
   function syncVetPublic(uid,pd){if(!uid)return Promise.resolve();try{return X.db.doc('vets/'+uid).set(vetPublicData(pd)).catch(function(){})}catch(e){return Promise.resolve()}}
   function approvedVets(){return (D.vets||[]).filter(function(p){return p&&p.active!==false&&(p.name||p.clinica)})}
   function openVets(){VETQ.q='';renderVets()}
@@ -4328,6 +4396,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
   function go(tab){
     if(PV.id)hidePview();
     if(tab==='pet')state.petSub='';
+    if(tab==='vetdir')state.vet={view:'feed',uid:'',q:''};
     state.tab=tab;
     if(location.hash!=='#'+tab)history.replaceState(null,'','#'+tab);
     window.scrollTo(0,0);
@@ -5215,6 +5284,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var h='<section class="phero"><h2>Clínica parceira</h2><p>'+esc(p.name||p.clinica||'Sua clínica')+'</p>'+svg('shield','art')+'</section>';
     if(!vetApproved())h+='<div class="combobar">⏳ <span>Cadastro <b>em análise</b> pela loja. Após a aprovação você recebe o <b>código de convite</b> dos seus veterinários.</span></div>';
     if(vetApproved()&&p.clinCode)h+='<div class="acard"><b>Código de convite da clínica</b><p class="hint" style="margin:4px 0 8px">Passe este código para os veterinários da sua clínica. Eles se cadastram como "Sou de uma clínica" e colam o código — as receitas ficam vinculadas à clínica.</p><div class="rxcode" style="text-align:center">'+esc(p.clinCode)+'</div></div>';
+    h+='<div class="two" style="margin:10px 0 4px"><button class="btn line" data-act="vetProfile">Meu perfil público</button><button class="btn line" data-act="vetPost">Publicar no feed</button></div>';
     var saldo=num(p.saldo);
     h+='<div class="acard"><b>A receber da loja</b><div class="kpis3" style="margin:6px 0 0"><div><span>Saldo da clínica</span><b>'+brl(saldo)+'</b></div></div><p class="hint" style="margin:6px 0 0">A loja paga este valor à clínica. Abaixo, quanto cada veterinário gerou desde o último pagamento.</p>';
     var lastPay=(p.pays&&p.pays[0]&&p.pays[0].ts)||0,byvet={};
@@ -5256,35 +5326,225 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     var h='<section class="phero"><h2>Vet parceiro</h2><p>'+esc(nm)+((D.partner&&D.partner.clinica)?' · '+esc(D.partner.clinica):'')+'</p>'+svg('pill','art')+'</section>';
     if(!vetApproved())h+='<div class="combobar">⏳ <span>Seu cadastro está <b>em análise</b> pela loja. Você já pode montar receitas; a comissão e o desconto do cliente começam após a aprovação.</span></div>';
     h+='<div class="two" style="margin:12px 0 4px"><button class="btn" data-act="vetNew">+ Montar receita</button><button class="btn line" data-act="vetClin">Dados da clínica</button></div>';
+    h+='<div class="two" style="margin:0 0 4px"><button class="btn line" data-act="vetProfile">Meu perfil público</button><button class="btn line" data-act="vetPost">Publicar no feed</button></div>';
     h+=vetPartnerCard();
+    h+=myPostsSection();
     var list=(D.myRx||[]).slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)});
     h+='<div class="sec"><h2>Minhas receitas</h2><span>'+list.length+'</span></div>';
     if(!list.length)h+='<p class="hint" style="margin-top:0">Você ainda não gerou receitas. Toque em "Montar receita" para começar.</p>';
     list.forEach(function(r){h+='<div class="acard"><div class="rowtight"><b>'+esc(r.code)+'</b><span class="st '+(r.status==='usada'?'ok':r.status==='cancelada'?'off':'info')+'">'+(r.status==='usada'?'Usada':r.status==='cancelada'?'Cancelada':'Aberta')+'</span></div><span class="muted">'+(r.items||[]).length+' ite'+((r.items||[]).length>1?'ns':'m')+(r.clientName?' · '+esc(r.clientName):'')+' · '+fmtTs(r.ts)+'</span><div class="rowtight"><button class="mini alt" data-rxpdf="'+esc(r.code)+'">PDF</button><button class="mini" data-rxshare="'+esc(r.code)+'">Código</button></div></div>'});
     view.innerHTML=h;
   }
+  /* ===== Rede social dos parceiros (Meu parceiro vet) ===== */
+  function vetById(uid){return (D.vets||[]).filter(function(p){return p&&(p.id===uid||p.uid===uid)})[0]||null}
+  function vetDisplay(p){p=p||{};return p.name?('Dr(a). '+p.name):(p.clinica||'Veterinário parceiro')}
+  function vetUid(p){return (p&&(p.id||p.uid))||''}
+  function vetAvatar(p,cls){p=p||{};cls=cls||'';return p.logo?'<img class="vetav '+cls+'" src="/_blob/'+esc(p.logo)+'" alt="" loading="lazy">':'<span class="vetav ph '+cls+'">'+svg('shield')+'</span>'}
+  function waPhone(ph){var d=String(ph||'').replace(/\D/g,'');if(!d)return '';if(d.length<=11)d='55'+d;return 'https://wa.me/'+d}
+  function instaUrl(v){v=String(v||'').trim();if(!v)return '';if(/^https?:/i.test(v))return v;return 'https://instagram.com/'+v.replace(/^@/,'')}
+  function siteUrl(v){v=String(v||'').trim();if(!v)return '';return /^https?:/i.test(v)?v:'https://'+v}
+  function mapsUrl(p){p=p||{};var a=[p.rua,p.bairro,p.cidade,p.uf].filter(Boolean).join(', ');return a?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(a):''}
+  function vetAddr(p){p=p||{};return [p.rua,p.bairro,[p.cidade,p.uf].filter(Boolean).join('/')].filter(Boolean).join(' · ')}
+  function activeVetSet(){var s={};approvedVets().forEach(function(p){s[vetUid(p)]=1});return s}
+  function feedPosts(opt){opt=opt||{};var act=activeVetSet();
+    return (D.vetposts||[]).filter(function(po){
+      if(!po||po.hidden)return false;
+      if(!act[po.vetUid])return false;
+      if(opt.uid&&po.vetUid!==opt.uid)return false;
+      if(opt.q){var p=vetById(po.vetUid)||{};if(normTxt((po.text||'')+' '+vetDisplay(p)+' '+(p.clinica||'')+' '+(p.especialidade||'')).indexOf(opt.q)<0)return false;}
+      return true;
+    }).sort(function(a,b){return (b.ts||0)-(a.ts||0)});
+  }
+  function postMedia(po){
+    var h='';var imgs=po.imgs||(po.img?[po.img]:[]);
+    if(imgs.length){h+='<div class="vdmedia'+(imgs.length>1?' multi':'')+'">'+imgs.slice(0,4).map(function(id){return '<img src="/_blob/'+esc(id)+'" alt="" loading="lazy">'}).join('')+'</div>';}
+    if(po.video)h+='<div class="vdmedia"><video class="vdvid" src="/_blob/'+esc(po.video)+'" controls preload="metadata" playsinline></video></div>';
+    return h;
+  }
+  function postCard(po,showHead){
+    var p=vetById(po.vetUid)||{},liked=(po.likedBy||[]).indexOf(X.uid)>-1,nl=(po.likedBy||[]).length,nc=(po.comments||[]).length;
+    var h='<article class="vdpost">';
+    if(showHead!==false)h+='<button class="vdhead" data-act="vdProf" data-id="'+esc(po.vetUid)+'">'+vetAvatar(p,'sm')+'<span class="vdhn"><b>'+esc(vetDisplay(p))+'</b><span>'+(p.especialidade?esc(p.especialidade)+' · ':'')+fmtTs(po.ts)+'</span></span></button>';
+    else h+='<div class="vdhead plain"><span class="vdhn" style="margin-left:0"><span class="muted">'+fmtTs(po.ts)+'</span></span></div>';
+    if(po.text)h+='<p class="vdtext">'+linkify(po.text)+'</p>';
+    h+=postMedia(po);
+    h+='<div class="vdact"><button class="vdbtn'+(liked?' on':'')+'" data-act="vdLike" data-id="'+esc(po.id)+'">'+IC_HEART+'<span>'+(nl||'')+' Curtir</span></button>'+
+       '<button class="vdbtn" data-act="vdComments" data-id="'+esc(po.id)+'">'+IC_CHAT+'<span>'+(nc||'')+' Comentar</span></button>';
+    if(X.uid===po.vetUid||X.isAdmin)h+='<button class="vdbtn" data-act="vdPostMenu" data-id="'+esc(po.id)+'">'+svg('dots')+'</button>';
+    h+='</div></article>';
+    return h;
+  }
+  function myPostsSection(){
+    if(!X.uid)return '';
+    var mine=(D.vetposts||[]).filter(function(po){return po.vetUid===X.uid}).sort(function(a,b){return (b.ts||0)-(a.ts||0)});
+    var h='<div class="sec" style="margin-top:14px"><h2>Minhas publicações</h2><span>'+mine.length+'</span></div>';
+    if(!mine.length)return h+'<p class="hint" style="margin-top:0">Você ainda não publicou nada. Toque em "Publicar no feed".</p>';
+    h+='<div class="vdfeed">';mine.forEach(function(po){h+=postCard(po,false)+(po.hidden?'<p class="hint" style="margin:-4px 2px 10px">Oculta do feed</p>':'')});h+='</div>';
+    return h;
+  }
   function renderVetDir(){
     if(D.nodb){view.innerHTML=noDbBox();return}
-    var q=normTxt(VETQ.q||''),all=approvedVets();
-    var list=all.filter(function(p){if(!q)return true;return normTxt((p.name||'')+' '+(p.clinica||'')+' '+(p.especialidade||'')+' '+(p.crmv||'')).indexOf(q)>-1})
-      .sort(function(a,b){return String(a.name||a.clinica||'').localeCompare(String(b.name||b.clinica||''),'pt-BR')});
-    var h='<section class="phero"><h2>Meu parceiro vet</h2><p>Veterinários e clínicas parceiras da Gatecão. A receita deles sai com desconto pra você comprar aqui no app.</p>'+svg('shield','art')+'</section>';
-    h+='<label class="fld" style="margin:10px 0 2px"><input class="in" id="vetQ" value="'+esc(VETQ.q||'')+'" placeholder="Buscar por nome, clínica ou especialidade" autocomplete="off"></label>';
-    if(!all.length)h+='<div class="empty-card"><h2>Em breve</h2><p class="muted">Nossos veterinários parceiros vão aparecer aqui.</p></div>';
-    else if(!list.length)h+='<div class="empty-card"><h2>Nada encontrado</h2><p class="muted">Nenhum parceiro para "'+esc(VETQ.q)+'". Tente outro termo.</p></div>';
-    else{
-      h+='<div class="muted" style="margin:6px 2px">'+list.length+' parceiro'+(list.length>1?'s':'')+'</div><div class="vetgrid">';
-      list.forEach(function(p){h+='<div class="vetcard">'+
-        (p.logo?'<img class="vetlogo" src="/_blob/'+esc(p.logo)+'" alt="" loading="lazy">':'<span class="vetlogo ph">'+svg('shield')+'</span>')+
-        '<div class="vetinfo"><b>'+esc(p.name?('Dr(a). '+p.name):(p.clinica||'Veterinário parceiro'))+'</b>'+
-        (p.especialidade?'<span class="vetesp">'+esc(p.especialidade)+'</span>':'')+
-        (p.clinica&&p.name?'<span class="muted">'+esc(p.clinica)+'</span>':'')+
-        (p.crmv?'<span class="muted" style="font-size:12px">CRMV '+esc(p.crmv)+'</span>':'')+
-        '</div></div>'});
-      h+='</div>';
+    var S=state.vet||(state.vet={view:'feed',uid:'',q:''});
+    if(S.view==='prof')return renderVetProfile(S.uid);
+    var q=normTxt(S.q||''),all=approvedVets(),posts=feedPosts({q:q});
+    var h='<section class="phero"><h2>Meu parceiro vet</h2><p>As clínicas e veterinários parceiros postam dicas, novidades e bastidores. Siga, curta e comente.</p>'+svg('shield','art')+'</section>';
+    if(isVet()&&vetApproved())h+='<button class="btn" style="width:100%;margin:10px 0 2px" data-act="vetPost">'+svg('edit')+' Publicar no meu perfil</button>';
+    // Tira de parceiros (toque para ver o perfil)
+    if(all.length){
+      var strip=all.slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)});
+      h+='<div class="vdstories">'+strip.map(function(p){return '<button class="vdstory" data-act="vdProf" data-id="'+esc(vetUid(p))+'">'+vetAvatar(p)+'<span>'+esc((p.name||p.clinica||'Vet').split(' ')[0])+'</span></button>'}).join('')+'</div>';
     }
-    view.innerHTML=h;
-    var qi=$('#vetQ');if(qi){qi.oninput=function(){VETQ.q=this.value;renderVetDir()};if(VETQ.q){try{qi.focus();qi.setSelectionRange(qi.value.length,qi.value.length)}catch(e){}}}
+    h+='<label class="fld" style="margin:4px 0 2px"><input class="in" id="vetQ" value="'+esc(S.q||'')+'" placeholder="Buscar parceiro, especialidade ou assunto" autocomplete="off"></label>';
+    if(!all.length)h+='<div class="empty-card"><h2>Em breve</h2><p class="muted">Nossos parceiros vão aparecer aqui.</p></div>';
+    else if(!posts.length)h+='<div class="empty-card"><h2>'+(q?'Nada encontrado':'Nenhuma publicação ainda')+'</h2><p class="muted">'+(q?'Tente outro termo ou toque num parceiro acima.':'Toque num parceiro acima para ver o perfil e os contatos.')+'</p></div>';
+    else{h+='<div class="vdfeed">';posts.forEach(function(po){h+=postCard(po,true)});h+='</div>';}
+    view.innerHTML=h;bindVetDir();
+  }
+  function renderVetProfile(uid){
+    var p=vetById(uid);
+    if(!p){state.vet={view:'feed',uid:'',q:''};return renderVetDir();}
+    var posts=feedPosts({uid:uid}),addr=vetAddr(p),wa=waPhone(p.whats||p.phone),ig=instaUrl(p.insta),st=siteUrl(p.site),mp=mapsUrl(p),mine=(X.uid===uid);
+    var h='<div class="row" style="margin-bottom:4px"><button class="ghost" data-act="vdBack">‹ Voltar</button></div>';
+    h+='<div class="vdprof">'+(p.cover?'<div class="vdcover" style="background-image:url(/_blob/'+esc(p.cover)+')"></div>':'<div class="vdcover plain"></div>')+
+      '<div class="vdphd">'+vetAvatar(p,'lg')+'<div class="vdpn"><b>'+esc(vetDisplay(p))+'</b>'+
+      (p.especialidade?'<span class="vetesp">'+esc(p.especialidade)+'</span>':'')+
+      (p.clinica&&p.name?'<span class="muted">'+esc(p.clinica)+'</span>':'')+
+      (p.crmv?'<span class="muted" style="font-size:12px">CRMV '+esc(p.crmv)+'</span>':'')+'</div></div>';
+    if(p.sobre)h+='<p class="vdsobre">'+linkify(p.sobre)+'</p>';
+    var info='';
+    if(addr)info+='<div class="vdinfo">'+svg('pin')+'<span>'+esc(addr)+'</span></div>';
+    if(p.atende)info+='<div class="vdinfo">'+svg('clock')+'<span>'+esc(p.atende)+'</span></div>';
+    if(info)h+=info;
+    var btns=[];
+    if(wa)btns.push('<a class="walink" href="'+esc(wa)+'" target="_blank" rel="noopener">'+IC_WA+'WhatsApp</a>');
+    if(ig)btns.push('<a class="walink iglink" href="'+esc(ig)+'" target="_blank" rel="noopener">'+IC_IG+'Instagram</a>');
+    if(mp)btns.push('<a class="walink" href="'+esc(mp)+'" target="_blank" rel="noopener">'+svg('pin')+'Como chegar</a>');
+    if(st)btns.push('<a class="walink" href="'+esc(st)+'" target="_blank" rel="noopener">'+svg('globe')+'Site</a>');
+    if(btns.length)h+='<div class="vdcontact">'+btns.join('')+'</div>';
+    h+='</div>';
+    if(mine)h+='<div class="two" style="margin:12px 0 2px"><button class="btn" data-act="vetPost">'+svg('edit')+' Publicar</button><button class="btn line" data-act="vetProfile">Editar perfil</button></div>';
+    h+='<div class="sec" style="margin-top:14px"><h2 style="font-size:19px">Publicações</h2><span>'+posts.length+'</span></div>';
+    if(!posts.length)h+='<p class="hint" style="margin-top:0">'+(mine?'Você ainda não publicou nada. Toque em Publicar.':'Nenhuma publicação ainda.')+'</p>';
+    else{h+='<div class="vdfeed">';posts.forEach(function(po){h+=postCard(po,false)});h+='</div>';}
+    view.innerHTML=h;bindVetDir();
+  }
+  function bindVetDir(){
+    var qi=$('#vetQ');if(qi){qi.oninput=function(){state.vet.q=this.value;renderVetDir()};if(state.vet.q){try{qi.focus();qi.setSelectionRange(qi.value.length,qi.value.length)}catch(e){}}}
+  }
+  function postById(id){return (D.vetposts||[]).filter(function(x){return x.id===id})[0]||null}
+  async function vdToggleLike(id){
+    if(!X.uid){toast('Entre na sua conta para curtir');return}
+    var po=postById(id);if(!po)return;var lb=(po.likedBy||[]).slice(),i=lb.indexOf(X.uid);
+    if(i>-1)lb.splice(i,1);else lb.push(X.uid);
+    var data=Object.assign({},po,{likedBy:lb});delete data.id;
+    try{await X.db.doc('vetposts/'+id).set(data)}catch(e){wfail(e)}
+  }
+  function openPostComments(id){
+    var po=postById(id);if(!po)return;var cs=(po.comments||[]).slice().sort(function(a,b){return (a.ts||0)-(b.ts||0)});
+    var canMod=(X.uid===po.vetUid)||X.isAdmin;
+    var h='<div class="mpcard" style="text-align:left;max-width:460px"><div class="mphd"><b>Comentários</b><button class="ghost" id="mpX">Fechar</button></div>';
+    h+='<div class="vdcoms">'+(cs.length?cs.map(function(c,i){return '<div class="vdcom"><b>'+esc(c.name||'Cliente')+'</b> <span class="muted" style="font-size:11px">'+fmtTs(c.ts)+'</span><p>'+esc(c.text||'')+'</p>'+(canMod?'<button class="mini danger" data-cdel="'+i+'">Remover</button>':'')+'</div>'}).join(''):'<p class="hint" style="margin:0">Seja o primeiro a comentar.</p>')+'</div>';
+    if(X.uid)h+='<div class="vdcomform"><textarea class="in" id="vdcin" rows="2" placeholder="Escreva um comentário…" maxlength="400"></textarea><button class="primary" id="vdcsend">Comentar</button></div>';
+    else h+='<p class="hint" style="margin:0">Entre na sua conta para comentar.</p>';
+    h+='</div>';
+    mpBox(h);var x=$('#mpX');if(x)x.onclick=mpClose;
+    $$('[data-cdel]').forEach(function(b){b.onclick=async function(){var idx=+b.getAttribute('data-cdel');var cur=postById(id);if(!cur)return;var arr=(cur.comments||[]).slice();var sorted=arr.slice().sort(function(a,b){return (a.ts||0)-(b.ts||0)});var target=sorted[idx];var real=arr.indexOf(target);if(real>-1)arr.splice(real,1);var dd=Object.assign({},cur,{comments:arr});delete dd.id;try{await X.db.doc('vetposts/'+id).set(dd);openPostComments(id)}catch(e){wfail(e)}}});
+    var snd=$('#vdcsend');if(snd)snd.onclick=async function(){
+      var t=(($('#vdcin')||{}).value||'').trim();if(!t){toast('Escreva algo');return}
+      var cur=postById(id);if(!cur)return;var nm=(D.me&&D.me.name)||'Cliente';
+      var arr=(cur.comments||[]).slice();arr.push({uid:X.uid,name:String(nm).slice(0,40),text:t.slice(0,400),ts:Date.now()});if(arr.length>300)arr=arr.slice(-300);
+      var dd=Object.assign({},cur,{comments:arr});delete dd.id;snd.disabled=true;
+      try{await X.db.doc('vetposts/'+id).set(dd);openPostComments(id)}catch(e){snd.disabled=false;wfail(e)}
+    };
+    var ci=$('#vdcin');if(ci)try{ci.focus()}catch(e){}
+  }
+  function vdPostMenu(id){
+    var po=postById(id);if(!po)return;var mine=(X.uid===po.vetUid);
+    var h='<div class="mpcard" style="max-width:360px"><div class="mphd"><b>Publicação</b><button class="ghost" id="mpX">Fechar</button></div>';
+    if(mine)h+='<button class="btn line" id="pEdit">Editar texto</button>';
+    h+='<button class="btn line" id="pHide">'+(po.hidden?'Mostrar de novo':'Ocultar do feed')+'</button>';
+    h+='<button class="btn danger" id="pDel">Excluir publicação</button></div>';
+    mpBox(h);var x=$('#mpX');if(x)x.onclick=mpClose;
+    var pe=$('#pEdit');if(pe)pe.onclick=function(){mpClose();openVetPost(id)};
+    var ph=$('#pHide');if(ph)ph.onclick=async function(){var dd=Object.assign({},po,{hidden:!po.hidden});delete dd.id;try{await X.db.doc('vetposts/'+id).set(dd);mpClose();toast(dd.hidden?'Publicação oculta':'Publicação visível')}catch(e){wfail(e)}};
+    var pd=$('#pDel');if(pd)pd.onclick=async function(){if(pd.getAttribute('data-s')!=='1'){pd.setAttribute('data-s','1');pd.textContent='Tocar de novo para excluir';return}try{(po.imgs||[]).forEach(function(bid){X.assets&&X.assets.delete&&X.assets.delete(bid).catch(function(){})});if(po.video&&X.assets&&X.assets.delete)X.assets.delete(po.video).catch(function(){});await X.db.doc('vetposts/'+id).delete();mpClose();toast('Publicação excluída')}catch(e){wfail(e)}};
+  }
+  /* ---- lado do parceiro: perfil público + publicar ---- */
+  async function vetUpImg(file){try{var blob=await resizeImage(file,1300);var r=await withRetry(function(){return X.assets.upload(blob,{type:'image/jpeg'})});return r.id}catch(e){toast('Não foi possível enviar a foto');return ''}}
+  async function vetUpVideo(file){
+    if(file.size>60*1024*1024){toast('Vídeo muito grande (máx. 60MB). Grave um clipe mais curto.');return ''}
+    toast('Enviando vídeo… pode levar um tempo.');
+    try{var r=await withRetry(function(){return X.assets.upload(file,{type:file.type||'video/mp4'})});return r.id}catch(e){toast('Não foi possível enviar o vídeo');return ''}
+  }
+  function openVetProfile(){
+    var p=D.partner||{};
+    var h='<div class="row"><h2>Meu perfil público</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
+    h+='<p class="hint" style="margin-top:0">É assim que os clientes veem você em "Meu parceiro vet". Capa, contatos e endereço ajudam o cliente a chegar até você.</p>';
+    h+='<div class="vdedcover" id="vpCoverBox">'+(p.cover?'<img src="/_blob/'+esc(p.cover)+'" alt="capa">':'<span class="muted">Capa (opcional)</span>')+'</div>';
+    h+='<div class="toolbar" style="margin:0 0 6px"><label class="btn alt" style="cursor:pointer">Enviar capa<input type="file" id="vpCover" accept="image/*" hidden></label>'+(p.cover?'<button class="btn line" id="vpCoverRm">Tirar capa</button>':'')+'</div>';
+    h+='<div class="clinlogo" id="vpLogoBox" style="width:84px;height:84px">'+(p.logo?'<img src="/_blob/'+esc(p.logo)+'" alt="logo">':'<span class="muted">Logo</span>')+'</div>';
+    h+='<div class="toolbar" style="margin:0 0 8px"><label class="btn alt" style="cursor:pointer">Enviar logo<input type="file" id="vpLogo" accept="image/*" hidden></label>'+(p.logo?'<button class="btn line" id="vpLogoRm">Tirar logo</button>':'')+'</div>';
+    var isClin=partnerType(p)==='clinic';
+    h+='<label class="fld">'+(isClin?'Nome da clínica':'Seu nome')+'<input class="in" id="vpName" value="'+esc(isClin?(p.clinica||''):(p.name||''))+'" placeholder="'+(isClin?'Clínica Vet Amigo':'Dr(a). ...')+'"></label>';
+    if(!isClin)h+='<label class="fld">Clínica / consultório <small class="muted">(opcional)</small><input class="in" id="vpClin" value="'+esc(p.clinica||'')+'" placeholder="Nome da clínica"></label>';
+    h+='<div class="two"><label class="fld">CRMV<input class="in" id="vpCrmv" value="'+esc(p.crmv||'')+'" placeholder="Ex.: SP-12345"></label><label class="fld">Especialidade<input class="in" id="vpEsp" value="'+esc(p.especialidade||'')+'" placeholder="Ex.: Dermatologia"></label></div>';
+    h+='<label class="fld">Sobre <small class="muted">(bio curta)</small><textarea class="in" id="vpSobre" rows="3" maxlength="600" placeholder="Fale sobre seu atendimento, diferenciais, equipe…">'+esc(p.sobre||'')+'</textarea></label>';
+    h+='<div class="two"><label class="fld">WhatsApp<input class="in" id="vpWhats" inputmode="tel" value="'+esc(p.whats||p.phone||'')+'" placeholder="(21) 90000-0000"></label><label class="fld">Instagram<input class="in" id="vpInsta" value="'+esc(p.insta||'')+'" placeholder="@suaclinica"></label></div>';
+    h+='<label class="fld">Site <small class="muted">(opcional)</small><input class="in" id="vpSite" value="'+esc(p.site||'')+'" placeholder="www.suaclinica.com.br"></label>';
+    h+='<label class="fld">Rua e número<input class="in" id="vpRua" value="'+esc(p.rua||'')+'" placeholder="Rua Exemplo, 123"></label>';
+    h+='<div class="two"><label class="fld">Bairro<input class="in" id="vpBairro" value="'+esc(p.bairro||'')+'" placeholder="Bairro"></label><label class="fld">Cidade / UF<input class="in" id="vpCidade" value="'+esc(p.cidade||'')+'" placeholder="Cidade"></label></div>';
+    h+='<div class="two"><label class="fld">UF<input class="in" id="vpUf" maxlength="2" value="'+esc(p.uf||'')+'" placeholder="RJ" style="text-transform:uppercase"></label><label class="fld">Horário de atendimento<input class="in" id="vpAtende" value="'+esc(p.atende||'')+'" placeholder="Seg a Sex 8h-18h, Sáb 8h-12h"></label></div>';
+    h+='<button class="primary" id="vpSave">Salvar perfil</button>';
+    $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Meu perfil público');bindClose();
+    var newLogo=p.logo||'',newCover=p.cover||'';
+    function setLogo(v){newLogo=v;$('#vpLogoBox').innerHTML=v?'<img src="/_blob/'+esc(v)+'" alt="logo">':'<span class="muted">Logo</span>'}
+    function setCover(v){newCover=v;$('#vpCoverBox').innerHTML=v?'<img src="/_blob/'+esc(v)+'" alt="capa">':'<span class="muted">Capa (opcional)</span>'}
+    var lf=$('#vpLogo');if(lf)lf.onchange=async function(){var f=lf.files&&lf.files[0];if(!f)return;toast('Enviando logo…');var id=await vetUpImg(f);if(id){setLogo(id);toast('Logo enviado. Salve o perfil.')}};
+    var lr=$('#vpLogoRm');if(lr)lr.onclick=function(){setLogo('')};
+    var cf=$('#vpCover');if(cf)cf.onchange=async function(){var f=cf.files&&cf.files[0];if(!f)return;toast('Enviando capa…');var id=await vetUpImg(f);if(id){setCover(id);toast('Capa enviada. Salve o perfil.')}};
+    var cr=$('#vpCoverRm');if(cr)cr.onclick=function(){setCover('')};
+    $('#vpSave').onclick=async function(){
+      var g=function(id){var e=$('#'+id);return e?e.value.trim():''};
+      var nm=g('vpName').slice(0,80),clin=isClin?nm:(g('vpClin').slice(0,80));
+      var data=Object.assign({},D.partner||{},{
+        logo:newLogo,cover:newCover,
+        name:isClin?((p.name||'').slice(0,80)):nm,clinica:clin,
+        crmv:g('vpCrmv').slice(0,40),especialidade:g('vpEsp').slice(0,60),sobre:g('vpSobre').slice(0,600),
+        whats:g('vpWhats').slice(0,20),phone:g('vpWhats').slice(0,20)||((D.partner&&D.partner.phone)||''),
+        insta:g('vpInsta').slice(0,80),site:g('vpSite').slice(0,120),
+        rua:g('vpRua').slice(0,120),bairro:g('vpBairro').slice(0,60),cidade:g('vpCidade').slice(0,60),uf:g('vpUf').toUpperCase().slice(0,2),atende:g('vpAtende').slice(0,200)
+      });
+      this.disabled=true;
+      try{await X.db.doc('partners/'+X.uid).set(data);D.partner=Object.assign({uid:X.uid},data);await syncVetPublic(X.uid,data);closeSheet();toast('Perfil salvo');render()}catch(e){this.disabled=false;wfail(e)}
+    };
+  }
+  var VP={imgs:[],video:''};
+  function openVetPost(editId){
+    var ed=editId?postById(editId):null;
+    VP={imgs:ed?(ed.imgs||[]).slice():[],video:ed?(ed.video||''):'',text:ed?(ed.text||''):''};
+    var h='<div class="row"><h2>'+(ed?'Editar publicação':'Nova publicação')+'</h2><button class="ghost" id="closeSheet">Fechar</button></div>';
+    h+='<label class="fld">Texto<textarea class="in" id="vpText" rows="4" maxlength="1500" placeholder="Escreva uma dica, novidade, promoção, bastidor…">'+esc(VP.text||'')+'</textarea></label>';
+    h+='<div class="fld"><span>Fotos (até 4)</span><div class="vdpics" id="vpImgs"></div><label class="btn alt" style="cursor:pointer;margin-top:6px'+(VP.imgs.length>=4?';display:none':'')+'" id="vpAddImgWrap">+ Foto<input type="file" id="vpImgF" accept="image/*" multiple hidden></label></div>';
+    h+='<div class="fld"><span>Vídeo (opcional, até 60MB)</span><div id="vpVidBox"></div><label class="btn alt" style="cursor:pointer;margin-top:6px'+(VP.video?';display:none':'')+'" id="vpAddVidWrap">+ Vídeo<input type="file" id="vpVidF" accept="video/*" hidden></label></div>';
+    h+='<button class="primary" id="vpPub">'+(ed?'Salvar':'Publicar')+'</button>';
+    $('#overlay').innerHTML=sheetHtml('<div class="co">'+h+'</div>','Publicar');bindClose();
+    function drawImgs(){var box=$('#vpImgs');if(!box)return;box.innerHTML=VP.imgs.map(function(id,k){return '<div class="vdpic"><img src="/_blob/'+esc(id)+'" alt=""><button type="button" data-rmimg="'+k+'">×</button></div>'}).join('');var w=$('#vpAddImgWrap');if(w)w.style.display=VP.imgs.length>=4?'none':'';$$('[data-rmimg]',$('#overlay')).forEach(function(b){b.onclick=function(){VP.imgs.splice(+b.getAttribute('data-rmimg'),1);drawImgs()}})}
+    function drawVid(){var box=$('#vpVidBox');if(!box)return;box.innerHTML=VP.video?'<div class="vdpic vid"><video src="/_blob/'+esc(VP.video)+'" muted preload="metadata"></video><button type="button" id="vpVidRm">×</button></div>':'';var w=$('#vpAddVidWrap');if(w)w.style.display=VP.video?'none':'';var r=$('#vpVidRm');if(r)r.onclick=function(){VP.video='';drawVid()}}
+    drawImgs();drawVid();
+    var imf=$('#vpImgF');if(imf)imf.onchange=async function(){var fs=[].slice.call(this.files||[]);for(var i=0;i<fs.length&&VP.imgs.length<4;i++){toast('Enviando foto…');var id=await vetUpImg(fs[i]);if(id){VP.imgs.push(id);drawImgs()}}this.value=''};
+    var vif=$('#vpVidF');if(vif)vif.onchange=async function(){var f=this.files&&this.files[0];this.value='';if(!f)return;var id=await vetUpVideo(f);if(id){VP.video=id;drawVid();toast('Vídeo pronto. Toque em Publicar.')}};
+    $('#vpPub').onclick=async function(){
+      var t=(($('#vpText')||{}).value||'').trim();
+      if(!t&&!VP.imgs.length&&!VP.video){toast('Escreva algo ou adicione uma foto/vídeo');return}
+      var p=D.partner||{};
+      var base={vetUid:X.uid,vetName:vetDisplay(p),text:t.slice(0,1500),img:'',imgs:VP.imgs.slice(0,4),video:VP.video||'',hidden:false};
+      this.disabled=true;
+      try{
+        if(ed){var dd=Object.assign({},ed,base);delete dd.id;await X.db.doc('vetposts/'+editId).set(dd);}
+        else{await syncVetPublic(X.uid,p);var ref=X.db.collection('vetposts').doc();await ref.set(Object.assign({ts:Date.now(),likedBy:[],comments:[]},base));}
+        closeSheet();toast(ed?'Publicação salva':'Publicado!');render();
+      }catch(e){this.disabled=false;wfail(e)}
+    };
   }
   function openVetHub(){
     var w=X.uid?wal(X.uid):{points:0,cash:0},saldo=num(D.partner&&D.partner.saldo);
@@ -8067,6 +8327,7 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     col('coupons','coupons',plain('coupons'));
     col('reviews','reviews',plain('reviews'));
     col('vets','vets',plain('vets'));
+    col('vetposts','vetposts',plain('vetposts'));
     if(X.uid){
       X.db.doc('inbox/'+X.uid).onSnapshot(function(s){
         var m=s.exists&&s.data().m?s.data().m:{},arr=Object.keys(m).map(function(k){return m[k]}),prevMax=D.inbox.reduce(function(a,n){return Math.max(a,n.ts)},0);
@@ -8149,6 +8410,13 @@ hr{border:0;border-top:1px solid var(--line);margin:0;width:100%}
     mais_ref:function(){go('vantagens')},
     mais_wa:function(){var u=waUrl('Olá, Gatecão! Vim pelo app.');if(u)window.open(u,'_blank')},
     mais_vets:function(){go('vetdir')},
+    vdProf:function(id){state.vet.view='prof';state.vet.uid=id;window.scrollTo(0,0);renderVetDir()},
+    vdBack:function(){state.vet.view='feed';state.vet.uid='';window.scrollTo(0,0);renderVetDir()},
+    vdLike:function(id){vdToggleLike(id)},
+    vdComments:function(id){openPostComments(id)},
+    vdPostMenu:function(id){vdPostMenu(id)},
+    vetPost:function(){openVetPost()},
+    vetProfile:function(){openVetProfile()},
     clinVetApprove:function(id){clinSetVet(id,true)},
     clinVetPause:function(id){clinSetVet(id,false)},
     vetSignup:function(){VS={mode:'vet'};openVetSignup()},
