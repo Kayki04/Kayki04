@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -54,7 +54,7 @@ export function PostCard({ post: p, urls, onMore, onComments, mine }: Props) {
         <div className="midia">
           {p.type === 'photo'
             ? (src ? <img className="foto" src={src} alt={p.text || 'Foto de ' + p.author_handle} loading="lazy" /> : <div className="arte" />)
-            : (src ? <video className="foto" src={src} controls playsInline preload="metadata" /> : <div className="arte" />)}
+            : (src ? <FeedVideo src={src} /> : <div className="arte" />)}
           {blur}{extras}
         </div>
       )}
@@ -65,5 +65,24 @@ export function PostCard({ post: p, urls, onMore, onComments, mine }: Props) {
         {mine ? null : <button className="acao" aria-label="Enviar"><Icon.send /></button>}
       </div>
     </article>
+  );
+}
+
+/** Vídeo do feed: toca sem som quando aparece na tela; tocar liga/desliga o som. */
+function FeedVideo({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [muted, setMuted] = useState(true);
+  useEffect(() => {
+    const v = ref.current; if (!v) return;
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) v.play().catch(() => {}); else v.pause(); }, { threshold: 0.6 });
+    io.observe(v); return () => io.disconnect();
+  }, []);
+  return (
+    <>
+      <video ref={ref} className="foto" src={src} muted={muted} loop playsInline preload="metadata" onClick={() => setMuted(m => !m)} />
+      <button className="som" aria-label={muted ? 'Ligar som' : 'Desligar som'} onClick={() => setMuted(m => !m)}>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" />{muted ? <path d="M17 9l5 6M22 9l-5 6" /> : <path d="M17 8.5a5 5 0 0 1 0 7M19.5 6a8.5 8.5 0 0 1 0 12" />}</svg>
+      </button>
+    </>
   );
 }

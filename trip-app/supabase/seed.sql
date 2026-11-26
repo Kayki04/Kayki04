@@ -4,6 +4,9 @@ insert into auth.users (id, instance_id, email, aud, role, email_confirmed_at, r
   ('22222222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000000', 'luna@trip.local', 'authenticated', 'authenticated', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('33333333-3333-3333-3333-333333333333', '00000000-0000-0000-0000-000000000000', 'caio@trip.local', 'authenticated', 'authenticated', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('44444444-4444-4444-4444-444444444444', '00000000-0000-0000-0000-000000000000', 'rafa@trip.local', 'authenticated', 'authenticated', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now());
+-- o serviço de login não aceita estes campos nulos
+update auth.users set confirmation_token = '', recovery_token = '', email_change_token_new = '', email_change = '', email_change_token_current = '', reauthentication_token = '', phone_change = '', phone_change_token = ''
+  where email like '%@trip.local';
 
 insert into public.profiles (id, handle, name, bio, is_creator, role) values
   ('11111111-1111-1111-1111-111111111111', 'equipe.trip', 'Equipe Trip', 'Conta da equipe. Fale com a gente por aqui.', false, 'admin'),
